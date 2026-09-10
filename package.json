@@ -5,17 +5,32 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server/index.js",
+    "dev:server": "node --watch server/index.js",
+    "dev:all": "concurrently -n client,server -c cyan,magenta \"npm run dev\" \"npm run dev:server\"",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tailwindcss/vite": "latest",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "cors": "^2.8.6",
+    "docx": "^9.7.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "firebase": "^12.19.0",
+    "groq-sdk": "^1.6.0",
+    "jspdf": "^4.2.1",
+    "mammoth": "^1.12.2",
+    "pdfjs-dist": "^6.3.289",
+    "pptxgenjs": "^4.0.1",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
     "tailwindcss": "latest",
-    "@tailwindcss/vite": "latest"
+    "vite": "latest"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
 }

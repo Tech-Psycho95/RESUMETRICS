@@ -1,0 +1,10 @@
+# Dependencies and generated bundles
+node_modules/
+dist/
+.npm-cache*/
+
+# Private environment configuration (including server/.env.local)
+.env
+.env.local
+.env.*.local
+
