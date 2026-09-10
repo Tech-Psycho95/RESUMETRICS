@@ -1,6 +1,10 @@
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import UserMenu from './components/UserMenu'
+import Login from './pages/Login'
 import './styles.css'
 import './template.css'
 import './layout-overrides.css'
@@ -48,6 +52,9 @@ function Shell({ children }) {
         <img src={logo} alt="Resumetrics" />
       </NavLink>
       <nav>{navItems.map(([label, path, icon]) => <NavLink end={path === '/'} key={path} to={path}><Icon name={icon} size={17} /><span>{label}</span></NavLink>)}</nav>
+      <div className="sidebar-footer">
+        <UserMenu />
+      </div>
     </aside>
     <main>{children}</main>
   </div>
@@ -144,5 +151,24 @@ function EvaluationPage() {
   return <Shell><header className="page-header"><div><span className="eyebrow">EVIDENCE REVIEW</span><h1>Make each claim defensible.</h1></div></header><section className="evaluation-grid"><div className="panel section-panel"><h2>Evidence readiness</h2><div className="readiness"><strong>0%</strong><span>Connect a source or import a resume to begin scoring.</span></div></div><div className="panel section-panel"><h2>What we will assess</h2><ul><li>Skills supported by projects or outcomes</li><li>Experience claims with measurable impact</li><li>Job-description alignment beyond keywords</li></ul></div></section></Shell>
 }
 
-function App() { return <Routes><Route path="/" element={<MainPage />} /><Route path="/import" element={<ImportPage />} /><Route path="/create" element={<CreatePage />} /><Route path="/evaluation" element={<EvaluationPage />} /></Routes> }
-createRoot(document.getElementById('root')).render(<React.StrictMode><BrowserRouter><App /></BrowserRouter></React.StrictMode>)
+function App() { 
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<ProtectedRoute><MainPage /></ProtectedRoute>} />
+      <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
+      <Route path="/create" element={<ProtectedRoute><CreatePage /></ProtectedRoute>} />
+      <Route path="/evaluation" element={<ProtectedRoute><EvaluationPage /></ProtectedRoute>} />
+    </Routes>
+  );
+}
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  </React.StrictMode>
+)
