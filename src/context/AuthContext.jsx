@@ -28,6 +28,9 @@ export const AuthProvider = ({ children }) => {
   // Sign in with Google using Firebase popup
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+    // Request email and profile scopes explicitly
+    provider.addScope('email');
+    provider.addScope('profile');
     try {
       const result = await signInWithPopup(auth, provider);
       return result.user;

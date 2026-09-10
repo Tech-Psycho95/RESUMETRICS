@@ -28,7 +28,7 @@ main { padding: 42px clamp(24px, 4vw, 68px); max-width: 1600px; width: 100%; mar
 .user-avatar:hover { opacity: 0.8; }
 .user-avatar-placeholder { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #5f4dd0, #7665da); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 650; transition: opacity 0.2s ease; }
 .user-avatar-placeholder:hover { opacity: 0.9; }
-.user-menu-dropdown { position: absolute; bottom: 50px; left: 0; background: #1e2738; border: 1px solid #2d3748; border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.3); min-width: 220px; z-index: 100; overflow: hidden; }
+.user-menu-dropdown { position: absolute; bottom: 50px; left: 0; background: #1e2738; border: 1px solid #2d3748; border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.3); min-width: 220px; z-index: 1000; overflow: hidden; }
 .user-info { padding: 14px 16px; }
 .user-name { color: #fff; font-size: 14px; font-weight: 650; margin-bottom: 3px; }
 .user-email { color: #9ca3af; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
