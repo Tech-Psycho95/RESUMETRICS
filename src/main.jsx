@@ -16,13 +16,16 @@ import './interaction-overrides.css'
 import './import-preview.css'
 import './resume-flow.css'
 import './github-evidence.css'
+import './ai-assistant.css'
 import logo from './assets/resumetrics-logo.png'
 import ResumeStartOptions from './components/ResumeStartOptions.jsx'
 import ResumeTemplateSelector from './components/ResumeTemplateSelector.jsx'
 import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
 import GitHubEvidenceReview from './components/GitHubEvidenceReview.jsx'
+import AIAssistantEditor from './components/AIAssistantEditor.jsx'
 import { resumeTemplates } from './config/resumeTemplates.js'
 import { createBlankResumeData } from './data/resumeData.js'
+import { applyResumeEditPlan } from './utils/applyResumeEditPlan.js'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -48,10 +51,6 @@ const fontFamilies = [
   ['Georgia', 'Georgia, serif'],
   ['Arial', 'Arial, sans-serif']
 ]
-
-const automationColors = {
-  black: '#172033', navy: '#172f4e', blue: '#2563eb', purple: '#5d49d8', violet: '#6d42d8', green: '#16745f', gray: '#4b5563', grey: '#4b5563'
-}
 
 const safeFileName = value => (value || 'untitled-resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled-resume'
 const githubResumeSnapshotKey = 'resumetrics:pending-github-evidence-resume'
@@ -533,6 +532,7 @@ function MainPage() {
   const editorRef = useRef(null)
   const selectionRef = useRef(null)
   const analysisRequestRef = useRef(0)
+  const assistantInputRef = useRef(null)
   const [description, setDescription] = useState('')
   const [analysis, setAnalysis] = useState(null)
   const [analysisPreview, setAnalysisPreview] = useState(null)
@@ -550,7 +550,6 @@ function MainPage() {
   const [workspaceError, setWorkspaceError] = useState('')
   const [resumeName, setResumeName] = useState('Untitled resume')
   const [editingName, setEditingName] = useState(false)
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [activeTool, setActiveTool] = useState('select')
   const [fontSize, setFontSize] = useState(14)
@@ -560,9 +559,8 @@ function MainPage() {
   const [useGlobalTextColor, setUseGlobalTextColor] = useState(false)
   const [footerText, setFooterText] = useState('')
   const [hasSelection, setHasSelection] = useState(false)
-  const [rewriteLoading, setRewriteLoading] = useState(false)
   const [assistantInput, setAssistantInput] = useState('')
-  const [assistantMessages, setAssistantMessages] = useState([{ role: 'assistant', text: 'I can make safe changes to this draft. Try “change name to Maya Patel”, “add footer: Portfolio · maya.dev”, or “use Merriweather font”.' }])
+  const [assistantFeedback, setAssistantFeedback] = useState(null)
   const [aiTestLoading, setAiTestLoading] = useState(false)
   const selectedTemplate = resumeTemplates.find(template => template.id === selectedTemplateId)
   const TemplateComponent = selectedTemplate?.component
@@ -576,6 +574,10 @@ function MainPage() {
   const hasConnectedEvidenceSource = githubConnection.connected || connected.length > 0
   const hasImportedResumeSkills = Boolean(uploadedFileName) && resumeEvidenceSkills.length > 0
   const hasWorkspaceResumeSkills = workspaceMode === 'editor-ready' && resumeEvidenceSkills.length > 0
+
+  const showAssistantError = message => {
+    setAssistantFeedback({ tone: 'error', text: message })
+  }
 
   useEffect(() => {
     let isCurrent = true
@@ -725,7 +727,6 @@ function MainPage() {
     setDescription('')
     setResumeName('Untitled resume')
     setEditingName(false)
-    setExportMenuOpen(false)
     setHasSelection(false)
     setAnalysis(null)
     setAnalysisPreview(null)
@@ -733,11 +734,24 @@ function MainPage() {
     setGlobalFontSize(null)
     setUseGlobalTextColor(false)
     setFooterText('')
+    setAssistantInput('')
+    setAssistantFeedback(null)
     editorRef.current = null
   }
 
   const exportDraft = async (format = 'TXT') => {
     if (!isEditorReady || exportLoading) return
+    if (format === 'PRINT') {
+      setExportLoading(true)
+      try {
+        window.print()
+      } catch (error) {
+        showAssistantError(`Export failed. Please try again${error?.message ? `: ${error.message}` : '.'}`)
+      } finally {
+        setExportLoading(false)
+      }
+      return
+    }
     const content = `${resumeName}\n${resumeData?.headline || ''}\n${selectedTemplate?.name || 'Resumetrics draft'}\n\n${editorRef.current?.innerText || resumeData?.summary || 'Start editing your resume in Resumetrics.'}`
     const baseName = `resumetrics-${safeFileName(resumeName)}`
     setExportLoading(true)
@@ -774,10 +788,9 @@ function MainPage() {
         await presentation.writeFile({ fileName: `${baseName}.pptx` })
       }
     } catch (error) {
-      setAssistantMessages(current => [...current, { role: 'assistant', text: `Export failed. Please try again${error?.message ? `: ${error.message}` : '.'}` }])
+      showAssistantError(`Export failed. Please try again${error?.message ? `: ${error.message}` : '.'}`)
     } finally {
       setExportLoading(false)
-      setExportMenuOpen(false)
     }
   }
 
@@ -962,107 +975,98 @@ function MainPage() {
   const focusTextTool = () => { setActiveTool('text'); requestAnimationFrame(() => editorRef.current?.focus()) }
   const editorReady = editor => { editorRef.current = editor }
 
-  const rewriteSelectedBullet = async () => {
-    const selectedText = window.getSelection()?.toString().trim() || ''
-    if (!selectedText || rewriteLoading) return
-    setRewriteLoading(true)
-    try {
-      const response = await fetch('/api/resume/rewrite-bullet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bullet: selectedText, targetRole: resumeData?.headline || '', tone: 'professional' })
-      })
-      const payload = await response.json()
-      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Could not rewrite the selected bullet.')
-      editorRef.current?.focus()
-      restoreSelection()
-      document.execCommand('insertText', false, payload.rewrittenBullet)
-      rememberSelection()
-    } catch (error) {
-      setAssistantMessages(current => [...current, { role: 'assistant', text: error.message || 'Could not rewrite the selected bullet.' }])
-    } finally {
-      setRewriteLoading(false)
-    }
-  }
+  const getAssistantWorkspaceContext = () => {
+    const selection = window.getSelection()
+    const selectedText = selection?.toString().trim().slice(0, 600) || ''
+    const anchor = selection?.anchorNode
+    const anchorElement = anchor?.nodeType === Node.ELEMENT_NODE ? anchor : anchor?.parentElement
+    const activeSectionElement = anchorElement?.closest?.('.resume-section')
+    const activeEntryElement = anchorElement?.closest?.('.resume-entry')
+    const activeSection = activeSectionElement?.querySelector('h2')?.textContent?.trim().toLowerCase() || (anchorElement?.closest?.('.generated-resume-header') ? 'basics' : null)
+    const sectionEntries = activeSectionElement ? [...activeSectionElement.querySelectorAll(':scope > .resume-entry')] : []
+    const activeItemIndex = activeEntryElement ? sectionEntries.indexOf(activeEntryElement) : -1
+    let activeField = null
+    if (anchorElement?.closest?.('.generated-resume-header h1')) activeField = 'fullName'
+    else if (anchorElement?.closest?.('.generated-resume-header > div > p')) activeField = 'headline'
+    else if (anchorElement?.closest?.('.generated-contact')) activeField = 'contact'
+    else if (anchorElement?.closest?.('li')) activeField = activeSection === 'education' ? 'details' : 'bullets'
+    else if (activeSection === 'summary') activeField = 'summary'
+    else if (activeSection === 'skills') activeField = 'skills'
 
-  const applyAssistantAutomation = message => {
-    const command = message.trim()
-    const lower = command.toLowerCase()
-    if (!isEditorReady) return 'Open or create a resume first, then I can apply changes to it.'
-
-    const nameMatch = command.match(/(?:change|set|rename)\s+(?:my\s+|the\s+)?name\s+(?:to\s+)?["“']?(.+?)["”']?$/i)
-    if (nameMatch?.[1]) {
-      const fullName = nameMatch[1].trim().replace(/[.!]$/, '')
-      if (!fullName) return null
-      setResumeData(current => ({ ...current, fullName }))
-      setResumeName(fullName)
-      return `Changed the resume name to ${fullName}.`
+    return {
+      resumeData,
+      template: selectedTemplate ? { id: selectedTemplate.id, name: selectedTemplate.name, category: selectedTemplate.category, atsFriendly: selectedTemplate.atsFriendly } : null,
+      style: {
+        fontFamily: fontFamilies.find(([, value]) => value === fontFamily)?.[0] || fontFamily,
+        fontSize: globalFontSize || fontSize,
+        textColor: useGlobalTextColor ? fontColor : null,
+        footerText,
+        appearance: document.documentElement.dataset.appearance || 'system',
+        resolvedTheme: document.documentElement.dataset.resolvedTheme || 'light'
+      },
+      editor: { activeTool, activeSection, activeField, activeItemIndex: activeItemIndex >= 0 ? activeItemIndex : null, selectedText },
+      sectionOrder: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements'],
+      itemReferences: {
+        experience: (resumeData?.experience ?? []).map((item, index) => ({ id: `experience-${index}`, index, label: [item.role, item.company].filter(Boolean).join(' at ') })),
+        projects: (resumeData?.projects ?? []).map((item, index) => ({ id: `project-${index}`, index, label: item.name || `Project ${index + 1}` })),
+        education: (resumeData?.education ?? []).map((item, index) => ({ id: `education-${index}`, index, label: [item.degree, item.institution].filter(Boolean).join(' at ') }))
+      }
     }
-
-    const footerMatch = command.match(/(?:add|set)\s+(?:a\s+)?footer(?:\s*(?:to|:))?\s*(.+)$/i)
-    if (footerMatch?.[1]) {
-      const footer = footerMatch[1].trim().replace(/[.!]$/, '')
-      setFooterText(footer)
-      return 'Added that footer to the current resume.'
-    }
-    if (/\b(remove|delete|clear)\s+(?:the\s+)?footer\b/i.test(command)) {
-      setFooterText('')
-      return 'Removed the resume footer.'
-    }
-
-    const requestedFont = fontFamilies.find(([name]) => lower.includes(name.toLowerCase()))
-    if (requestedFont && /\b(font|typeface)\b/i.test(command)) {
-      setFontFamily(requestedFont[1])
-      return `Applied ${requestedFont[0]} to the whole resume.`
-    }
-
-    const hex = command.match(/#[0-9a-f]{6}\b/i)?.[0]
-    const namedColor = Object.entries(automationColors).find(([name]) => new RegExp(`\\b${name}\\b`, 'i').test(command))?.[1]
-    if ((hex || namedColor) && /\b(text|font|colour|color|resume|document)\b/i.test(command)) {
-      setFontColor(hex || namedColor)
-      setUseGlobalTextColor(true)
-      return `Applied ${hex || namedColor} to all resume text.`
-    }
-    if (/\b(reset|restore)\s+(?:the\s+)?(?:text\s+)?colou?r\b/i.test(command)) {
-      setUseGlobalTextColor(false)
-      setFontColor('#172033')
-      return 'Restored the template’s default text colours.'
-    }
-
-    const size = Number(command.match(/\b(?:text|font|resume)\s+(?:size\s+)?(?:to\s+)?(12|14|16|18|20|24)\b/i)?.[1])
-    if (size) {
-      setGlobalFontSize(size)
-      return `Applied ${size}px text sizing to the whole resume.`
-    }
-    return null
   }
 
   const askAssistant = async event => {
     event.preventDefault()
     const message = assistantInput.trim()
-    if (!message || aiTestLoading) return
-    setAssistantInput('')
-
-    const automationResult = applyAssistantAutomation(message)
-    if (automationResult) {
-      setAssistantMessages(current => [...current, { role: 'user', text: message }, { role: 'assistant', text: automationResult }])
+    if (aiTestLoading) return
+    if (!message) {
+      showAssistantError('Describe a change before sending it to AI.')
+      requestAnimationFrame(() => assistantInputRef.current?.focus())
       return
     }
-
-    const improveSummary = /\b(improve|rewrite|shorten|strengthen)\b.*\bsummary\b/i.test(message) && Boolean(resumeData?.summary)
-    const aiPrompt = improveSummary
-      ? `Rewrite this resume summary in a concise professional tone. Preserve facts and return only the revised summary:\n\n${resumeData.summary}`
-      : message
+    if (!isEditorReady || !resumeData) {
+      showAssistantError('Open or create a resume first, then I can apply changes to it.')
+      return
+    }
+    setAssistantFeedback({ tone: 'info', text: 'Understanding your request…' })
     setAiTestLoading(true)
-    setAssistantMessages(current => [...current, { role: 'user', text: message }, { role: 'assistant', text: 'Working on it…' }])
+
     try {
-      const response = await fetch('/api/ai/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: aiPrompt }) })
-      const payload = await response.json()
-      if (!response.ok || !payload.ok) throw new Error(payload.error || 'AI backend request failed.')
-      if (improveSummary) setResumeData(current => ({ ...current, summary: payload.result }))
-      setAssistantMessages(current => [...current.slice(0, -1), { role: 'assistant', text: improveSummary ? 'Updated the summary in your draft.' : payload.result }])
+      const response = await fetch('/api/resume/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction: message, workspaceContext: getAssistantWorkspaceContext() })
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.ok || !payload.plan) throw new Error(payload?.error || 'AI edit planning failed.')
+
+      if (payload.plan.status !== 'ready') {
+        if (payload.plan.status === 'no_changes') {
+          setAssistantInput('')
+          assistantInputRef.current?.blur()
+          setAssistantFeedback({ tone: 'info', text: payload.plan.message })
+        } else showAssistantError(payload.plan.message)
+        return
+      }
+
+      setAssistantFeedback({ tone: 'info', text: 'Applying changes…' })
+      const result = applyResumeEditPlan({ resumeData, plan: payload.plan })
+      setResumeData(result.resumeData)
+      if (result.resumeData.fullName !== resumeData.fullName) setResumeName(result.resumeData.fullName || 'Untitled resume')
+      if (result.styleUpdates.fontFamily !== undefined) setFontFamily(result.styleUpdates.fontFamily)
+      if (result.styleUpdates.fontSize !== undefined) {
+        setGlobalFontSize(result.styleUpdates.fontSize)
+        setFontSize(result.styleUpdates.fontSize || 14)
+      }
+      if (result.styleUpdates.textColor !== undefined) {
+        setUseGlobalTextColor(Boolean(result.styleUpdates.textColor))
+        setFontColor(result.styleUpdates.textColor || '#172033')
+      }
+      if (result.footerUpdate !== undefined) setFooterText(result.footerUpdate)
+      setAssistantInput('')
+      assistantInputRef.current?.blur()
+      setAssistantFeedback({ tone: 'success', text: result.plan.message })
     } catch (error) {
-      setAssistantMessages(current => [...current.slice(0, -1), { role: 'assistant', text: error.message || 'AI backend request failed.' }])
+      showAssistantError(error.message || 'AI backend request failed.')
     } finally {
       setAiTestLoading(false)
     }
@@ -1078,7 +1082,7 @@ function MainPage() {
   }[workspaceMode] || resumeName
 
   return <Shell>
-    <header className="page-header"><div><span className="eyebrow">RESUME WORKSPACE</span></div><div className="header-actions"><div className="draft-actions"><div className="export-wrap"><button className="quiet-button" disabled={!isEditorReady || exportLoading} onClick={() => setExportMenuOpen(current => !current)}><Icon name="download" size={15} />{exportLoading ? 'Exporting…' : 'Export draft'}</button>{exportMenuOpen && <div className="export-menu"><span>Export as</span><button onClick={() => exportDraft('PDF')}><FileIcon type="PDF" />PDF</button><button onClick={() => exportDraft('DOCX')}><FileIcon type="DOCX" />Word</button><button onClick={() => exportDraft('PPTX')}><FileIcon type="PPTX" />PowerPoint</button><button onClick={() => exportDraft('TXT')}><FileIcon type="TXT" />Plain text</button></div>}</div><button className="danger-button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={15} />Delete draft</button></div></div></header>
+    <header className="page-header"><div><span className="eyebrow">RESUME WORKSPACE</span></div><div className="header-actions"><div className="draft-actions"><button className="quiet-button" disabled={!isEditorReady || exportLoading} onClick={() => exportDraft('PRINT')}><Icon name="download" size={15} />{exportLoading ? 'Preparing print…' : 'Export draft'}</button><button className="danger-button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={15} />Delete draft</button></div></div></header>
     <div className={`workspace-grid ${isEditorReady ? '' : 'setup-mode'}`}>
       {isEditorReady && <aside className="editor-toolbar panel" aria-label="Resume editing tools">
         <span className="toolbar-label">EDIT</span>
@@ -1092,7 +1096,6 @@ function MainPage() {
         </div>
         <span className="tool-divider" />
         <div className="tool-group align-tools" aria-label="Text alignment"><span className="toolbar-sublabel">ALIGN</span><div className="align-buttons"><button className="tool icon-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('justifyLeft')} aria-label="Align left" title="Align left"><AlignIcon alignment="left" /></button><button className="tool icon-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('justifyCenter')} aria-label="Align center" title="Align center"><AlignIcon alignment="center" /></button><button className="tool icon-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('justifyRight')} aria-label="Align right" title="Align right"><AlignIcon alignment="right" /></button></div></div>
-        <button className="secondary-button ai-rewrite-button" disabled={!hasSelection || rewriteLoading} onMouseDown={event => event.preventDefault()} onClick={rewriteSelectedBullet}>{rewriteLoading ? 'Rewriting…' : 'AI Rewrite Bullet'}</button>
         <span className="selection-hint">{hasSelection ? 'Text selected' : 'Select text to format'}</span>
       </aside>}
       <section className="resume-canvas panel">
@@ -1127,7 +1130,14 @@ function MainPage() {
             </> : <p>{!resumeData ? 'Create or import a resume before analysing a role.' : 'Waiting for a job description.'}</p>}
           </div>
         </aside>
-        <section className="ai-panel panel"><div className="ai-heading"><div><span className="eyebrow">EDIT WITH AI</span><h2>Automate the draft.</h2><p className="muted">Describe a change and I will apply it, or ask for help improving the writing.</p></div><Icon name="spark" size={20} /></div><div className="assistant-body"><div className="ai-action-chips" aria-label="Suggested AI actions">{['Change name to Maya Patel', 'Add footer: Portfolio · maya.dev', 'Use Merriweather font', 'Set purple text', 'Improve summary'].map(prompt => <button key={prompt} type="button" onClick={() => setAssistantInput(prompt)}>{prompt}</button>)}</div><div className="assistant-messages" aria-live="polite">{assistantMessages.map((message, index) => <div className={`assistant-message ${message.role}`} key={`${message.role}-${index}`}>{message.text}</div>)}</div><form className="assistant-form automation-composer" onSubmit={askAssistant}><input value={assistantInput} maxLength="2000" disabled={aiTestLoading} onChange={event => setAssistantInput(event.target.value)} placeholder="Describe a change to your resume…" aria-label="Describe a resume change" /><button className="arrow-button" disabled={aiTestLoading} aria-label="Apply change" title="Apply change" type="submit">{aiTestLoading ? '…' : '→'}</button></form></div></section>
+        <AIAssistantEditor
+          inputRef={assistantInputRef}
+          value={assistantInput}
+          busy={aiTestLoading}
+          feedback={assistantFeedback}
+          onChange={event => { setAssistantInput(event.target.value); if (assistantFeedback) setAssistantFeedback(null) }}
+          onSubmit={askAssistant}
+        />
       </div>
     </div>
     <section className="lower-grid"><div className="panel section-panel evidence-panel"><div className="evidence-panel-heading"><div><span className="eyebrow">EVIDENCE SOURCES</span><h2>Verify the work behind the words.</h2><p className="muted">Connect a source to surface credible proof for projects, skills, and outcomes.</p></div><button className="primary-button compare-evidence-button" type="button" disabled={!hasConnectedEvidenceSource} onClick={compareEvidence}>Compare</button></div><div className="sources">{['GitHub', 'LinkedIn', 'LeetCode'].map(source => {

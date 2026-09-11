@@ -1,15 +1,16 @@
 import { Router } from 'express'
 import { AIConfigurationError } from '../config/env.js'
-import { analyzeResumeAgainstRole, extractStructuredResumeData, rewriteResumeBullet } from '../services/resumeAI.js'
+import { analyzeResumeAgainstRole, extractStructuredResumeData } from '../services/resumeAI.js'
 import { extractResumeDataFallback } from '../services/resumeFallback.js'
 import { normalizeResumeData } from '../services/resumeData.js'
 import { buildSkillAwareRoleAnalysis } from '../../shared/roleAnalysis.js'
+import { ResumeEditPlanError } from '../../shared/resumeEditPlan.js'
+import { createResumeEditPlan } from '../services/resumeEdit.js'
 
 const router = Router()
 const MAX_RESUME_TEXT_LENGTH = 60_000
-const MAX_BULLET_LENGTH = 1_000
-const MAX_TARGET_ROLE_LENGTH = 160
 const MAX_JOB_DESCRIPTION_LENGTH = 12_000
+const MAX_EDIT_INSTRUCTION_LENGTH = 4_000
 
 function configurationError(response) {
   return response.status(503).json({ ok: false, error: 'AI backend is not configured. Check the server environment configuration.' })
@@ -54,29 +55,28 @@ router.post('/analyze', async (request, response) => {
   }
 })
 
-router.post('/rewrite-bullet', async (request, response) => {
-  const { bullet, targetRole, tone } = request.body ?? {}
-
-  if (typeof bullet !== 'string' || !bullet.trim()) {
-    return response.status(400).json({ ok: false, error: 'bullet must be a non-empty string.' })
+router.post('/edit', async (request, response) => {
+  const { instruction, workspaceContext } = request.body ?? {}
+  if (typeof instruction !== 'string' || !instruction.trim()) {
+    return response.status(400).json({ ok: false, error: 'instruction must be a non-empty string.' })
   }
-  if (bullet.length > MAX_BULLET_LENGTH) {
-    return response.status(400).json({ ok: false, error: `bullet must be ${MAX_BULLET_LENGTH.toLocaleString()} characters or fewer.` })
+  if (instruction.length > MAX_EDIT_INSTRUCTION_LENGTH) {
+    return response.status(400).json({ ok: false, error: `instruction must be ${MAX_EDIT_INSTRUCTION_LENGTH.toLocaleString()} characters or fewer.` })
   }
-  if (typeof targetRole === 'string' && targetRole.length > MAX_TARGET_ROLE_LENGTH) {
-    return response.status(400).json({ ok: false, error: `targetRole must be ${MAX_TARGET_ROLE_LENGTH} characters or fewer.` })
-  }
-  if (tone !== undefined && typeof tone !== 'string') {
-    return response.status(400).json({ ok: false, error: 'tone must be a string when provided.' })
+  if (!workspaceContext || typeof workspaceContext !== 'object' || Array.isArray(workspaceContext) || !workspaceContext.resumeData) {
+    return response.status(400).json({ ok: false, error: 'Current resume workspace context must be provided.' })
   }
 
   try {
-    const rewrittenBullet = await rewriteResumeBullet({ bullet, targetRole, tone })
-    return response.json({ ok: true, rewrittenBullet })
+    const plan = await createResumeEditPlan({ instruction: instruction.trim(), workspaceContext })
+    return response.json({ ok: true, plan })
   } catch (error) {
-    console.error('Resume bullet rewrite failed:', error)
+    console.error('Resume edit planning failed:', error)
     if (error instanceof AIConfigurationError) return configurationError(response)
-    return response.status(502).json({ ok: false, error: 'Could not rewrite this bullet right now. Please try again.' })
+    if (error instanceof ResumeEditPlanError || error instanceof SyntaxError) {
+      return response.status(502).json({ ok: false, error: 'The AI returned an edit that could not be applied safely. Please rephrase your request.' })
+    }
+    return response.status(502).json({ ok: false, error: 'Could not prepare this resume edit right now. Please try again.' })
   }
 })
 

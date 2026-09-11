@@ -234,7 +234,6 @@
 .template-elegant-sidebar .resume-sidebar .skill-list span { background: rgba(255,255,255,.12); color: #edf0fb; }
 .template-elegant-sidebar .resume-template-header { border: 0; }
 
-.ai-rewrite-button { margin-top: 10px; width: 100%; font-size: .78rem; }
 .selection-hint { margin-top: 7px; text-align: center; }
 
 /* Active flow component styling. The component names stay deliberately
@@ -389,4 +388,118 @@
   .state-actions { align-items: stretch; flex-direction: column-reverse; }
   .state-actions button { width: 100%; }
   .template-elegant-sidebar .resume-template-layout { grid-template-columns: 1fr; gap: 0; }
+}
+
+/* ATS-safe resume document styles. All templates share one logical document
+   order; variants only adjust visual accents, never the content structure. */
+.generated-resume {
+  min-height: 0;
+  padding: 0.42in 0.48in;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10pt;
+  line-height: 1.28;
+}
+.generated-resume-header { align-items: start; padding-bottom: 10px; }
+.generated-resume-header h1 { font-size: 20pt; line-height: 1.06; }
+.generated-resume-header p { margin: 3px 0 0; font-size: 10.5pt; font-weight: 600; }
+.generated-contact { margin: 0; font-style: normal; font-size: 9pt; line-height: 1.25; }
+.resume-section { margin-top: 12px; }
+.resume-section h2 { margin-bottom: 4px; font-size: 10.5pt; letter-spacing: .07em; }
+.resume-entry { margin-bottom: 7px; }
+.resume-entry-heading { font-size: 10pt; }
+.resume-entry-heading span { font-size: 9pt; }
+.resume-entry-subtitle { font-size: 9.5pt !important; }
+.resume-entry ul, .resume-section ul { margin: 2px 0 0; padding-left: 17px; }
+.resume-entry li, .resume-section li { margin: 1px 0; }
+.resume-skills { color: inherit; }
+.template-elegant-sidebar { border-left: 10px solid #283551; }
+.template-elegant-sidebar .generated-resume-header { border-bottom-color: #283551; }
+.template-elegant-sidebar .resume-section h2 { color: #283551; }
+
+/* The editor is a stack of exact A4 pages. Structured resume blocks are
+   measured in an invisible A4 sheet and moved to the next page as needed. */
+.resume-document-shell { position: relative; min-width: 0; background: #f3f4f8; }
+.resume-page-controls { display: flex; position: relative; z-index: 3; min-height: 42px; align-items: center; justify-content: center; gap: 12px; padding: 7px 12px; border-bottom: 1px solid #dfe3ed; background: rgba(249, 250, 253, .96); color: #5f6c82; font-size: .78rem; font-weight: 750; font-variant-numeric: tabular-nums; backdrop-filter: blur(8px); }
+.resume-page-controls button { display: grid; width: 28px; height: 28px; place-items: center; padding: 0 0 2px; border: 1px solid #d9d5ee; border-radius: 50%; background: #fff; color: #5f4dd0; font-size: 1.35rem; line-height: 1; cursor: pointer; transition: border-color .18s ease, background .18s ease, opacity .18s ease; }
+.resume-page-controls button:hover:not(:disabled) { border-color: #9b8ee7; background: #f3f1ff; }
+.resume-page-controls button:focus-visible { outline: 3px solid rgba(95, 77, 208, .22); outline-offset: 2px; }
+.resume-page-controls button:disabled { opacity: .34; cursor: default; }
+.resume-page-scroller { max-height: min(1120px, calc(100vh - 150px)); overflow-x: hidden; overflow-y: auto; padding: 16px 16px 30px; background: #f3f4f8; scroll-behavior: smooth; scroll-snap-type: y proximity; scrollbar-gutter: stable; }
+.resume-page-document { display: grid; min-width: 0; justify-items: center; gap: 20px; outline: none; }
+.resume-page-frame { position: relative; flex: none; scroll-margin-top: 12px; scroll-snap-align: start; }
+.generated-resume.resume-a4-page { box-sizing: border-box; min-height: 0; margin: 0; overflow: hidden; background: #fff; border: 1px solid #e0e3ec; box-shadow: 0 8px 24px rgba(39, 43, 68, .11); }
+.resume-page-document:focus .generated-resume.resume-a4-page { border-color: #cfc9f2; box-shadow: 0 8px 24px rgba(39, 43, 68, .11), 0 0 0 2px rgba(102, 83, 224, .14); }
+.resume-page-block { display: flow-root; break-inside: avoid; }
+.resume-single-item-list { margin-bottom: 0 !important; }
+.resume-section-continued { margin-top: 0; }
+.resume-continuation-label { color: #8993a7; font-size: .72em; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.resume-pagination-measure { position: fixed !important; z-index: -1; top: 0; left: -100000px; box-sizing: border-box; min-height: 0 !important; margin: 0 !important; visibility: hidden; pointer-events: none; overflow: hidden; }
+
+[data-resolved-theme="dark"] .app-shell .resume-document-shell,
+[data-resolved-theme="dark"] .app-shell .resume-page-scroller { background: #111827; }
+[data-resolved-theme="dark"] .app-shell .resume-page-controls { border-color: #303a52; background: rgba(26, 35, 54, .96); color: #b5bfd2; }
+[data-resolved-theme="dark"] .app-shell .resume-page-controls button { border-color: #414c65; background: #121a2b; color: #b8adff; }
+
+/* One A4-style preview, driven by the same template component as the editor. */
+.template-carousel { max-width: 980px; margin: 0 auto; }
+.template-carousel .template-selector-heading { margin-bottom: 12px; }
+.template-carousel-meta { display: grid; justify-items: center; max-width: 580px; margin: 0 auto 16px; text-align: center; }
+.template-carousel-meta .template-category { margin: 0 0 6px; }
+.template-carousel-meta h3 { margin: 0; color: #17233d; font-size: 1.22rem; }
+.template-carousel-meta p { max-width: 490px; margin: 6px 0 10px; color: #66728a; font-size: .88rem; line-height: 1.5; }
+.ats-friendly-badge { padding: 5px 9px; border: 1px solid #c8e7da; border-radius: 999px; background: #effaf5; color: #257057; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.template-carousel-stage { display: grid; grid-template-columns: 52px minmax(0, 540px) 52px; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 32px); }
+.template-carousel-paper { width: min(100%, 540px); aspect-ratio: 210 / 297; overflow: hidden; border: 1px solid #daddea; background: #fff; box-shadow: 0 18px 38px rgba(33, 40, 72, .14); animation: template-preview-enter .28s ease both; }
+.template-carousel-paper .generated-resume { box-sizing: border-box; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 7.5%; overflow: hidden; font-size: clamp(5px, 1.15vw, 8px); line-height: 1.33; box-shadow: none; }
+.template-carousel-paper .generated-resume-header { gap: 12px; padding-bottom: 5px; border-bottom-width: 1px; }
+.template-carousel-paper .generated-resume-header h1 { font-size: 2.15em; }
+.template-carousel-paper .generated-resume-header p { margin-top: 1px; font-size: 1.05em; }
+.template-carousel-paper .generated-contact { gap: 1px; font-size: .82em; }
+.template-carousel-paper .resume-section { margin-top: 6px; }
+.template-carousel-paper .resume-section h2 { margin-bottom: 2px; font-size: .94em; letter-spacing: .08em; }
+.template-carousel-paper .resume-entry { margin-bottom: 4px; }
+.template-carousel-paper .resume-entry-heading { gap: 6px; font-size: .96em; }
+.template-carousel-paper .resume-entry-heading span, .template-carousel-paper .resume-entry-subtitle { font-size: .82em !important; }
+.template-carousel-paper .resume-entry p { margin: 1px 0; }
+.template-carousel-paper .resume-entry ul, .template-carousel-paper .resume-section ul { margin-top: 1px; padding-left: 10px; }
+.template-carousel-paper .resume-entry li, .template-carousel-paper .resume-section li { margin: 0; }
+.template-carousel-paper .template-tech-focused .generated-resume-header { padding: 6px; border-radius: 2px; }
+.template-carousel-paper .template-elegant-sidebar { border-left-width: 5px; }
+.template-carousel-arrow { width: 44px; height: 44px; border: 1px solid #dcd7f5; border-radius: 50%; background: #fff; color: #5c49cf; box-shadow: 0 4px 12px rgba(63, 50, 137, .08); font-size: 2rem; line-height: 1; transition: transform .18s ease, background .18s ease, border-color .18s ease; }
+.template-carousel-arrow:hover { border-color: #9e91e9; background: #f4f2ff; transform: translateY(-1px); }
+.template-carousel-arrow:focus-visible { outline: 3px solid rgba(95, 77, 208, .25); outline-offset: 3px; }
+.template-carousel-actions { display: grid; justify-items: center; gap: 12px; margin-top: 19px; }
+.template-carousel-actions .primary-button { min-width: 190px; }
+.template-position { color: #758198; font-size: .82rem; font-variant-numeric: tabular-nums; }
+@keyframes template-preview-enter { from { opacity: .35; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+
+@media (max-width: 650px) {
+  .resume-page-scroller { max-height: calc(100vh - 120px); padding: 10px 8px 22px; }
+  .resume-page-document { gap: 12px; }
+  .template-carousel-stage { position: relative; display: block; padding: 0 12px; }
+  .template-carousel-paper { margin: 0 auto; }
+  .template-carousel-arrow { position: absolute; z-index: 1; top: 50%; width: 34px; height: 34px; font-size: 1.55rem; transform: translateY(-50%); }
+  .template-carousel-arrow.previous { left: 0; }
+  .template-carousel-arrow.next { right: 0; }
+  .template-carousel-arrow:hover { transform: translateY(-50%); }
+  .template-carousel-paper .generated-resume { font-size: clamp(5px, 1.75vw, 6.8px); }
+}
+
+@media print {
+  /* Print the live resume only so Save to PDF preserves the selected
+     template, semantic text, styling, and calculated A4 page breaks. */
+  body { background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .resume-canvas,
+  .resume-canvas * { visibility: visible !important; }
+  .resume-canvas { position: absolute !important; inset: 0 !important; width: 100% !important; min-height: 0 !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; }
+  .resume-canvas > .canvas-top,
+  .resume-pagination-measure { display: none !important; }
+  @page { size: A4; margin: 0; }
+  .resume-page-controls { display: none !important; }
+  .resume-page-scroller { max-height: none; overflow: visible; padding: 0; background: transparent; }
+  .resume-page-document { display: block; }
+  .resume-page-frame { width: 210mm !important; height: 297mm !important; break-after: page; page-break-after: always; }
+  .resume-page-frame:last-child { break-after: auto; page-break-after: auto; }
+  .generated-resume.resume-a4-page { width: 210mm !important; height: 297mm !important; border: 0; box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
