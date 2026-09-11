@@ -4,8 +4,9 @@
 
 [![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react&logoColor=white)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5+-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3+-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4+-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Firebase](https://img.shields.io/badge/Firebase-Auth-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![GitHub App](https://img.shields.io/badge/GitHub_App-evidence-181717?logo=github&logoColor=white)](https://docs.github.com/en/apps)
 
 ---
 
@@ -24,6 +25,7 @@ The platform features role-alignment analysis, AI-assisted editing, resume impor
 - **🎯 Role Alignment Analysis** — Paste job descriptions and compare them against extracted resume skills with a match score, strengths, missing skills, and recommendations
 - **🤖 AI-Assisted Editing** — Improve bullets and use the workspace assistant for focused resume changes
 - **📊 Evidence Sourcing** — Connect GitHub, LinkedIn, and LeetCode to surface verifiable proof for projects, skills, and outcomes
+- **🐙 GitHub Evidence Integration** — Securely connect the Resumetrics-evidence GitHub App, verify its installation, and prepare repository evidence for review
 - **🎨 Visual Resume Editor** — Customize fonts, colors, sizes, and left/center/right alignment in an editable canvas
 - **📥 Resume Import** — Upload existing resumes in PDF, Word, or TXT format and generate a separate editable draft
 - **📤 Multi-Format Export** — Download your resume as PDF, DOCX, PPTX, or TXT
@@ -42,6 +44,8 @@ The platform features role-alignment analysis, AI-assisted editing, resume impor
 - **PDF.js and Mammoth** — Browser-side PDF and DOCX text extraction
 - **jsPDF, docx, and PptxGenJS** — Resume export formats
 - **Node.js and Express** — Private backend and API routes
+- **Firebase Admin and Firestore** — Server-side Firebase ID-token verification and per-user GitHub connection metadata
+- **Octokit** — Server-side GitHub App authentication, installation tokens, and read-only repository access
 - **CORS, dotenv, and Groq SDK** — Server configuration and AI integration
 - **IntersectionObserver, requestAnimationFrame, and CSS animations** — Lightweight landing-page motion
 
@@ -92,6 +96,21 @@ The platform features role-alignment analysis, AI-assisted editing, resume impor
    RESUMETRICS_AI_DEFAULT_MODEL=your_current_groq_model
    ```
 
+   Add the server-only Firebase Admin and GitHub App configuration to the same file. Keep the service-account JSON and private key outside Git tracking, for example under the ignored `server/secrets/` directory:
+
+   ```env
+   FIREBASE_SERVICE_ACCOUNT_PATH=server/secrets/firebase-service-account.json
+   GITHUB_APP_ID=your_github_app_id
+   GITHUB_CLIENT_ID=your_github_client_id
+   GITHUB_CLIENT_SECRET=your_github_client_secret
+   GITHUB_PRIVATE_KEY_PATH=server/secrets/resumetrics-evidence.private-key.pem
+   GITHUB_APP_SLUG=resumetrics-evidence
+   GITHUB_CALLBACK_URL=http://localhost:5173/workspace
+   FRONTEND_URL=http://localhost:5173
+   ```
+
+   `FIREBASE_SERVICE_ACCOUNT_PATH`, `GITHUB_CLIENT_SECRET`, and `GITHUB_PRIVATE_KEY_PATH` are backend-only values. Never prefix them with `VITE_` or commit their files.
+
    **Important:** Never use a `VITE_` prefix for the Groq key. Never commit `.env`, `.env.local`, or real credentials.
 
 4. **Enable Google Authentication in Firebase**
@@ -100,7 +119,14 @@ The platform features role-alignment analysis, AI-assisted editing, resume impor
    - Enable **Google** as a sign-in provider
    - Allow `localhost` as an authorized domain during local development
 
-5. **Start the development servers**
+5. **Configure the GitHub App (optional evidence integration)**
+
+   - Install the `Resumetrics-evidence` GitHub App for the account or repositories you want to review.
+   - Enable read access to repository contents, metadata, issues, and pull requests.
+   - Set the GitHub App redirect URL to `http://localhost:5173/workspace` for this local setup.
+   - Create a Cloud Firestore database in the Firebase project so connection metadata can be stored by Firebase UID.
+
+6. **Start the development servers**
 
    ```bash
    npm run dev:all
@@ -120,8 +146,8 @@ resumetrics/
 ├── server/                    # Private Express AI backend
 │   ├── config/env.js          # Server environment configuration
 │   ├── index.js               # Express entry point
-│   ├── routes/                # AI and resume API routes
-│   └── services/              # AI client, extraction, normalization, fallback
+│   ├── routes/                # AI, resume, and GitHub API routes
+│   └── services/              # AI, Firebase Admin, GitHub, extraction, normalization
 ├── shared/roleAnalysis.js     # Shared deterministic skill comparison
 ├── src/
 │   ├── assets/                # Images and static resources
@@ -139,6 +165,7 @@ resumetrics/
 │   ├── main.jsx               # App entry point and routing
 │   └── styles/                # Global, landing, and resume styles
 ├── .env.example               # Placeholder Firebase variables
+├── server/.env.example        # Backend-only AI, Firebase Admin, and GitHub placeholders
 ├── .gitignore                 # Secrets and generated files
 ├── package.json               # Dependencies and scripts
 ├── vite.config.js             # Vite config and /api proxy
@@ -165,8 +192,16 @@ The Vite development server proxies `/api` requests to the Express server at `ht
 - `POST /api/resume/extract` — extracts structured data from resume text
 - `POST /api/resume/analyze` — compares resume skills against a job description
 - `POST /api/resume/rewrite-bullet` — returns an improved resume bullet
+- `GET /api/github/connect` — starts an authenticated GitHub App connection
+- `GET /api/github/callback` — handles the GitHub App callback
+- `POST /api/github/complete-installation` — securely completes an installation-only callback
+- `POST /api/github/complete-authorization` — securely completes an OAuth-on-install callback
+- `GET /api/github/status` — verifies the stored installation is still available
+- `GET /api/github/repos` — returns sanitized repositories for the current user
+- `POST /api/github/evidence-analysis` — prepares GitHub evidence analysis for a structured resume
+- `DELETE /api/github/disconnect` — removes the Resumetrics connection without uninstalling the GitHub App
 
-AI errors are logged only on the server; the frontend receives safe user-facing messages. A deterministic matcher provides a local role-analysis fallback when AI is unavailable.
+AI errors are logged only on the server; the frontend receives safe user-facing messages. A deterministic matcher provides a local role-analysis fallback when AI is unavailable. GitHub credentials, JWTs, installation access tokens, and Firebase service-account data remain server-only; installation tokens are generated when needed and are not persisted.
 
 ---
 
