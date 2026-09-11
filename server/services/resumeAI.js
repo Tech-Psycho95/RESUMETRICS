@@ -33,16 +33,6 @@ export async function extractStructuredResumeData(resumeText) {
   return normalizeResumeData(parseStructuredResponse(rawResponse))
 }
 
-export async function rewriteResumeBullet({ bullet, targetRole = '', tone = 'professional' }) {
-  const rawResponse = await generateAIResponse({
-    systemPrompt: 'You improve one resume bullet at a time. Preserve the original facts, names, and metrics. Do not invent information. Return only one concise professional bullet with no quotation marks, label, or markdown.',
-    userPrompt: `Rewrite this resume bullet in a ${tone} tone.${targetRole ? ` Target role: ${targetRole}.` : ''}\n\nBullet: ${bullet}`,
-    temperature: 0.35
-  })
-
-  return rawResponse.replace(/^[-•]\s*/, '').replace(/\s+/g, ' ').trim()
-}
-
 export async function analyzeResumeAgainstRole({ resumeData, jobDescription }) {
   const comparison = buildSkillAwareRoleAnalysis(resumeData, jobDescription)
   const rawResponse = await generateAIResponse({
