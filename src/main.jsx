@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext.jsx'
+import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import UserMenu from './components/UserMenu.jsx'
 import Login from './pages/Login.jsx'
@@ -15,10 +15,12 @@ import './layout-overrides.css'
 import './interaction-overrides.css'
 import './import-preview.css'
 import './resume-flow.css'
+import './github-evidence.css'
 import logo from './assets/resumetrics-logo.png'
 import ResumeStartOptions from './components/ResumeStartOptions.jsx'
 import ResumeTemplateSelector from './components/ResumeTemplateSelector.jsx'
 import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
+import GitHubEvidenceReview from './components/GitHubEvidenceReview.jsx'
 import { resumeTemplates } from './config/resumeTemplates.js'
 import { createBlankResumeData } from './data/resumeData.js'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
@@ -52,6 +54,32 @@ const automationColors = {
 }
 
 const safeFileName = value => (value || 'untitled-resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled-resume'
+const githubResumeSnapshotKey = 'resumetrics:pending-github-evidence-resume'
+const githubResumeSnapshotMaxAge = 15 * 60 * 1000
+const githubComparisonRequestKey = 'resumetrics:github-evidence-comparison'
+const githubComparisonRequestMaxAge = 30 * 60 * 1000
+
+function getResumeEvidenceSkills(resumeData) {
+  if (!resumeData) return []
+  const values = [
+    ...Object.values(resumeData.skills ?? {}).flat(),
+    ...(resumeData.projects ?? []).flatMap(project => project.techStack ?? []),
+    ...(resumeData.certifications ?? [])
+  ]
+  return [...new Map(values.filter(value => typeof value === 'string' && value.trim()).map(value => [value.trim().toLocaleLowerCase(), value.trim()])).values()].slice(0, 24)
+}
+
+function readQueuedGitHubComparison() {
+  try {
+    const request = JSON.parse(sessionStorage.getItem(githubComparisonRequestKey) || 'null')
+    if (request?.resumeData && Date.now() - request.savedAt <= githubComparisonRequestMaxAge) return request
+    sessionStorage.removeItem(githubComparisonRequestKey)
+  } catch {
+    sessionStorage.removeItem(githubComparisonRequestKey)
+  }
+  return null
+}
+
 const downloadBlob = (blob, fileName) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -95,6 +123,14 @@ function Icon({ name, size = 18 }) {
   if (name === 'download') return <svg {...common}><path d="M12 4v10M8 11l4 4 4-4M5 18v2h14v-2" /></svg>
   if (name === 'trash') return <svg {...common}><path d="M5 7h14M10 4h4l1 3H9l1-3ZM7 7l1 13h8l1-13M10 10v6M14 10v6" /></svg>
   if (name === 'spark') return <svg {...common}><path d="m12 3 1.1 4.1L17 8.5l-3.9 1.4L12 14l-1.1-4.1L7 8.5l3.9-1.4L12 3ZM19 14l.6 2.1L22 17l-2.4.9L19 20l-.6-2.1L16 17l2.4-.9L19 14Z" /></svg>
+  if (name === 'appearance') return <svg {...common}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
+  if (name === 'moon') return <svg {...common}><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z" fill="currentColor" stroke="none" /></svg>
+  if (name === 'device') return <svg {...common}><rect x="3" y="4" width="18" height="13" rx="1.5" /><path d="M8 20h8M12 17v3" /></svg>
+  if (name === 'check') return <svg {...common}><path d="m5 12 4 4L19 6" /></svg>
+  if (name === 'security') return <svg {...common}><path d="M12 3 19 6v5c0 4.5-3 7.8-7 10-4-2.2-7-5.5-7-10V6l7-3Z" /><path d="m9 12 2 2 4-4" /></svg>
+  if (name === 'notifications') return <svg {...common}><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+  if (name === 'privacy') return <svg {...common}><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2" /></svg>
+  if (name === 'help') return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1 .8-1.8 1.2-1.8 2.8M12 17h.01" /></svg>
   if (name === 'plus') return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>
   return null
 }
@@ -110,6 +146,50 @@ function SourceIcon({ name }) {
   if (name === 'GitHub') return <span className="source-icon github-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a9.5 9.5 0 0 0-3 18.5c.48.09.65-.2.65-.46v-1.68c-2.65.58-3.21-1.12-3.21-1.12-.44-1.1-1.07-1.4-1.07-1.4-.87-.59.07-.58.07-.58.96.07 1.46.99 1.46.99.86 1.46 2.25 1.04 2.8.8.09-.62.34-1.04.61-1.28-2.12-.24-4.35-1.06-4.35-4.7 0-1.04.37-1.9.98-2.57-.1-.24-.43-1.22.09-2.54 0 0 .8-.26 2.62.98A9.1 9.1 0 0 1 12 7.1c.8 0 1.6.11 2.35.34 1.82-1.24 2.62-.98 2.62-.98.52 1.32.19 2.3.09 2.54.61.67.98 1.53.98 2.57 0 3.65-2.23 4.46-4.36 4.7.35.3.65.87.65 1.76v2.6c0 .26.17.56.66.46A9.5 9.5 0 0 0 12 2.5Z" /></svg></span>
   if (name === 'LinkedIn') return <span className="source-icon linkedin-mark" aria-hidden="true">in</span>
   return <span className="source-icon leetcode-mark" aria-hidden="true">&lt;/&gt;</span>
+}
+
+function GeneralSettingsPanel() {
+  const [appearance, setAppearance] = useState(() => localStorage.getItem('resumetrics-appearance') || 'system')
+  const [notice, setNotice] = useState('')
+  const settings = [
+    ['security', 'Account & Security', 'Login, password & security'],
+    ['notifications', 'Notifications & updates', 'Manage alerts and updates'],
+    ['privacy', 'Privacy & Data', 'Data storage and permissions'],
+    ['help', 'Help & Support', 'Feedback, FAQs and support']
+  ]
+
+  useEffect(() => {
+    const root = document.documentElement
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyTheme = () => {
+      const resolvedTheme = appearance === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : appearance
+      root.dataset.resolvedTheme = resolvedTheme
+    }
+    root.dataset.appearance = appearance
+    localStorage.setItem('resumetrics-appearance', appearance)
+    applyTheme()
+    mediaQuery.addEventListener?.('change', applyTheme)
+    return () => mediaQuery.removeEventListener?.('change', applyTheme)
+  }, [appearance])
+
+  return <div className="panel section-panel settings-panel">
+    <span className="eyebrow">GENERAL SETTINGS</span>
+    <h2>Make the workspace yours.</h2>
+    <p className="muted">Manage your preferences and account basics.</p>
+    <div className="settings-list">
+      <div className="setting-row appearance-row">
+        <div className="setting-identity"><span className="setting-icon"><Icon name="appearance" size={17} /></span><span><b>Appearance</b><small>Light / Dark / System</small></span></div>
+        <div className="appearance-toggle" role="group" aria-label="Appearance">
+          <span className={`appearance-toggle-thumb ${appearance}`} aria-hidden="true" />
+          {[['light', 'appearance', 'Light'], ['dark', 'moon', 'Dark'], ['system', 'device', 'System']].map(([option, icon, label]) => <button className={appearance === option ? 'active' : ''} type="button" key={option} onClick={() => setAppearance(option)} aria-label={label} title={label} aria-pressed={appearance === option}><Icon name={icon} size={15} /></button>)}
+        </div>
+      </div>
+      {settings.map(([icon, title, description]) => <button className="setting-row setting-button" key={title} type="button" onClick={() => setNotice(`${title} settings will be available in a future update.`)}>
+        <span className="setting-identity"><span className="setting-icon"><Icon name={icon} size={17} /></span><span><b>{title}</b><small>{description}</small></span></span><span className="setting-chevron" aria-hidden="true">›</span>
+      </button>)}
+    </div>
+    {notice && <p className="settings-notice" role="status">{notice}</p>}
+  </div>
 }
 
 function FileIcon({ type }) {
@@ -448,6 +528,7 @@ function LegacyWorkspacePrototype() {
 
 function MainPage() {
   const navigate = useNavigate()
+  const { currentUser } = useAuth()
   const uploadInputRef = useRef(null)
   const editorRef = useRef(null)
   const selectionRef = useRef(null)
@@ -457,6 +538,11 @@ function MainPage() {
   const [analysisPreview, setAnalysisPreview] = useState(null)
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [connected, setConnected] = useState([])
+  const [githubConnection, setGithubConnection] = useState({ loading: true, connected: false })
+  const [githubConnecting, setGithubConnecting] = useState(false)
+  const [githubConnectionError, setGithubConnectionError] = useState('')
+  const [githubConnectionNotice, setGithubConnectionNotice] = useState('')
+  const [githubCompareError, setGithubCompareError] = useState('')
   const [workspaceMode, setWorkspaceMode] = useState('initial')
   const [resumeData, setResumeData] = useState(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState(null)
@@ -486,6 +572,149 @@ function MainPage() {
     ...(globalFontSize ? { fontSize: `${globalFontSize}px` } : {}),
     ...(useGlobalTextColor ? { '--resume-text-color': fontColor } : {})
   }
+  const resumeEvidenceSkills = getResumeEvidenceSkills(resumeData)
+  const hasConnectedEvidenceSource = githubConnection.connected || connected.length > 0
+  const hasImportedResumeSkills = Boolean(uploadedFileName) && resumeEvidenceSkills.length > 0
+  const hasWorkspaceResumeSkills = workspaceMode === 'editor-ready' && resumeEvidenceSkills.length > 0
+
+  useEffect(() => {
+    let isCurrent = true
+    const loadGitHubStatus = async () => {
+      if (!currentUser) {
+        if (isCurrent) setGithubConnection({ loading: false, connected: false })
+        return
+      }
+      try {
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch('/api/github/status', { headers: { Authorization: `Bearer ${idToken}` } })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'Could not check GitHub connection status.')
+        if (isCurrent) {
+          setGithubConnection({ loading: false, ...(payload.connection ?? { connected: false }) })
+          setGithubConnectionError('')
+        }
+      } catch (error) {
+        if (isCurrent) {
+          setGithubConnection({ loading: false, connected: false })
+          setGithubConnectionError(error instanceof TypeError ? 'GitHub service is not running. Start the app with npm run dev:all.' : error.message || 'Could not check GitHub connection status.')
+        }
+      }
+    }
+    loadGitHubStatus()
+    const refreshWhenFocused = () => loadGitHubStatus()
+    const refreshInterval = window.setInterval(loadGitHubStatus, 60_000)
+    window.addEventListener('focus', refreshWhenFocused)
+    return () => {
+      isCurrent = false
+      window.clearInterval(refreshInterval)
+      window.removeEventListener('focus', refreshWhenFocused)
+    }
+  }, [currentUser])
+
+  useEffect(() => {
+    const parameters = new URLSearchParams(window.location.search)
+    const result = parameters.get('github')
+    const installationId = parameters.get('installation_id')
+    const authorizationCode = parameters.get('code')
+    const authorizationState = parameters.get('state')
+    if (!result && !installationId && !authorizationCode) return
+
+    const restorePendingResume = () => {
+      try {
+        const snapshot = JSON.parse(sessionStorage.getItem(githubResumeSnapshotKey) || 'null')
+        if (snapshot?.resumeData && Date.now() - snapshot.savedAt <= githubResumeSnapshotMaxAge) {
+          setResumeData(snapshot.resumeData)
+          setResumeName(snapshot.resumeData.fullName || 'Untitled resume')
+          setSelectedTemplateId(snapshot.selectedTemplateId || null)
+          setUploadedFileName(snapshot.uploadedFileName || '')
+          setWorkspaceMode(snapshot.workspaceMode || 'extraction-review')
+        }
+      } catch {
+        // The connection itself should still succeed if browser storage is unavailable.
+      } finally {
+        sessionStorage.removeItem(githubResumeSnapshotKey)
+      }
+    }
+
+    const finishSetupInstallation = async () => {
+      if (!currentUser || !installationId) return
+      setGithubConnecting(true)
+      setGithubConnectionError('')
+      setGithubConnectionNotice('Finishing GitHub connection…')
+      try {
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch('/api/github/complete-installation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ installationId })
+        })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'GitHub could not be connected.')
+        setGithubConnection({ loading: false, ...(payload.connection ?? { connected: true }) })
+        setGithubConnectionNotice('GitHub connected successfully.')
+        restorePendingResume()
+      } catch (error) {
+        setGithubConnectionError(error instanceof TypeError ? 'GitHub service is not running. Start the app with npm run dev:all.' : error.message || 'GitHub could not be connected.')
+      } finally {
+        setGithubConnecting(false)
+        window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`)
+      }
+    }
+
+    const finishGitHubAuthorization = async () => {
+      if (!currentUser || !authorizationCode || !authorizationState) return
+      setGithubConnecting(true)
+      setGithubConnectionError('')
+      setGithubConnectionNotice('Finishing GitHub connection…')
+      try {
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch('/api/github/complete-authorization', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ code: authorizationCode, state: authorizationState, ...(installationId ? { installationId } : {}) })
+        })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'GitHub could not be connected.')
+        setGithubConnection({ loading: false, ...(payload.connection ?? { connected: true }) })
+        setGithubConnectionNotice('GitHub connected successfully.')
+        restorePendingResume()
+      } catch (error) {
+        setGithubConnectionError(error instanceof TypeError ? 'GitHub service is not running. Start the app with npm run dev:all.' : error.message || 'GitHub could not be connected.')
+      } finally {
+        setGithubConnecting(false)
+        window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`)
+      }
+    }
+
+    if (authorizationCode) {
+      if (authorizationState) finishGitHubAuthorization()
+      else {
+        setGithubConnectionError('GitHub returned an authorization response without a valid connection state. Start the connection again from Resumetrics.')
+        window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`)
+      }
+      return
+    }
+
+    if (installationId && (!result || result === 'installation-pending')) {
+      finishSetupInstallation()
+      return
+    }
+
+    const messages = {
+      connected: ['notice', 'GitHub connected successfully.'],
+      cancelled: ['error', 'GitHub connection was cancelled before installation finished.'],
+      'invalid-state': ['error', 'This GitHub connection link expired. Please try connecting again.'],
+      'configuration-error': ['error', 'GitHub connection needs server configuration before it can finish.'],
+      'storage-unavailable': ['error', 'GitHub could not be saved because Cloud Firestore is not enabled yet. Create a Cloud Firestore database, then reconnect GitHub.'],
+      'connection-failed': ['error', 'GitHub could not be connected. Check the app installation and try again.']
+    }
+    const [type, message] = messages[result] ?? ['error', 'GitHub connection could not be completed. Please try again.']
+    if (type === 'notice') {
+      setGithubConnectionNotice(message)
+      restorePendingResume()
+    } else setGithubConnectionError(message)
+    window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`)
+  }, [currentUser])
 
   const resetWorkspace = () => {
     setWorkspaceMode('initial')
@@ -500,6 +729,7 @@ function MainPage() {
     setHasSelection(false)
     setAnalysis(null)
     setAnalysisPreview(null)
+    setGithubCompareError('')
     setGlobalFontSize(null)
     setUseGlobalTextColor(false)
     setFooterText('')
@@ -562,6 +792,7 @@ function MainPage() {
     if (!file) return
 
     setWorkspaceError('')
+    setGithubCompareError('')
     setUploadedFileName(file.name)
     setWorkspaceMode('importing')
     try {
@@ -596,6 +827,7 @@ function MainPage() {
     setUploadedFileName('')
     setSelectedTemplateId(null)
     setWorkspaceError('')
+    setGithubCompareError('')
     setResumeName('Untitled resume')
     setWorkspaceMode('template-selection')
   }
@@ -608,6 +840,56 @@ function MainPage() {
   }
 
   const toggleSource = source => setConnected(current => current.includes(source) ? current.filter(item => item !== source) : [...current, source])
+  const startGitHubConnection = async () => {
+    if (!currentUser || githubConnecting || githubConnection.connected) return
+    setGithubConnecting(true)
+    setGithubConnectionError('')
+    setGithubConnectionNotice('')
+    try {
+      if (resumeData) {
+        sessionStorage.setItem(githubResumeSnapshotKey, JSON.stringify({
+          savedAt: Date.now(),
+          resumeData,
+          workspaceMode,
+          selectedTemplateId,
+          uploadedFileName
+        }))
+      }
+      const idToken = await currentUser.getIdToken()
+      const response = await fetch('/api/github/connect', { headers: { Authorization: `Bearer ${idToken}` } })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.ok || !payload.authorizationUrl) throw new Error(payload?.error || 'Could not start the GitHub connection.')
+      window.location.assign(payload.authorizationUrl)
+    } catch (error) {
+      setGithubConnectionError(error instanceof TypeError ? 'GitHub service is not running. Start the app with npm run dev:all.' : error.message || 'Could not start the GitHub connection.')
+      setGithubConnecting(false)
+    }
+  }
+
+  const compareEvidence = () => {
+    setGithubCompareError('')
+    if (!hasConnectedEvidenceSource) {
+      setGithubCompareError('Connect at least one evidence source before comparing skills.')
+      return
+    }
+    if (hasImportedResumeSkills) {
+      if (!githubConnection.connected) {
+        setGithubCompareError('GitHub is the only evidence source ready for comparison right now. Connect GitHub to continue.')
+        return
+      }
+    } else if (!hasWorkspaceResumeSkills) {
+      setGithubCompareError(uploadedFileName
+        ? 'Resume skills are still being extracted. Wait for extraction to finish before comparing evidence.'
+        : 'Create a resume in the workspace and add skills before comparing it against connected evidence.')
+      return
+    } else if (!githubConnection.connected) {
+      setGithubCompareError('GitHub is the only evidence source ready for comparison right now. Connect GitHub to continue.')
+      return
+    }
+    sessionStorage.setItem(githubComparisonRequestKey, JSON.stringify({ savedAt: Date.now(), resumeData }))
+    navigate('/evaluation?compare=github')
+  }
+
   const analyse = async () => {
     const jobDescription = description.trim()
     if (!jobDescription || !resumeData || analysisLoading) return
@@ -848,7 +1130,18 @@ function MainPage() {
         <section className="ai-panel panel"><div className="ai-heading"><div><span className="eyebrow">EDIT WITH AI</span><h2>Automate the draft.</h2><p className="muted">Describe a change and I will apply it, or ask for help improving the writing.</p></div><Icon name="spark" size={20} /></div><div className="assistant-body"><div className="ai-action-chips" aria-label="Suggested AI actions">{['Change name to Maya Patel', 'Add footer: Portfolio · maya.dev', 'Use Merriweather font', 'Set purple text', 'Improve summary'].map(prompt => <button key={prompt} type="button" onClick={() => setAssistantInput(prompt)}>{prompt}</button>)}</div><div className="assistant-messages" aria-live="polite">{assistantMessages.map((message, index) => <div className={`assistant-message ${message.role}`} key={`${message.role}-${index}`}>{message.text}</div>)}</div><form className="assistant-form automation-composer" onSubmit={askAssistant}><input value={assistantInput} maxLength="2000" disabled={aiTestLoading} onChange={event => setAssistantInput(event.target.value)} placeholder="Describe a change to your resume…" aria-label="Describe a resume change" /><button className="arrow-button" disabled={aiTestLoading} aria-label="Apply change" title="Apply change" type="submit">{aiTestLoading ? '…' : '→'}</button></form></div></section>
       </div>
     </div>
-    <section className="lower-grid"><div className="panel section-panel evidence-panel"><span className="eyebrow">EVIDENCE SOURCES</span><h2>Verify the work behind the words.</h2><p className="muted">Connect a source to surface credible proof for projects, skills, and outcomes.</p><div className="sources">{['GitHub', 'LinkedIn', 'LeetCode'].map(source => <div className="source" key={source}><div className="source-identity"><SourceIcon name={source} /><span><b>{source}</b><small>{connected.includes(source) ? 'Connected for review' : 'Available to connect'}</small></span></div><button className="text-button" onClick={() => toggleSource(source)}>{connected.includes(source) ? 'Connected' : 'Connect'}</button></div>)}</div><button className="quiet-button evidence-review-panel-button" onClick={() => navigate('/evaluation')}>View evidence review</button></div></section>
+    <section className="lower-grid"><div className="panel section-panel evidence-panel"><div className="evidence-panel-heading"><div><span className="eyebrow">EVIDENCE SOURCES</span><h2>Verify the work behind the words.</h2><p className="muted">Connect a source to surface credible proof for projects, skills, and outcomes.</p></div><button className="primary-button compare-evidence-button" type="button" disabled={!hasConnectedEvidenceSource} onClick={compareEvidence}>Compare</button></div><div className="sources">{['GitHub', 'LinkedIn', 'LeetCode'].map(source => {
+      const isGitHub = source === 'GitHub'
+      const sourceConnected = isGitHub ? githubConnection.connected : connected.includes(source)
+      const sourceDescription = isGitHub
+        ? githubConnection.loading
+          ? 'Checking connection…'
+          : githubConnection.connected
+            ? `Connected as @${githubConnection.githubLogin || 'GitHub user'}`
+            : githubConnection.message || githubConnectionError || 'Available to connect'
+        : connected.includes(source) ? 'Connected for review' : 'Available to connect'
+      return <div className="source" key={source}><div className="source-identity"><SourceIcon name={source} /><span><b>{source}</b><small className={isGitHub && githubConnectionError ? 'source-error' : ''}>{sourceDescription}</small></span></div><button className="text-button" disabled={isGitHub && (githubConnection.loading || githubConnecting || sourceConnected)} onClick={() => isGitHub ? startGitHubConnection() : toggleSource(source)}>{isGitHub && githubConnecting ? 'Connecting…' : sourceConnected ? 'Connected' : 'Connect'}</button></div>
+    })}</div>{githubConnectionNotice && <p className="source-notice" role="status">{githubConnectionNotice}</p>}{githubCompareError && <p className="source-error" role="alert">{githubCompareError}</p>}</div><GeneralSettingsPanel /></section>
   </Shell>
 }
 
@@ -863,7 +1156,75 @@ function CreatePage() {
 }
 
 function EvaluationPage() {
-  return <Shell><header className="page-header"><div><span className="eyebrow">EVIDENCE REVIEW</span><h1>Make each claim defensible.</h1></div></header><section className="evaluation-grid"><div className="panel section-panel"><h2>Evidence readiness</h2><div className="readiness"><strong>0%</strong><span>Connect a source or import a resume to begin scoring.</span></div></div><div className="panel section-panel"><h2>What we will assess</h2><ul><li>Skills supported by projects or outcomes</li><li>Experience claims with measurable impact</li><li>Job-description alignment beyond keywords</li></ul></div></section></Shell>
+  const navigate = useNavigate()
+  const { currentUser } = useAuth()
+  const [comparisonRequest] = useState(readQueuedGitHubComparison)
+  const [connection, setConnection] = useState({ loading: false, connected: false })
+  const [analysis, setAnalysis] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const comparisonStarted = useRef(false)
+  const resumeData = comparisonRequest?.resumeData ?? null
+  const resumeSkills = getResumeEvidenceSkills(resumeData)
+
+  const runComparison = useCallback(async () => {
+    if (!currentUser) return
+    if (!resumeData) {
+      setError('Return to the workspace, then choose Compare after creating or importing a resume.')
+      return
+    }
+    if (!resumeSkills.length) {
+      setError('This resume does not have extracted skills to compare yet. Return to the workspace and finish the resume first.')
+      return
+    }
+
+    setIsLoading(true)
+    setError('')
+    setAnalysis(null)
+    try {
+      const idToken = await currentUser.getIdToken()
+      const statusResponse = await fetch('/api/github/status', { headers: { Authorization: `Bearer ${idToken}` } })
+      const statusPayload = await statusResponse.json().catch(() => null)
+      if (!statusResponse.ok || !statusPayload?.ok) throw new Error(statusPayload?.error || 'Could not verify the GitHub connection.')
+      setConnection({ loading: false, ...(statusPayload.connection ?? { connected: false }) })
+      if (!statusPayload.connection?.connected) throw new Error('Connect GitHub in the workspace before starting an evidence comparison.')
+
+      const response = await fetch('/api/github/evidence-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ resumeData })
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.ok || !payload.analysis) throw new Error(payload?.error || 'Could not analyse GitHub evidence.')
+      setAnalysis(payload.analysis)
+    } catch (requestError) {
+      setError(requestError instanceof TypeError
+        ? 'GitHub evidence service is not running. Start the app with npm run dev:all.'
+        : requestError.message || 'Could not analyse GitHub evidence.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [currentUser, resumeData, resumeSkills.length])
+
+  useEffect(() => {
+    const parameters = new URLSearchParams(window.location.search)
+    if (parameters.get('compare') !== 'github' || comparisonStarted.current) return
+    comparisonStarted.current = true
+    navigate('/evaluation', { replace: true })
+    runComparison()
+  }, [navigate, runComparison])
+
+  return <Shell>
+    <header className="page-header">
+      <div><span className="eyebrow">EVIDENCE REVIEW</span><h1>Make each claim defensible.</h1></div>
+      <button className="quiet-button" type="button" onClick={() => navigate('/workspace')}>Back to workspace</button>
+    </header>
+    <section className="evaluation-grid">
+      <div className="panel section-panel"><h2>Comparison scope</h2><div className="readiness"><strong>{resumeSkills.length || '—'}</strong><span>{resumeSkills.length ? `Extracted resume skills queued for GitHub verification${connection.connected ? ` with @${connection.githubLogin || 'GitHub'}` : ''}.` : 'Use Compare from the workspace to bring your resume here.'}</span></div></div>
+      <div className="panel section-panel"><h2>What we assess</h2><ul><li>Skills supported by repositories, languages, and project files</li><li>Evidence that can be verified from accessible GitHub metadata</li><li>Gaps between the resume and the connected work</li></ul></div>
+    </section>
+    <GitHubEvidenceReview analysis={analysis} isLoading={isLoading} error={error} resumeSkills={resumeSkills} onRetry={runComparison} />
+  </Shell>
 }
 
 function App() {

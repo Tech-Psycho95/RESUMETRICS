@@ -16,14 +16,14 @@ const relatedResumeEvidence = {
   'ai-assisted development': ['github copilot', 'cursor']
 }
 
-function knownSkillsIn(text) {
+export function knownSkillsIn(text) {
   const source = String(text || '')
   const matched = skillDefinitions.filter(([, patterns]) => patterns.some(pattern => pattern.test(source))).map(([label]) => label)
   const matchedKeys = new Set(matched.map(skill => skill.toLocaleLowerCase()))
   return matched.filter(skill => !(skill === 'Testing' && (matchedKeys.has('automated testing') || matchedKeys.has('unit testing'))))
 }
 
-function explicitResumeSkills(resumeData) {
+export function explicitResumeSkills(resumeData) {
   const skills = Object.values(resumeData?.skills || {}).flat()
   const projectTech = (resumeData?.projects || []).flatMap(project => project?.techStack || [])
   const certificates = resumeData?.certifications || []

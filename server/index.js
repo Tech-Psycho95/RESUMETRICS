@@ -2,7 +2,9 @@ import cors from 'cors'
 import express from 'express'
 import { env } from './config/env.js'
 import aiRoutes from './routes/ai.routes.js'
+import githubRoutes from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
+import { initializeFirebaseAdmin } from './services/firebaseAdmin.js'
 
 const app = express()
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
@@ -38,7 +40,15 @@ app.use(cors({
 app.use(express.json({ limit: '256kb' }))
 
 app.use('/api/ai', aiRoutes)
+app.use('/api/github', githubRoutes)
 app.use('/api/resume', resumeRoutes)
+
+try {
+  initializeFirebaseAdmin()
+  console.log('Firebase Admin initialized for authenticated integrations.')
+} catch {
+  console.error('Firebase service account configuration is missing or invalid. GitHub endpoints will remain unavailable until it is configured.')
+}
 
 app.use((error, _request, response, _next) => {
   console.error('Unhandled server error:', error)
