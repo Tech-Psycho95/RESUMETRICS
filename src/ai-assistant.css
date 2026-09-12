@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Rammetto+One&display=swap');
+
 .ai-edit-minimal {
   display: grid;
   gap: 12px;
@@ -13,12 +15,58 @@
 
 .ai-edit-identity .eyebrow { display: block; }
 
+.ai-edit-name {
+  display: inline-block;
+  font-family: 'Rammetto One', sans-serif;
+  font-size: 1.3em;
+  font-weight: 400;
+  letter-spacing: .035em;
+  line-height: 1.05;
+  background: linear-gradient(105deg, #5c4bc2 0%, #a9a0f4 23%, #ffffff 39%, #6a59d4 53%, #d6d1ff 73%, #5140b5 100%);
+  background-size: 230% 100%;
+  background-position: 0% 50%;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 14px rgba(104, 85, 203, .18);
+  animation: nimbus-metal-shine 5.2s ease-in-out infinite;
+}
+
+@keyframes nimbus-metal-shine {
+  0% { background-position: 0% 50%; }
+  30.77% { background-position: 100% 50%; }
+  50% { background-position: 100% 50%; }
+  80.77% { background-position: 0% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .ai-edit-sparkle {
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
   color: #6855cb;
   fill: currentColor;
+}
+
+.ai-edit-lock {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #7b8495;
+  background: #edf0f5;
+}
+
+.ai-edit-lock svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .ai-edit-stage {
@@ -30,22 +78,20 @@
 }
 
 .ai-edit-animation {
-  width: 92px;
+  width: 156px;
   aspect-ratio: 1;
   display: grid;
   justify-self: center;
   place-items: center;
-  overflow: hidden;
-  border-radius: 18px;
-  background: radial-gradient(circle at 50% 48%, #f0edff 0%, #faf9ff 60%, #fff 100%);
-  box-shadow: inset 0 0 0 1px #ebe8fa;
+  overflow: visible;
+  background: transparent;
 }
 
-.ai-edit-animation video {
+.bloub-ai-icon {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  overflow: visible;
 }
 
 .ai-edit-composer {
@@ -99,6 +145,10 @@
 .ai-edit-composer textarea::placeholder { color: #8993a5; }
 .ai-edit-composer textarea:disabled { cursor: wait; opacity: .72; }
 
+.ai-edit-minimal.is-locked .ai-edit-animation { opacity: .48; filter: grayscale(.2); }
+.ai-edit-minimal.is-locked .ai-edit-composer { background: #f7f8fb; }
+.ai-edit-minimal.is-locked .ai-edit-composer textarea:disabled { cursor: not-allowed; }
+
 .ai-edit-send {
   width: 32px;
   height: 32px;
@@ -129,15 +179,29 @@
 .ai-edit-feedback.success { color: #287657; }
 .ai-edit-feedback.error { color: #ae5146; }
 
+.ai-edit-lock-message {
+  margin: 0;
+  color: #7b8495;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 [data-resolved-theme="dark"] .app-shell .ai-edit-minimal { border-color: #303a52; background: #1a2336; }
-[data-resolved-theme="dark"] .app-shell .ai-edit-animation { background: radial-gradient(circle at 50% 48%, #24234e 0%, #192338 64%, #1a2336 100%); box-shadow: inset 0 0 0 1px #333d59; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-composer { border-color: #3b4761; background: #121a2b; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-composer textarea { color: #edf1ff; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-composer textarea::placeholder { color: #aab5ca; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-feedback { color: #aab5ca; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-feedback.success { color: #78c29d; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-feedback.error { color: #f19a8f; }
+[data-resolved-theme="dark"] .app-shell .ai-edit-name { text-shadow: 0 0 14px rgba(179, 167, 255, .22); }
+[data-resolved-theme="dark"] .app-shell .ai-edit-lock { color: #c4c9d7; background: #303b51; }
+[data-resolved-theme="dark"] .app-shell .ai-edit-minimal.is-locked .ai-edit-composer { background: #172033; }
+[data-resolved-theme="dark"] .app-shell .ai-edit-lock-message { color: #aab5ca; }
 
 @media (max-width: 740px) {
-  .ai-edit-animation { width: 78px; border-radius: 15px; }
+  .ai-edit-animation { width: 132px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloub-ai-icon, .ai-edit-name { animation: none; }
 }
