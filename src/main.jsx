@@ -26,6 +26,8 @@ import AIAssistantEditor from './components/AIAssistantEditor.jsx'
 import { resumeTemplates } from './config/resumeTemplates.js'
 import { createBlankResumeData } from './data/resumeData.js'
 import { applyResumeEditPlan } from './utils/applyResumeEditPlan.js'
+import { extractResumeDocument } from './utils/extractResumeDocument.js'
+import useAIAnimationState, { EXCLAIM_MS, MIN_PROCESSING_MS, MIN_THINKING_MS, SUCCESS_MS } from './hooks/useAIAnimationState.js'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -343,15 +345,21 @@ function ImportedDocument({ file, fontSize, fontColor, fontFamily = fontFamilies
   const [copyHtml, setCopyHtml] = useState('<p>Preparing editable copy…</p>')
   const [status, setStatus] = useState('Preparing document…')
   const editorRef = useRef(null)
-  const isDocx = file.name.toLowerCase().endsWith('.docx') || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   useEffect(() => {
     let active = true
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-    setStatus(isPdf ? 'Reading PDF document…' : isDocx ? 'Reading Word document…' : 'Unsupported Word format')
-    const read = isPdf ? readPdfCopy(file) : isDocx ? readDocxCopy(file) : Promise.reject(new Error('Legacy Word format'))
-    read.then(html => { if (active) { setCopyHtml(html); setStatus(isPdf ? 'Editable PDF copy ready' : 'Editable Word copy ready') } }).catch(() => { if (active) { const message = isPdf ? `<h2>Editable copy of ${escapeHtml(file.name)}</h2><p>Text extraction was not available for this PDF, but you can type or paste the resume content into this editable copy.</p>` : isDocx ? '<p>This Word document could not be parsed in the browser. Try saving it as DOCX and import again.</p>' : `<h2>${escapeHtml(file.name)}</h2><p>Legacy Word files are not directly readable in the browser. Save the document as DOCX for an editable copy.</p>`; setCopyHtml(message); setStatus(isPdf ? 'Edit manually' : isDocx ? 'Needs a DOCX file' : 'Save as DOCX to edit') } })
+    setStatus('Reading the complete document…')
+    extractResumeDocument(file).then(document => {
+      if (!active) return
+      const html = document.pages.map(page => `<section><p><strong>Page ${page.pageNumber}</strong></p>${page.text.split('\n').filter(Boolean).map(line => `<p>${escapeHtml(line)}</p>`).join('')}</section>`).join('')
+      setCopyHtml(html || '<p>This document does not contain readable text.</p>')
+      setStatus(document.metadata.isCompleteParse ? `Read all ${document.metadata.totalPages || 1} page${document.metadata.totalPages === 1 ? '' : 's'}` : `Read with warnings: ${document.metadata.warnings.join(' ')}`)
+    }).catch(error => {
+      if (!active) return
+      setCopyHtml(`<h2>Editable copy of ${escapeHtml(file.name)}</h2><p>${escapeHtml(error.message || 'This document could not be read. Please use a text-based PDF, DOCX, or TXT file.')}</p>`)
+      setStatus('Document needs a readable text source')
+    })
     return () => { active = false }
-  }, [file, isDocx])
+  }, [file])
   useEffect(() => { onEditorReady?.(editorRef.current) }, [onEditorReady, copyHtml])
   return <div className="imported-document"><div className="imported-document-grid"><div ref={editorRef} className={`editable-copy document-page editor-mode-${activeTool}`} contentEditable role="textbox" aria-multiline="true" aria-label={`Editable copy of ${file.name}`} spellCheck suppressContentEditableWarning style={{ fontSize: `${fontSize}px`, color: fontColor, fontFamily }} dangerouslySetInnerHTML={{ __html: copyHtml }} /></div><span className="editor-status" aria-live="polite">{status}</span></div>
 }
@@ -547,6 +555,7 @@ function MainPage() {
   const [resumeData, setResumeData] = useState(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState(null)
   const [uploadedFileName, setUploadedFileName] = useState('')
+  const [parseMetadata, setParseMetadata] = useState(null)
   const [workspaceError, setWorkspaceError] = useState('')
   const [resumeName, setResumeName] = useState('Untitled resume')
   const [editingName, setEditingName] = useState(false)
@@ -562,6 +571,7 @@ function MainPage() {
   const [assistantInput, setAssistantInput] = useState('')
   const [assistantFeedback, setAssistantFeedback] = useState(null)
   const [aiTestLoading, setAiTestLoading] = useState(false)
+  const { taskState: assistantAnimationState, beginRun: beginAssistantRun, isCurrentRun: isCurrentAssistantRun, setRunState: setAssistantRunState, finishRun: finishAssistantRun, cancelRun: cancelAssistantRun, wait: waitForAssistantAnimation } = useAIAnimationState()
   const selectedTemplate = resumeTemplates.find(template => template.id === selectedTemplateId)
   const TemplateComponent = selectedTemplate?.component
   const isEditorReady = workspaceMode === 'editor-ready' && Boolean(TemplateComponent) && Boolean(resumeData)
@@ -629,6 +639,7 @@ function MainPage() {
           setResumeName(snapshot.resumeData.fullName || 'Untitled resume')
           setSelectedTemplateId(snapshot.selectedTemplateId || null)
           setUploadedFileName(snapshot.uploadedFileName || '')
+          setParseMetadata(snapshot.parseMetadata || null)
           setWorkspaceMode(snapshot.workspaceMode || 'extraction-review')
         }
       } catch {
@@ -723,6 +734,7 @@ function MainPage() {
     setResumeData(null)
     setSelectedTemplateId(null)
     setUploadedFileName('')
+    setParseMetadata(null)
     setWorkspaceError('')
     setDescription('')
     setResumeName('Untitled resume')
@@ -736,6 +748,8 @@ function MainPage() {
     setFooterText('')
     setAssistantInput('')
     setAssistantFeedback(null)
+    setAiTestLoading(false)
+    cancelAssistantRun()
     editorRef.current = null
   }
 
@@ -807,15 +821,16 @@ function MainPage() {
     setWorkspaceError('')
     setGithubCompareError('')
     setUploadedFileName(file.name)
+    setParseMetadata(null)
     setWorkspaceMode('importing')
     try {
-      const resumeText = await extractResumeText(file)
-      if (!resumeText) throw new Error('Could not read this file. Try a text-based PDF, DOCX, or TXT file.')
+      const extractedDocument = await extractResumeDocument(file)
+      if (!extractedDocument.rawText) throw new Error('Could not read this file. Try a text-based PDF, DOCX, or TXT file.')
       setWorkspaceMode('extracting')
       const response = await fetch('/api/resume/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeText })
+        body: JSON.stringify({ document: { pages: extractedDocument.pages, metadata: extractedDocument.metadata } })
       })
       const isJson = response.headers.get('content-type')?.includes('application/json')
       if (!isJson) {
@@ -824,6 +839,7 @@ function MainPage() {
       const payload = await response.json()
       if (!response.ok || !payload.ok || !payload.resumeData) throw new Error(payload.error || 'Could not extract this resume. Try again.')
       setResumeData(payload.resumeData)
+      setParseMetadata(payload.metadata ?? extractedDocument.metadata)
       setResumeName(payload.resumeData.fullName || 'Untitled resume')
       setWorkspaceMode('extraction-review')
     } catch (error) {
@@ -865,7 +881,8 @@ function MainPage() {
           resumeData,
           workspaceMode,
           selectedTemplateId,
-          uploadedFileName
+          uploadedFileName,
+          parseMetadata
         }))
       }
       const idToken = await currentUser.getIdToken()
@@ -1004,6 +1021,13 @@ function MainPage() {
         appearance: document.documentElement.dataset.appearance || 'system',
         resolvedTheme: document.documentElement.dataset.resolvedTheme || 'light'
       },
+      sourceDocument: parseMetadata ? {
+        fileName: parseMetadata.fileName || uploadedFileName,
+        fileType: parseMetadata.fileType || '',
+        totalPages: parseMetadata.totalPages ?? null,
+        pagesProcessed: parseMetadata.pagesProcessed ?? null,
+        isCompleteParse: parseMetadata.isCompleteParse === true
+      } : null,
       editor: { activeTool, activeSection, activeField, activeItemIndex: activeItemIndex >= 0 ? activeItemIndex : null, selectedText },
       sectionOrder: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements'],
       itemReferences: {
@@ -1020,34 +1044,53 @@ function MainPage() {
     if (aiTestLoading) return
     if (!message) {
       showAssistantError('Describe a change before sending it to AI.')
+      const runId = beginAssistantRun('exclaim')
+      waitForAssistantAnimation(EXCLAIM_MS).then(() => finishAssistantRun(runId))
       requestAnimationFrame(() => assistantInputRef.current?.focus())
       return
     }
     if (!isEditorReady || !resumeData) {
       showAssistantError('Open or create a resume first, then I can apply changes to it.')
+      const runId = beginAssistantRun('exclaim')
+      waitForAssistantAnimation(EXCLAIM_MS).then(() => finishAssistantRun(runId))
       return
     }
+
+    const runId = beginAssistantRun('thinking')
     setAssistantFeedback({ tone: 'info', text: 'Understanding your request…' })
     setAiTestLoading(true)
 
     try {
-      const response = await fetch('/api/resume/edit', {
+      const planningRequest = fetch('/api/resume/edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instruction: message, workspaceContext: getAssistantWorkspaceContext() })
-      })
-      const payload = await response.json().catch(() => null)
-      if (!response.ok || !payload?.ok || !payload.plan) throw new Error(payload?.error || 'AI edit planning failed.')
+      }).then(async response => {
+        const payload = await response.json().catch(() => null)
+        if (!response.ok || !payload?.ok || !payload.plan) throw new Error(payload?.error || 'AI edit planning failed.')
+        return payload
+      }).then(payload => ({ payload, error: null }), error => ({ payload: null, error }))
+
+      await waitForAssistantAnimation(MIN_THINKING_MS)
+      if (!isCurrentAssistantRun(runId)) return
+      const { payload, error: planningError } = await planningRequest
+      if (planningError) throw planningError
 
       if (payload.plan.status !== 'ready') {
         if (payload.plan.status === 'no_changes') {
           setAssistantInput('')
           assistantInputRef.current?.blur()
           setAssistantFeedback({ tone: 'info', text: payload.plan.message })
-        } else showAssistantError(payload.plan.message)
+        } else {
+          showAssistantError(payload.plan.message)
+        }
+        setAssistantRunState(runId, 'exclaim')
+        await waitForAssistantAnimation(EXCLAIM_MS)
+        finishAssistantRun(runId)
         return
       }
 
+      setAssistantRunState(runId, 'processing')
       setAssistantFeedback({ tone: 'info', text: 'Applying changes…' })
       const result = applyResumeEditPlan({ resumeData, plan: payload.plan })
       setResumeData(result.resumeData)
@@ -1062,13 +1105,23 @@ function MainPage() {
         setFontColor(result.styleUpdates.textColor || '#172033')
       }
       if (result.footerUpdate !== undefined) setFooterText(result.footerUpdate)
+
+      await waitForAssistantAnimation(MIN_PROCESSING_MS)
+      if (!isCurrentAssistantRun(runId)) return
       setAssistantInput('')
       assistantInputRef.current?.blur()
-      setAssistantFeedback({ tone: 'success', text: result.plan.message })
+      setAssistantFeedback({ tone: 'success', text: 'Updated your resume.' })
+      setAssistantRunState(runId, 'success')
+      await waitForAssistantAnimation(SUCCESS_MS)
+      finishAssistantRun(runId)
     } catch (error) {
-      showAssistantError(error.message || 'AI backend request failed.')
+      if (!isCurrentAssistantRun(runId)) return
+      showAssistantError(error.message || 'I could not apply that change.')
+      setAssistantRunState(runId, 'exclaim')
+      await waitForAssistantAnimation(EXCLAIM_MS)
+      finishAssistantRun(runId)
     } finally {
-      setAiTestLoading(false)
+      if (isCurrentAssistantRun(runId)) setAiTestLoading(false)
     }
   }
 
@@ -1104,7 +1157,7 @@ function MainPage() {
         {workspaceMode === 'initial' && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onCreate={startCreate} />}
         {workspaceMode === 'importing' && <div className="flow-loading"><div className="flow-spinner" /><h2>Reading your resume…</h2><p>Preparing a separate copy for AI extraction.</p></div>}
         {workspaceMode === 'extracting' && <div className="flow-loading"><div className="flow-spinner" /><h2>Extracting resume details with AI…</h2><p>Identifying only the information present in your source file.</p></div>}
-        {workspaceMode === 'extraction-review' && resumeData && <ResumeExtractionReview resumeData={resumeData} uploadedFileName={uploadedFileName} onContinue={() => setWorkspaceMode('template-selection')} onStartOver={resetWorkspace} />}
+        {workspaceMode === 'extraction-review' && resumeData && <ResumeExtractionReview resumeData={resumeData} uploadedFileName={uploadedFileName} parseMetadata={parseMetadata} onContinue={() => setWorkspaceMode('template-selection')} onStartOver={resetWorkspace} />}
         {workspaceMode === 'template-selection' && <ResumeTemplateSelector templates={resumeTemplates} resumeData={resumeData} selectedTemplateId={selectedTemplateId} onSelect={chooseTemplate} onBack={() => uploadedFileName ? setWorkspaceMode('extraction-review') : resetWorkspace()} isImported={Boolean(uploadedFileName)} />}
         {workspaceMode === 'error' && <div className="flow-error"><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="secondary-button" onClick={resetWorkspace}>Start over</button><button className="primary-button" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
         {isEditorReady && <TemplateComponent resumeData={resumeData} editorRef={editorReady} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} />}
@@ -1134,8 +1187,14 @@ function MainPage() {
           inputRef={assistantInputRef}
           value={assistantInput}
           busy={aiTestLoading}
+          isAvailable={isEditorReady}
           feedback={assistantFeedback}
-          onChange={event => { setAssistantInput(event.target.value); if (assistantFeedback) setAssistantFeedback(null) }}
+          animationState={assistantAnimationState}
+          onChange={event => {
+            setAssistantInput(event.target.value)
+            if (assistantFeedback) setAssistantFeedback(null)
+            if (!aiTestLoading && assistantAnimationState) cancelAssistantRun()
+          }}
           onSubmit={askAssistant}
         />
       </div>

@@ -35,9 +35,9 @@ app.use(cors({
     return callback(new Error('Origin is not allowed by CORS.'))
   }
 }))
-// Resume text is extracted in the browser and can be larger than a short chat
-// message. Keep the transport limit above the route's 60,000-character guard.
-app.use(express.json({ limit: '256kb' }))
+// Resume source pages are extracted in the browser and sent with page metadata.
+// The route chunks long text for AI processing; this limit only protects transport.
+app.use(express.json({ limit: '2mb' }))
 
 app.use('/api/ai', aiRoutes)
 app.use('/api/github', githubRoutes)
@@ -53,7 +53,7 @@ try {
 app.use((error, _request, response, _next) => {
   console.error('Unhandled server error:', error)
   if (error?.type === 'entity.too.large') {
-    return response.status(413).json({ ok: false, error: 'This resume contains too much text to process. Please upload a shorter resume.' })
+    return response.status(413).json({ ok: false, error: 'This document is too large to send safely. Split it into smaller files and try again.' })
   }
   response.status(500).json({ ok: false, error: 'The server could not process this request.' })
 })

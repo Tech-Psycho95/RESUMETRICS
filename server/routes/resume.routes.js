@@ -1,14 +1,13 @@
 import { Router } from 'express'
 import { AIConfigurationError } from '../config/env.js'
-import { analyzeResumeAgainstRole, extractStructuredResumeData } from '../services/resumeAI.js'
-import { extractResumeDataFallback } from '../services/resumeFallback.js'
+import { analyzeResumeAgainstRole } from '../services/resumeAI.js'
 import { normalizeResumeData } from '../services/resumeData.js'
+import { extractCompleteResumeDocument, extractSourceFallbackDocument, MAX_DOCUMENT_CHARACTERS, normalizeResumeDocument } from '../services/resumeExtraction.js'
 import { buildSkillAwareRoleAnalysis } from '../../shared/roleAnalysis.js'
 import { ResumeEditPlanError } from '../../shared/resumeEditPlan.js'
 import { createResumeEditPlan } from '../services/resumeEdit.js'
 
 const router = Router()
-const MAX_RESUME_TEXT_LENGTH = 60_000
 const MAX_JOB_DESCRIPTION_LENGTH = 12_000
 const MAX_EDIT_INSTRUCTION_LENGTH = 4_000
 
@@ -17,24 +16,25 @@ function configurationError(response) {
 }
 
 router.post('/extract', async (request, response) => {
-  const { resumeText } = request.body ?? {}
+  const { document, resumeText } = request.body ?? {}
+  const sourceDocument = normalizeResumeDocument(document ?? { resumeText })
 
-  if (typeof resumeText !== 'string' || !resumeText.trim()) {
-    return response.status(400).json({ ok: false, error: 'resumeText must be a non-empty string.' })
+  if (!sourceDocument.rawText) {
+    return response.status(400).json({ ok: false, error: 'A document with readable text must be provided.' })
   }
 
-  if (resumeText.length > MAX_RESUME_TEXT_LENGTH) {
-    return response.status(400).json({ ok: false, error: `resumeText must be ${MAX_RESUME_TEXT_LENGTH.toLocaleString()} characters or fewer.` })
+  if (sourceDocument.rawText.length > MAX_DOCUMENT_CHARACTERS) {
+    return response.status(400).json({ ok: false, error: `This document contains more than ${MAX_DOCUMENT_CHARACTERS.toLocaleString()} readable characters. Split it into smaller files and try again.` })
   }
 
   try {
-    const resumeData = await extractStructuredResumeData(resumeText)
-    return response.json({ ok: true, resumeData, extractionMethod: 'ai' })
+    const result = await extractCompleteResumeDocument(sourceDocument)
+    return response.json({ ok: true, ...result })
   } catch (error) {
     console.error('Resume extraction failed:', error)
     if (error instanceof AIConfigurationError) return configurationError(response)
-    const resumeData = extractResumeDataFallback(resumeText)
-    return response.json({ ok: true, resumeData, extractionMethod: 'source-fallback' })
+    const result = extractSourceFallbackDocument(sourceDocument)
+    return response.json({ ok: true, ...result })
   }
 })
 
