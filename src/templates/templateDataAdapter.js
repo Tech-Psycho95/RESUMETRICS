@@ -3,6 +3,12 @@ const asArray = value => Array.isArray(value) ? value : []
 const clean = value => String(value ?? '').trim()
 
 const unique = values => [...new Set(values.map(clean).filter(Boolean))]
+const linkHref = value => {
+  const url = clean(value)
+  if (/^https?:\/\//i.test(url)) return url
+  if (/^[a-z][a-z\d+.-]*:/i.test(url) || !url) return undefined
+  return `https://${url}`
+}
 
 /**
  * Presentation-only adapter between Resumetrics' normalized resume data and a
@@ -26,7 +32,7 @@ export function adaptResumeForTemplate(resumeData = {}) {
       { path: 'email', value: clean(resumeData.email), kind: 'email' },
       { path: 'phone', value: clean(resumeData.phone), kind: 'phone' },
       { path: 'location', value: clean(resumeData.location), kind: 'location' },
-      ...links.map(link => ({ path: `links.${link.index}.url`, value: link.url || link.label, kind: 'link', href: link.url, label: link.label }))
+      ...links.map(link => ({ path: `links.${link.index}.url`, value: link.url || link.label, kind: 'link', href: linkHref(link.url), label: link.label }))
     ].filter(item => item.value),
     links,
     skillsByCategory,

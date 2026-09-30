@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { templatePreviewResumeData } from '../data/templatePreviewData.js'
+import { resolveResumePresentation } from '../config/resumeTemplates.js'
 
 const isTypingTarget = element => ['INPUT', 'TEXTAREA', 'SELECT'].includes(element?.tagName) || element?.isContentEditable
 const TEMPLATE_SWITCH_MS = 170
@@ -45,28 +46,25 @@ export default function ResumeTemplateSelector({ templates, selectedTemplateId, 
   const isSelected = selectedTemplateId === activeTemplate.id
   return <section className="resume-template-selector template-carousel" aria-label="Choose a resume template">
     <div className="workspace-state-heading template-selector-heading">
-      <div><span className="eyebrow">RESUME TEMPLATES</span><h2>Choose your template.</h2><p>{isImported ? `Your original file remains unchanged. Preview all ${templates.length} structures with a compact John Doe sample before creating an editable draft.` : `Preview all ${templates.length} professional structures with a compact John Doe sample, then continue with your own information.`}</p></div>
+      <div><span className="eyebrow">RESUME TEMPLATES</span><h2>Choose your template.</h2><p>{isImported ? `Your original file remains unchanged. Preview all ${templates.length} structures with a John Doe sample before creating an editable draft.` : `Preview all ${templates.length} professional structures with a John Doe sample, then continue with your own information.`}</p></div>
       <button className="text-button" onClick={onBack}>Back</button>
     </div>
 
     <div className="template-carousel-meta" aria-live="polite">
-      <span className="template-category">{activeTemplate.category}</span>
       <h3>{activeTemplate.name}</h3>
       <p>{activeTemplate.description}</p>
-      {activeTemplate.atsFriendly && <span className="ats-friendly-badge">ATS Friendly</span>}
     </div>
 
     <div className="template-carousel-stage">
       <button className="template-carousel-arrow previous" type="button" disabled={isSwitching} onClick={() => move(-1)} aria-label={`Show previous template, ${templates[(activeIndex - 1 + count) % count].name}`}>‹</button>
       <div className={`template-carousel-paper${isSwitching ? ' is-exiting' : ''}`} key={activeTemplate.id}>
         <PreviewComponent
-          // Keep previews deterministic and bounded. The uploaded resume is
-          // only applied after the user selects a template in the editor.
+          // Keep the selector as a clean template preview with its sample portrait.
           resumeData={templatePreviewResumeData}
           editorStyle={editorStyle}
           useGlobalTextColor={useGlobalTextColor}
           footerText={footerText}
-          presentation={{ ...activeTemplate.defaultTheme, ...presentation, photo: templatePreviewResumeData.photo }}
+          presentation={{ ...resolveResumePresentation(activeTemplate, presentation), photo: activeTemplate.supportsPhoto ? activeTemplate.defaultTheme.photo : undefined }}
           preview
           editorRef={previewRef}
         />
