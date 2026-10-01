@@ -1,9 +1,14 @@
+import { createHash } from 'node:crypto'
+import { env } from '../config/env.js'
 import { extractStructuredResumeData } from './resumeAI.js'
 import { extractResumeDataFallback } from './resumeFallback.js'
-import { createEmptyResumeData, normalizeResumeData } from './resumeData.js'
+import { attachDocumentLinks, classifyResumeData, createEmptyResumeData, normalizeResumeData } from './resumeData.js'
 
 export const MAX_DOCUMENT_CHARACTERS = 900_000
-export const MAX_EXTRACTION_CHUNK_CHARACTERS = 12_000
+export const MAX_EXTRACTION_CHUNK_CHARACTERS = 24_000
+const EXTRACTION_CACHE_LIMIT = 40
+// Identical documents return the identical result for as long as the server runs.
+const extractionCache = new Map()
 
 const basicFields = ['fullName', 'headline', 'email', 'phone', 'location', 'summary']
 
@@ -42,10 +47,15 @@ export function normalizeResumeDocument(value) {
     ...(unreadablePages.length ? [`No readable source text was available on page${unreadablePages.length === 1 ? '' : 's'} ${unreadablePages.join(', ')}.`] : [])
   ])
   const errors = uniqueStrings(Array.isArray(metadata.errors) ? metadata.errors : [])
+  const links = (Array.isArray(source.links) ? source.links : [])
+    .filter(link => link && typeof link === 'object' && /^(https?:|mailto:|tel:)/i.test(asString(link.url).trim()))
+    .slice(0, 60)
+    .map(link => ({ url: asString(link.url).trim().slice(0, 2048), text: cleanText(link.text).slice(0, 160), pageNumber: asPositiveInteger(link.pageNumber) }))
 
   return {
     rawText,
     pages,
+    links,
     metadata: {
       fileName: cleanText(metadata.fileName),
       fileType: cleanText(metadata.fileType) || 'txt',
@@ -134,19 +144,33 @@ function chunkPageText(text, maxCharacters) {
   return chunks
 }
 
+// Pages are packed together so a normal resume is read in one request with its full context.
+// Only a document longer than the limit is split, and only at page or paragraph boundaries.
 export function buildResumeExtractionChunks(document, maxCharacters = MAX_EXTRACTION_CHUNK_CHARACTERS) {
   const chrome = repeatedPageChrome(document.pages)
   const chunks = []
-  for (const page of document.pages) {
-    const text = removeRepeatedPageChrome(page, chrome)
-    for (const chunkText of chunkPageText(text, maxCharacters)) {
-      chunks.push({
-        id: `chunk-${chunks.length + 1}`,
-        pageNumbers: [page.pageNumber],
-        text: chunkText
-      })
-    }
+  let current = null
+
+  const pushCurrent = () => {
+    if (current?.text) chunks.push({ id: `chunk-${chunks.length + 1}`, pageNumbers: current.pageNumbers, text: current.text })
+    current = null
   }
+
+  for (const page of document.pages) {
+    const pageText = removeRepeatedPageChrome(page, chrome)
+    if (!pageText) continue
+    const labelled = document.pages.length > 1 ? `[Page ${page.pageNumber}]\n${pageText}` : pageText
+    if (labelled.length > maxCharacters) {
+      pushCurrent()
+      for (const chunkText of chunkPageText(pageText, maxCharacters)) chunks.push({ id: `chunk-${chunks.length + 1}`, pageNumbers: [page.pageNumber], text: chunkText })
+      continue
+    }
+    if (current && current.text.length + labelled.length + 2 > maxCharacters) pushCurrent()
+    current = current
+      ? { pageNumbers: [...current.pageNumbers, page.pageNumber], text: `${current.text}\n\n${labelled}` }
+      : { pageNumbers: [page.pageNumber], text: labelled }
+  }
+  pushCurrent()
   return chunks
 }
 
@@ -226,7 +250,9 @@ export function getExtractedSections(resumeData) {
     ['education', resumeData.education],
     ['skills', Object.values(resumeData.skills).flat()],
     ['certifications', resumeData.certifications],
-    ['achievements', resumeData.achievements]
+    ['achievements', resumeData.achievements],
+    ['languages', resumeData.languages],
+    ['customSections', resumeData.customSections]
   ].filter(([, value]) => fieldHasValue(value)).map(([section]) => section)
 }
 
@@ -244,10 +270,19 @@ export function mergePartialResumeData(partials) {
     mergeEducation(merged.education, data.education)
     merged.certifications = uniqueStrings([...merged.certifications, ...data.certifications])
     merged.achievements = uniqueStrings([...merged.achievements, ...data.achievements])
+    merged.languages = uniqueStrings([...merged.languages, ...data.languages])
+    merged.customSections = [...merged.customSections, ...data.customSections]
     merged.confidenceNotes = uniqueStrings([...merged.confidenceNotes, ...data.confidenceNotes])
   }
-  merged.missingFields = missingFieldsFor(merged)
-  return normalizeResumeData(merged)
+  const classified = classifyResumeData(normalizeResumeData(merged), { keepUnlinkedLabels: true })
+  classified.missingFields = missingFieldsFor(classified)
+  return classified
+}
+
+function withDocumentLinks(resumeData, documentLinks) {
+  const linked = classifyResumeData(attachDocumentLinks(resumeData, documentLinks))
+  linked.missingFields = missingFieldsFor(linked)
+  return linked
 }
 
 function hasStructuredContent(resumeData) {
@@ -292,6 +327,10 @@ export async function extractCompleteResumeDocument(sourceDocument) {
   const chunks = buildResumeExtractionChunks(document)
   if (!chunks.length) throw new Error('No readable document sections were available for extraction.')
 
+  const cacheKey = createHash('sha256').update(`${env.ai.defaultModel}\n${chunks.map(chunk => chunk.text).join('\n\u0000\n')}\n${JSON.stringify(document.links)}`).digest('hex')
+  const cached = extractionCache.get(cacheKey)
+  if (cached) return structuredClone(cached)
+
   const successfulChunks = []
   const failedChunks = []
   const partials = []
@@ -307,7 +346,8 @@ export async function extractCompleteResumeDocument(sourceDocument) {
       successfulChunks.push(chunk)
       partials.push(resumeData)
     } catch (error) {
-      failedChunks.push({ ...chunk, error: 'AI parsing failed for this document chunk.', cause: error })
+      console.error(`Resume extraction failed for pages ${chunk.pageNumbers.join(', ')}:`, error?.status ?? '', error?.message ?? error)
+      failedChunks.push({ ...chunk, error: `The AI could not read page${chunk.pageNumbers.length === 1 ? '' : 's'} ${chunk.pageNumbers.join(', ')}.`, cause: error })
     }
   }
 
@@ -315,15 +355,21 @@ export async function extractCompleteResumeDocument(sourceDocument) {
     throw failedChunks[0]?.cause ?? new Error('The AI could not extract resume details from this document.')
   }
 
-  const resumeData = mergePartialResumeData(partials)
+  const resumeData = withDocumentLinks(mergePartialResumeData(partials), document.links)
   const metadata = createMetadata(document, { chunks, successfulChunks, failedChunks, extractionMethod: 'ai' })
   metadata.extractedSections = getExtractedSections(resumeData)
-  return { resumeData, metadata, extractionMethod: failedChunks.length ? 'ai-partial' : 'ai' }
+  const result = { resumeData, metadata, extractionMethod: failedChunks.length ? 'ai-partial' : 'ai' }
+  // Only complete reads are remembered, so a partial result is retried on the next upload.
+  if (!failedChunks.length) {
+    extractionCache.set(cacheKey, structuredClone(result))
+    if (extractionCache.size > EXTRACTION_CACHE_LIMIT) extractionCache.delete(extractionCache.keys().next().value)
+  }
+  return result
 }
 
 export function extractSourceFallbackDocument(sourceDocument) {
   const document = normalizeResumeDocument(sourceDocument)
-  const resumeData = extractResumeDataFallback(document.rawText)
+  const resumeData = withDocumentLinks(normalizeResumeData(extractResumeDataFallback(document.rawText)), document.links)
   const chunks = buildResumeExtractionChunks(document)
   const metadata = createMetadata(document, {
     chunks,

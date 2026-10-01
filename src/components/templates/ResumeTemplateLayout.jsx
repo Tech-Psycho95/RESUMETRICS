@@ -108,21 +108,11 @@ const sectionOrderByVariant = {
   'simple-hipster': ['summary', 'skills', 'languages', 'experience', 'education', 'projects', 'certifications', 'achievements'],
   'curve-academic': ['experience', 'education', 'summary', 'projects', 'skills', 'certifications', 'achievements', 'languages'],
   receive: ['summary', 'skills', 'languages', 'education', 'experience', 'projects', 'achievements', 'certifications'],
-  azurill: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
-  bronzor: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
-  chikorita: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
-  ditto: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
-  ditgar: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
-  gengar: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
-  glalie: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
-  kakuna: ['summary', 'experience', 'education', 'projects', 'skills', 'certifications', 'achievements', 'languages'],
-  lapras: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
-  leafish: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
-  meowth: ['summary', 'experience', 'skills', 'projects', 'education', 'certifications', 'achievements', 'languages'],
-  onyx: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
-  pikachu: ['summary', 'skills', 'experience', 'projects', 'education', 'certifications', 'achievements', 'languages'],
-  rhyhorn: ['summary', 'experience', 'education', 'projects', 'skills', 'certifications', 'achievements', 'languages'],
-  scizor: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
+  // Reactive Resume's default layout order: the main column, then the sidebar column.
+  // Single-column designs print the sidebar sections after the main ones; Bronzor follows its gallery sample.
+  ...Object.fromEntries(['azurill', 'chikorita', 'ditgar', 'ditto', 'gengar', 'glalie', 'kakuna', 'lapras', 'leafish', 'meowth', 'onyx', 'pikachu', 'rhyhorn', 'scizor']
+    .map(id => [id, ['summary', 'education', 'experience', 'projects', 'skills', 'certifications', 'achievements', 'languages']])),
+  bronzor: ['summary', 'skills', 'education', 'experience', 'projects', 'certifications', 'achievements', 'languages'],
   'classic-professional': ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
   'harvard-traditional': ['education', 'experience', 'projects', 'skills', 'certifications', 'achievements', 'languages'],
   'modern-minimal': ['summary', 'skills', 'experience', 'projects', 'education', 'certifications', 'achievements', 'languages'],
@@ -232,16 +222,28 @@ function ResumeSection({ section, blockIndexes, headingSuffix = '', continued = 
   </section>
 }
 
-const visualColumnVariants = new Set(['azurill', 'bronzor', 'ditgar', 'gengar', 'glalie', 'ditto', 'leafish', 'scizor', 'product-startup'])
+// Reactive Resume (MIT) templates. Two-column designs keep its default page layout:
+// main = summary, education, experience, projects; sidebar = skills, certifications, awards, languages, extras.
+export const reactiveSidebarPositions = {
+  azurill: 'left', chikorita: 'right', ditgar: 'left', ditto: 'left', gengar: 'left', glalie: 'left', leafish: 'right', pikachu: 'left',
+  bronzor: 'none', kakuna: 'none', lapras: 'none', meowth: 'none', onyx: 'none', rhyhorn: 'none', scizor: 'none'
+}
+const isReactiveVariant = variant => Object.hasOwn(reactiveSidebarPositions, variant)
+const reactiveClassName = variant => isReactiveVariant(variant) ? ` template-reactive template-reactive-sidebar-${reactiveSidebarPositions[variant]}` : ''
+const reactiveSidebarSectionIds = new Set(['skills', 'certifications', 'achievements', 'languages'])
+const isReactiveSidebarSection = id => reactiveSidebarSectionIds.has(id) || String(id).startsWith('custom-')
+
+const visualColumnVariants = new Set(['product-startup', ...Object.entries(reactiveSidebarPositions).filter(([, side]) => side !== 'none').map(([id]) => id)])
 const sidebarSectionIds = new Set(['skills', 'education', 'certifications', 'achievements', 'languages'])
 const overleafSidebarSectionIds = new Set(['summary', 'skills', 'languages', 'certifications'])
 
 function ResumeSectionFlow({ sections, variant, renderSection }) {
   if (!visualColumnVariants.has(variant)) return <>{sections.map(renderSection)}</>
   const sidebarIds = ['simple-hipster', 'receive'].includes(variant) ? overleafSidebarSectionIds : sidebarSectionIds
-  const sidebar = sections.filter(section => sidebarIds.has(section.id || section.sectionId))
-  const main = sections.filter(section => !sidebarIds.has(section.id || section.sectionId))
-  return <div className={`resume-columns-flow resume-columns-${variant}`}>
+  const inSidebar = section => isReactiveVariant(variant) ? isReactiveSidebarSection(section.id || section.sectionId) : sidebarIds.has(section.id || section.sectionId)
+  const sidebar = sections.filter(inSidebar)
+  const main = sections.filter(section => !inSidebar(section))
+  return <div className={`resume-columns-flow resume-columns-${variant}`} data-layout="columns">
     <div className="resume-column resume-sidebar-column">{sidebar.map(renderSection)}</div>
     <div className="resume-column resume-main-column">{main.map(renderSection)}</div>
   </div>
@@ -251,7 +253,7 @@ function SingleResume({ resumeData, sections, variant, editorStyle, useGlobalTex
   return <article
     ref={editorRef}
     style={editorStyle}
-    className={`generated-resume template-${variant} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${preview ? 'template-live-preview' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
+    className={`generated-resume template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${preview ? 'template-live-preview' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
     contentEditable={!preview}
     role="textbox"
     aria-multiline="true"
@@ -296,7 +298,9 @@ function paginateMeasurement(measurement, sections, splitColumns = true, columnP
   const headerHeight = headerElement?.offsetHeight || 0
   const footerHeight = footerElement?.offsetHeight || 0
   const columnFlow = measurement.querySelector('.resume-columns-flow')
-  if (splitColumns && columnFlow && window.getComputedStyle(columnFlow).display === 'grid') {
+  // Reactive Resume layouts flatten the column wrapper (display: contents) so the header can sit inside a column.
+  const columnDisplay = columnFlow ? window.getComputedStyle(columnFlow).display : ''
+  if (splitColumns && columnFlow && (columnDisplay === 'grid' || (columnFlow.dataset.layout === 'columns' && columnDisplay === 'contents'))) {
     // Paginate the two rails independently, then combine matching page numbers.
     // Sidebar content must not consume the main column's vertical budget.
     const columnPages = [...columnFlow.children].map(column => {
@@ -396,6 +400,10 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     templateStyle.fontSize = `${(parseFloat(editorStyle?.fontSize) || 13.3333) * pageWidth / MAX_A4_WIDTH}px`
     templateStyle.padding = `${pageWidth * .055}px`
   }
+  // Reactive Resume designs are sized in em from a 10pt body, so scaling the font scales the whole page.
+  if (!preview && isReactiveVariant(variant)) {
+    templateStyle.fontSize = `${(parseFloat(editorStyle?.fontSize) || 13.3333) * pageWidth / MAX_A4_WIDTH}px`
+  }
 
   useEffect(() => {
     const font = resumeFonts.find(item => item.family === presentation?.fontFamily)
@@ -478,7 +486,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
         >
           <article
             style={{ ...templateStyle, width: pageWidth, height: pageHeight }}
-            className={`generated-resume resume-a4-page template-${variant} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
+            className={`generated-resume resume-a4-page template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
           >
             {page.showHeader && <ResumeHeader resumeData={templateResume} presentation={presentation} blankPreview={blankPreview} onProfilePhotoClick={onProfilePhotoClick} />}
             <div className="generated-resume-main">
@@ -502,7 +510,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     <article
       ref={measurementRef}
       style={{ ...templateStyle, width: pageWidth, height: pageHeight }}
-      className={`generated-resume resume-a4-page resume-pagination-measure template-${variant} ${useGlobalTextColor ? 'ai-global-text-color' : ''}`}
+      className={`generated-resume resume-a4-page resume-pagination-measure template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''}`}
       aria-hidden="true"
     >
       <ResumeHeader resumeData={templateResume} presentation={presentation} />

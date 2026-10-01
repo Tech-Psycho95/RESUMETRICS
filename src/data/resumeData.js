@@ -15,6 +15,8 @@ export function createBlankResumeData() {
     education: [],
     certifications: [],
     achievements: [],
+    languages: [],
+    customSections: [],
     missingFields: [],
     confidenceNotes: []
   }
