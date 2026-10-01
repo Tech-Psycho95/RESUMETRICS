@@ -15,6 +15,7 @@ import './resume-flow.css'
 import './github-evidence.css'
 import './linkedin-evidence.css'
 import './ai-assistant.css'
+import './resume-builder.css'
 import logo from './assets/resumetrics-logo.png'
 import ResumeStartOptions from './components/ResumeStartOptions.jsx'
 import ResumeTemplateSelector from './components/ResumeTemplateSelector.jsx'
@@ -23,28 +24,22 @@ import GitHubEvidenceReview from './components/GitHubEvidenceReview.jsx'
 import LinkedInImportDialog from './components/LinkedInImportDialog.jsx'
 import LinkedInEvidenceReview from './components/LinkedInEvidenceReview.jsx'
 import AIAssistantEditor from './components/AIAssistantEditor.jsx'
-import { createResumePresentation, resumeTemplates } from './config/resumeTemplates.js'
+import ResumeBuilderForm from './components/ResumeBuilderForm.jsx'
+import ProfilePhotoControls from './components/ProfilePhotoControls.jsx'
+import { createResumePresentation, getResumeTemplate, resolveResumePresentation, resumeTemplates } from './config/resumeTemplates.js'
 import { createBlankResumeData } from './data/resumeData.js'
-import { templatePreviewResumeData } from './data/templatePreviewData.js'
 import { applyResumeEditPlan } from './utils/applyResumeEditPlan.js'
 import { getPathValue } from './editor/resumeEditingEngine.js'
 import { buildResumeElementRegistry, ensureResumeElementIds } from './editor/resumeElementRegistry.js'
+import { resumeFonts } from './editor/fontRegistry.js'
 import { extractResumeDocument } from './utils/extractResumeDocument.js'
+import { readProfilePhoto } from './utils/readProfilePhoto.js'
 import useAIAnimationState, { EXCLAIM_MS, MIN_PROCESSING_MS, MIN_THINKING_MS, SUCCESS_MS } from './hooks/useAIAnimationState.js'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
 
 const navItems = [
   ['Dashboard', '/dashboard', 'dashboard'],
   ['Settings', '/settings', 'settings']
-]
-
-const fontFamilies = [
-  ['Inter', 'Inter, sans-serif'],
-  ['DM Sans', 'DM Sans, sans-serif'],
-  ['Space Grotesk', 'Space Grotesk, sans-serif'],
-  ['Merriweather', 'Merriweather, serif'],
-  ['Georgia', 'Georgia, serif'],
-  ['Arial', 'Arial, sans-serif']
 ]
 
 const safeFileName = value => (value || 'untitled-resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled-resume'
@@ -55,35 +50,6 @@ const evidenceComparisonRequestMaxAge = 30 * 60 * 1000
 const linkedinProfileStorageKey = 'resumetrics:linkedin-profile'
 const linkedinProfileStorageMaxAge = 24 * 60 * 60 * 1000
 const initialNimbusMessages = [{ role: 'assistant', text: 'Hi, I’m NIMBUS. I can edit this resume, explain suggestions, or chat briefly while we work.' }]
-const dashboardTemplateUsageKey = 'resumetrics:dashboard-template-usage'
-const dashboardTemplateCatalog = [
-  { id: 'modern-minimal', label: 'Modern Pro' },
-  { id: 'executive-brief', label: 'Executive' },
-  { id: 'classic-professional', label: 'Minimal' }
-]
-
-const hashDashboardValue = value => [...value].reduce((hash, character) => ((hash << 5) - hash + character.charCodeAt(0)) | 0, 0)
-
-function getDailyTemplateRanking() {
-  let usage = {}
-  try { usage = JSON.parse(localStorage.getItem(dashboardTemplateUsageKey) || '{}') || {} } catch { /* Ranking falls back to the daily order. */ }
-  const now = new Date()
-  const day = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86_400_000)
-  return dashboardTemplateCatalog
-    .map(template => ({ ...template, usage: Number(usage[template.id]) || 0, dailyScore: Math.abs(hashDashboardValue(`${day}:${template.id}`)) }))
-    .sort((first, second) => second.usage - first.usage || second.dailyScore - first.dailyScore)
-}
-
-function recordDashboardTemplateChoice(templateId) {
-  try {
-    const usage = JSON.parse(localStorage.getItem(dashboardTemplateUsageKey) || '{}') || {}
-    usage[templateId] = (Number(usage[templateId]) || 0) + 1
-    localStorage.setItem(dashboardTemplateUsageKey, JSON.stringify(usage))
-  } catch {
-    // The template still opens when local storage is unavailable.
-  }
-}
-
 function getResumeEvidenceSkills(resumeData) {
   if (!resumeData) return []
   const values = [
@@ -142,6 +108,11 @@ function updateManualResumeData(resumeData, path, value) {
       next.skills[category] ||= []
       if (!next.skills[category].some(item => item.toLocaleLowerCase() === skill.toLocaleLowerCase())) next.skills[category].push(skill)
     })
+    return next
+  }
+  if (parts[0] === 'skills' && parts.length === 2) {
+    next.skills ||= {}
+    next.skills[parts[1]] = splitManualList(text)
     return next
   }
   if (path === 'languages') {
@@ -327,8 +298,6 @@ function DashboardPage() {
   const displayName = currentUser?.displayName?.trim() || currentUser?.email?.split('@')[0] || 'there'
   const projectRailRef = useRef(null)
   const [canAdvanceProjects, setCanAdvanceProjects] = useState(false)
-  const rankedTemplates = useMemo(() => getDailyTemplateRanking(), [])
-  const rankedTemplateCards = useMemo(() => [rankedTemplates[1], rankedTemplates[0], rankedTemplates[2]].filter(Boolean), [rankedTemplates])
 
   const updateProjectRail = useCallback(() => {
     const rail = projectRailRef.current
@@ -349,11 +318,6 @@ function DashboardPage() {
     }
   }, [updateProjectRail])
 
-  const selectTemplate = templateId => {
-    recordDashboardTemplateChoice(templateId)
-    navigate('/workspace/editor', { state: { dashboardTemplateId: templateId } })
-  }
-
   const projectCards = [
     { type: 'create', label: 'Create new project' },
     { type: 'saved', label: 'Saved work' },
@@ -369,21 +333,6 @@ function DashboardPage() {
           <strong>{project.label}</strong>
         </button>)}</div>
         {canAdvanceProjects && <button className="dashboard-project-arrow" type="button" aria-label="View more projects" onClick={() => projectRailRef.current?.scrollBy({ left: projectRailRef.current.clientWidth * .82, behavior: 'smooth' })}>→</button>}
-      </section>
-      <section className="dashboard-template-section" id="templates" aria-label="Top picks">
-        <div className="dashboard-template-heading"><h2>Top picks</h2></div>
-        <div className="dashboard-template-grid">{rankedTemplateCards.map((rankedTemplate, index) => {
-          const template = resumeTemplates.find(item => item.id === rankedTemplate.id)
-          const PreviewComponent = template?.component
-          const rank = index === 1 ? 1 : index === 0 ? 2 : 3
-          if (!template || !PreviewComponent) return null
-          return <article className={`dashboard-template-card dashboard-template-rank-${rank}`} key={template.id} role="button" tabIndex={0} onClick={() => selectTemplate(template.id)} onKeyDown={event => event.key === 'Enter' && selectTemplate(template.id)}>
-            <span className="dashboard-template-rank" aria-label={`Rank ${rank}`}>{rank}</span>
-            <div className="dashboard-template-paper"><PreviewComponent resumeData={templatePreviewResumeData} presentation={{ ...template.defaultTheme, photo: templatePreviewResumeData.photo }} preview /></div>
-            <span className="dashboard-template-name">{rankedTemplate.label}</span>
-            <span className="dashboard-template-more" aria-hidden="true">⋮</span>
-          </article>
-        })}</div>
       </section>
     </div>
   </Shell>
@@ -418,9 +367,11 @@ function MainPage() {
   const { currentUser } = useAuth()
   const uploadInputRef = useRef(null)
   const linkedinUploadInputRef = useRef(null)
+  const profilePhotoInputRef = useRef(null)
   const editorRef = useRef(null)
   const resumeDataRef = useRef(null)
   const analysisRequestRef = useRef(0)
+  const exportMenuRef = useRef(null)
   const assistantInputRef = useRef(null)
   const [description, setDescription] = useState('')
   const [analysis, setAnalysis] = useState(null)
@@ -441,6 +392,7 @@ function MainPage() {
   const [pendingUploadFile, setPendingUploadFile] = useState(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState(null)
   const [resumePresentation, setResumePresentation] = useState(() => createResumePresentation())
+  const [profilePhotoError, setProfilePhotoError] = useState('')
   const [selectedResumeElement, setSelectedResumeElement] = useState(null)
   const [uploadedFileName, setUploadedFileName] = useState('')
   const [parseMetadata, setParseMetadata] = useState(null)
@@ -448,9 +400,11 @@ function MainPage() {
   const [resumeName, setResumeName] = useState('Untitled resume')
   const [editingName, setEditingName] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [fontSize, setFontSize] = useState(14)
   const [fontColor, setFontColor] = useState('#172033')
-  const [fontFamily, setFontFamily] = useState(fontFamilies[0][1])
+  const [fontFamily, setFontFamily] = useState(null)
   const [globalFontSize, setGlobalFontSize] = useState(null)
   const [useGlobalTextColor, setUseGlobalTextColor] = useState(false)
   const [footerText, setFooterText] = useState('')
@@ -459,15 +413,16 @@ function MainPage() {
   const [assistantMessages, setAssistantMessages] = useState(initialNimbusMessages)
   const [aiTestLoading, setAiTestLoading] = useState(false)
   const { taskState: assistantAnimationState, beginRun: beginAssistantRun, isCurrentRun: isCurrentAssistantRun, setRunState: setAssistantRunState, finishRun: finishAssistantRun, cancelRun: cancelAssistantRun, wait: waitForAssistantAnimation } = useAIAnimationState()
-  const selectedTemplate = resumeTemplates.find(template => template.id === selectedTemplateId)
+  const selectedTemplate = getResumeTemplate(selectedTemplateId)
   const resumeElementRegistry = useMemo(() => buildResumeElementRegistry(resumeData ?? {}, resumePresentation), [resumeData, resumePresentation])
   const selectedElementDefinition = selectedResumeElement ? resumeElementRegistry.get(selectedResumeElement.id) : null
   const TemplateComponent = selectedTemplate?.component
   const isEditorReady = workspaceMode === 'editor-ready' && Boolean(TemplateComponent) && Boolean(resumeData)
   const isEditorRoute = location.pathname === '/workspace/editor'
   const isEditorPage = isEditorRoute && isEditorReady
+  const isScratchResume = isEditorPage && !uploadedFileName
   const resumeStyle = {
-    fontFamily,
+    fontFamily: fontFamily || selectedTemplate?.defaultTheme?.fontFamily || resumeFonts[0].family,
     ...(globalFontSize ? { fontSize: `${globalFontSize}px` } : {}),
     ...(useGlobalTextColor ? { '--resume-text-color': fontColor } : {})
   }
@@ -504,6 +459,24 @@ function MainPage() {
   useEffect(() => {
     resumeDataRef.current = resumeData
   }, [resumeData])
+
+  useEffect(() => {
+    if (!exportMenuOpen && !deleteConfirmOpen) return undefined
+    const closeOnOutsideClick = event => {
+      if (exportMenuOpen && !exportMenuRef.current?.contains(event.target)) setExportMenuOpen(false)
+    }
+    const closeOnEscape = event => {
+      if (event.key !== 'Escape') return
+      setExportMenuOpen(false)
+      setDeleteConfirmOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [deleteConfirmOpen, exportMenuOpen])
 
   const showAssistantError = message => {
     setAssistantFeedback({ tone: 'error', text: message })
@@ -559,6 +532,7 @@ function MainPage() {
           setResumeName(snapshot.resumeData.fullName || 'Untitled resume')
           setSelectedTemplateId(snapshot.selectedTemplateId || null)
           setResumePresentation(snapshot.resumePresentation || createResumePresentation(snapshot.selectedTemplateId || null))
+          setFontFamily(snapshot.resumePresentation?.fontFamily || null)
           setUploadedFileName(snapshot.uploadedFileName || '')
           setParseMetadata(snapshot.parseMetadata || null)
           setWorkspaceMode(snapshot.workspaceMode || 'extraction-review')
@@ -660,6 +634,7 @@ function MainPage() {
     setPendingUploadFile(null)
     setSelectedTemplateId(null)
     setResumePresentation(createResumePresentation())
+    setProfilePhotoError('')
     setUploadedFileName('')
     setParseMetadata(null)
     setWorkspaceError('')
@@ -683,17 +658,6 @@ function MainPage() {
 
   const exportDraft = async (format = 'TXT') => {
     if (!isEditorReady || exportLoading) return
-    if (format === 'PRINT') {
-      setExportLoading(true)
-      try {
-        window.print()
-      } catch (error) {
-        showAssistantError(`Export failed. Please try again${error?.message ? `: ${error.message}` : '.'}`)
-      } finally {
-        setExportLoading(false)
-      }
-      return
-    }
     const content = `${resumeName}\n${resumeData?.headline || ''}\n${selectedTemplate?.name || 'Resumetrics draft'}\n\n${editorRef.current?.innerText || resumeData?.summary || 'Start editing your resume in Resumetrics.'}`
     const baseName = `resumetrics-${safeFileName(resumeName)}`
     setExportLoading(true)
@@ -738,7 +702,18 @@ function MainPage() {
 
   const deleteDraft = () => {
     if (workspaceMode === 'initial') return
-    if (window.confirm('Delete this generated draft and return to the start options?')) resetWorkspace()
+    setExportMenuOpen(false)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteDraft = () => {
+    setDeleteConfirmOpen(false)
+    resetWorkspace()
+  }
+
+  const chooseExportFormat = async format => {
+    setExportMenuOpen(false)
+    await exportDraft(format)
   }
 
   const handleUpload = event => {
@@ -794,6 +769,7 @@ function MainPage() {
     setUploadedFileName('')
     setSelectedTemplateId(null)
     setResumePresentation(createResumePresentation())
+    setProfilePhotoError('')
     setWorkspaceError('')
     setGithubCompareError('')
     setResumeName('Untitled resume')
@@ -802,12 +778,28 @@ function MainPage() {
 
   const chooseTemplate = templateId => {
     setSelectedTemplateId(templateId)
-    setResumePresentation(current => ({ ...current, template: templateId }))
+    const template = getResumeTemplate(templateId)
+    setResumePresentation(current => ({ ...current, template: templateId, photo: current.photo?.uploaded ? current.photo : template?.supportsPhoto ? { width: 72, height: 72, shape: 'circle', uploadPlaceholder: true } : { visible: false } }))
     setResumeData(current => current || ensureResumeElementIds(createBlankResumeData()))
     setWorkspaceMode('editor-ready')
     navigate('/workspace/editor')
     requestAnimationFrame(() => editorRef.current?.focus())
   }
+
+  const handleProfilePhotoUpload = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setProfilePhotoError('')
+    try {
+      const source = await readProfilePhoto(file)
+      if (source) setResumePresentation(current => ({ ...current, photo: { source, uploaded: true, width: 72, height: 72, shape: 'circle', objectFit: 'cover', objectPosition: '50% 50%' } }))
+    } catch (error) {
+      setProfilePhotoError(error.message || 'The profile photo could not be loaded.')
+    }
+  }
+
+  const updateProfilePhoto = photo => setResumePresentation(current => ({ ...current, photo }))
 
   const openLinkedInImport = () => {
     setLinkedinImportError('')
@@ -969,6 +961,12 @@ function MainPage() {
     if (path === 'fullName') setResumeName(next.fullName || 'Untitled resume')
   }
 
+  const handleBuilderResumeUpdate = next => {
+    resumeDataRef.current = next
+    setResumeData(next)
+    if (next.fullName !== resumeName) setResumeName(next.fullName || 'Untitled resume')
+  }
+
   const getAssistantWorkspaceContext = () => {
     const currentResumeData = resumeDataRef.current ?? resumeData
     const selection = window.getSelection()
@@ -992,7 +990,7 @@ function MainPage() {
       resumeData: currentResumeData,
       template: selectedTemplate ? { id: selectedTemplate.id, name: selectedTemplate.name, category: selectedTemplate.category, atsFriendly: selectedTemplate.atsFriendly } : null,
       style: {
-        fontFamily: fontFamilies.find(([, value]) => value === fontFamily)?.[0] || fontFamily,
+        fontFamily: resumeFonts.find(font => font.family === (fontFamily || selectedTemplate?.defaultTheme?.fontFamily))?.name || fontFamily || selectedTemplate?.defaultTheme?.fontFamily,
         fontSize: globalFontSize || fontSize,
         textColor: useGlobalTextColor ? fontColor : null,
         footerText,
@@ -1088,7 +1086,10 @@ function MainPage() {
       setResumeData(ensureResumeElementIds(result.resumeData))
       resumeDataRef.current = result.resumeData
       if (result.resumeData.fullName !== currentResumeData.fullName) setResumeName(result.resumeData.fullName || 'Untitled resume')
-      if (result.styleUpdates.fontFamily !== undefined) setFontFamily(result.styleUpdates.fontFamily)
+      if (result.styleUpdates.fontFamily !== undefined) {
+        setFontFamily(result.styleUpdates.fontFamily)
+        setResumePresentation(current => ({ ...current, fontFamily: result.styleUpdates.fontFamily }))
+      }
       if (result.styleUpdates.fontSize !== undefined) {
         setGlobalFontSize(result.styleUpdates.fontSize)
         setFontSize(result.styleUpdates.fontSize || 14)
@@ -1129,20 +1130,41 @@ function MainPage() {
     'template-selection': 'Choose a template',
     error: 'Import resume skills'
   }[workspaceMode] || resumeName
+  const activeFontFamily = resumePresentation.fontFamily || selectedTemplate?.defaultTheme?.fontFamily || resumeFonts[0].family
+  const editorPresentation = resolveResumePresentation(selectedTemplate, resumePresentation)
+  if (isEditorPage && selectedTemplate?.supportsPhoto && !editorPresentation.photo?.uploaded) {
+    editorPresentation.photo = { width: 72, height: 72, shape: 'circle', uploadPlaceholder: true }
+  }
+  const assistantEditor = <AIAssistantEditor
+    inputRef={assistantInputRef}
+    value={assistantInput}
+    busy={aiTestLoading}
+    isAvailable={isEditorPage}
+    feedback={assistantFeedback}
+    messages={assistantMessages}
+    animationState={assistantAnimationState}
+    onChange={event => {
+      setAssistantInput(event.target.value)
+      if (assistantFeedback) setAssistantFeedback(null)
+      if (!aiTestLoading && assistantAnimationState) cancelAssistantRun()
+    }}
+    onSubmit={askAssistant}
+  />
   return <Shell immersive={isEditorRoute}>
-    <header className={`page-header${isEditorRoute ? ' editor-page-header' : ''}`}><div>{isEditorRoute && <button className="editor-back-button" type="button" onClick={() => navigate('/workspace')} aria-label="Back to workspace"><span aria-hidden="true">←</span> Back to workspace</button>}<span className="eyebrow">{isEditorRoute ? 'RESUME EDITOR' : 'WORKSPACE'}</span>{isEditorRoute ? <h1>Build and refine your resume.</h1> : <h1>Start a resume.</h1>}</div>{isEditorPage && <div className="header-actions"><div className="draft-actions"><button className="quiet-button" disabled={!isEditorReady || exportLoading} onClick={() => exportDraft('PRINT')}><Icon name="download" size={15} />{exportLoading ? 'Preparing print…' : 'Export draft'}</button><button className="danger-button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={15} />Delete draft</button></div></div>}</header>
+    <header className={`page-header${isEditorRoute ? ' editor-page-header' : ''}`}><div>{isEditorRoute && <button className="editor-back-button" type="button" onClick={() => navigate('/workspace')} aria-label="Back to workspace"><span aria-hidden="true">←</span> Back to workspace</button>}<span className="eyebrow">{isEditorRoute ? 'RESUME EDITOR' : 'WORKSPACE'}</span>{isEditorRoute ? <h1>Build and refine your resume.</h1> : <h1>Start a resume.</h1>}</div></header>
     <div className={`workspace-grid ${isEditorPage ? 'editor-workspace-grid' : 'setup-mode'}`}>
       <section className="resume-canvas panel">
-        <div className="canvas-top"><div className="resume-title-wrap">{isEditorPage && editingName ? <input className="resume-title-input" autoFocus value={resumeName} onChange={event => setResumeName(event.target.value)} onBlur={() => { setResumeName(resumeName.trim() || 'Untitled resume'); setEditingName(false) }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} aria-label="Resume name" /> : isEditorPage ? <button className="resume-title-button" onClick={() => setEditingName(true)}>{resumeName}</button> : <strong>{workspaceMode === 'editor-ready' ? 'Start a resume' : canvasHeading}</strong>}</div><div className="canvas-actions">{isEditorPage && <button className="text-button" onClick={() => setWorkspaceMode('template-selection')}>Change template</button>}{workspaceMode !== 'extracting' && <span className="status-dot">{isEditorPage ? 'Editable draft' : workspaceMode === 'file-selected' ? 'File ready' : 'Draft'}</span>}</div></div>
+        <div className="canvas-top"><div className="resume-title-wrap">{isEditorPage && editingName ? <input className="resume-title-input" autoFocus value={resumeName} onChange={event => setResumeName(event.target.value)} onBlur={() => { setResumeName(resumeName.trim() || 'Untitled resume'); setEditingName(false) }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} aria-label="Resume name" /> : isEditorPage ? <button className="resume-title-button" onClick={() => setEditingName(true)}>{resumeName}</button> : <strong>{workspaceMode === 'editor-ready' ? 'Start a resume' : canvasHeading}</strong>}</div><div className="canvas-actions">{isEditorPage && <span className="canvas-draft-actions"><span className="canvas-export-wrap" ref={exportMenuRef}><button className="canvas-export-button" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}><Icon name="download" size={14} />{exportLoading ? 'Exporting…' : 'Export'}<span className="export-chevron" aria-hidden="true">▾</span></button>{exportMenuOpen && <div className="export-format-menu" role="menu" aria-label="Export format"><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('PDF')}>PDF document</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('DOCX')}>Word document (.docx)</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('TXT')}>Plain text (.txt)</button></div>}</span><button className="canvas-delete-button" type="button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={14} />Delete</button></span>}{workspaceMode !== 'extracting' && <span className="status-dot">{isEditorPage ? 'Editable draft' : workspaceMode === 'file-selected' ? 'File ready' : 'Draft'}</span>}</div></div>
         <input ref={uploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={handleUpload} />
         <input ref={linkedinUploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleLinkedInUpload} />
+        {isEditorPage && selectedTemplate?.supportsPhoto && <input ref={profilePhotoInputRef} className="upload-input" type="file" accept="image/jpeg,.jpg,.jpeg" aria-label="Choose JPEG profile photo" onChange={handleProfilePhotoUpload} />}
         {(workspaceMode === 'initial' || (!isEditorRoute && workspaceMode === 'editor-ready')) && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onCreate={startCreate} />}
         {workspaceMode === 'file-selected' && pendingUploadFile && <div className="file-selected-state"><div className="upload-ready-card" aria-live="polite"><div className="upload-ready-icon" aria-hidden="true"><Icon name="document" size={25} /></div><span className="eyebrow">DOCUMENT READY</span><h2>{pendingUploadFile.name}</h2><p>Choose when Resumetrics should read this file and extract the resume details.</p><div className="upload-ready-actions"><button className="primary-button" type="button" onClick={readDocument}>Read document</button><button className="secondary-button" type="button" onClick={() => uploadInputRef.current?.click()}>Change file</button><button className="delete-file-button" type="button" onClick={resetWorkspace}>Delete file</button></div></div></div>}
         {workspaceMode === 'extracting' && <div className="flow-loading"><DotLottieReact className="flow-loading-animation" src="/loading.lottie" loop autoplay mode="bounce" speed={2} aria-label="Extracting resume data" /><h2>Extracting resume details…</h2><p>Identifying only the information present in your source file.</p></div>}
         {workspaceMode === 'extraction-review' && resumeData && <ResumeExtractionReview resumeData={resumeData} uploadedFileName={uploadedFileName} parseMetadata={parseMetadata} onContinue={() => setWorkspaceMode('template-selection')} onStartOver={resetWorkspace} />}
         {workspaceMode === 'template-selection' && <ResumeTemplateSelector templates={resumeTemplates} editorStyle={resumeStyle} presentation={resumePresentation} useGlobalTextColor={useGlobalTextColor} footerText={footerText} selectedTemplateId={selectedTemplateId} onSelect={chooseTemplate} onBack={() => uploadedFileName ? setWorkspaceMode('extraction-review') : resetWorkspace()} isImported={Boolean(uploadedFileName)} />}
         {workspaceMode === 'error' && <div className="flow-error"><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="secondary-button" onClick={resetWorkspace}>Start over</button><button className="primary-button" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
-        {isEditorPage && <TemplateComponent resumeData={resumeData} editorRef={editorReady} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} onManualEdit={handleManualResumeEdit} onElementSelect={setSelectedResumeElement} presentation={{ ...selectedTemplate?.defaultTheme, ...resumePresentation }} />}
+        {isEditorPage && <TemplateComponent resumeData={resumeData} editorRef={editorReady} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} onManualEdit={handleManualResumeEdit} onElementSelect={setSelectedResumeElement} presentation={editorPresentation} onProfilePhotoClick={() => profilePhotoInputRef.current?.click()} blankPreview={isScratchResume} />}
       </section>
       {isEditorPage && <div className="right-rail">
         <aside className="analysis-panel panel">
@@ -1165,27 +1187,55 @@ function MainPage() {
             </> : <p>{!resumeData ? 'Create or import a resume before analysing a role.' : 'Waiting for a job description.'}</p>}
           </div>
         </aside>
-        <AIAssistantEditor
-          inputRef={assistantInputRef}
-          value={assistantInput}
-          busy={aiTestLoading}
-          isAvailable={isEditorPage}
-          feedback={assistantFeedback}
-          messages={assistantMessages}
-          animationState={assistantAnimationState}
-          onChange={event => {
-            setAssistantInput(event.target.value)
-            if (assistantFeedback) setAssistantFeedback(null)
-            if (!aiTestLoading && assistantAnimationState) cancelAssistantRun()
-          }}
-          onSubmit={askAssistant}
-        />
+        <div className="editor-tools-rail">
+          {isScratchResume ? <ResumeBuilderForm
+            resumeData={resumeData}
+            onChange={handleBuilderResumeUpdate}
+            fonts={resumeFonts}
+            fontFamily={activeFontFamily}
+            photo={resumePresentation.photo}
+            onPhotoChange={updateProfilePhoto}
+            photoError={profilePhotoError}
+            onFontChange={family => {
+              setFontFamily(family)
+              setResumePresentation(current => ({ ...current, fontFamily: family }))
+            }}
+          /> : <>
+          {assistantEditor}
+          <aside className="panel section-panel editor-font-panel">
+            <span className="eyebrow">TYPE</span>
+            <h2>Resume font</h2>
+            <p className="muted">Choose a clear, professional typeface. It updates the full resume and stays with this draft.</p>
+            <label className="editor-font-label" htmlFor="resume-font-family">Font family</label>
+            <select id="resume-font-family" className="editor-font-select" value={activeFontFamily} onChange={event => {
+              const nextFamily = event.target.value
+              setFontFamily(nextFamily)
+              setResumePresentation(current => ({ ...current, fontFamily: nextFamily }))
+            }}>
+              {[...new Set(resumeFonts.map(font => font.category))].map(category => <optgroup label={category} key={category}>
+                {resumeFonts.filter(font => font.category === category).map(font => <option value={font.family} key={font.name}>{font.name}</option>)}
+              </optgroup>)}
+            </select>
+            <p className="editor-font-preview" style={{ fontFamily: activeFontFamily }}>Aa — Clear type keeps your experience easy to scan.</p>
+          </aside>
+          <ProfilePhotoControls photo={resumePresentation.photo} onChange={updateProfilePhoto} error={profilePhotoError} />
+          </>}
+        </div>
+        {isScratchResume && <div className="editor-scratch-assistant">{assistantEditor}</div>}
       </div>}
     </div>
     {isEditorPage && <section className="lower-grid workspace-lower-grid"><div className="panel section-panel evidence-panel"><div className="evidence-panel-heading"><div><span className="eyebrow">EVIDENCE SOURCES</span><h2>Verify the work behind the words.</h2><p className="muted">Connect GitHub or import a LinkedIn profile to surface credible proof for skills, experience, and education.</p></div><button className="primary-button compare-evidence-button" type="button" disabled={!hasConnectedEvidenceSource} onClick={compareEvidence}>Compare</button></div><div className="sources">
       <div className="source"><div className="source-identity"><SourceIcon name="GitHub" /><span><b>GitHub</b><small className={githubConnectionError ? 'source-error' : ''}>{githubConnection.loading ? 'Checking connection…' : githubConnection.connected ? `Connected as @${githubConnection.githubLogin || 'GitHub user'}` : githubConnection.message || githubConnectionError || 'Available to connect'}</small></span></div><button className="text-button" disabled={githubConnection.loading || githubConnecting || githubConnection.connected} onClick={startGitHubConnection}>{githubConnecting ? 'Connecting…' : githubConnection.connected ? 'Connected' : 'Connect'}</button></div>
       <div className="source linkedin-source"><div className="source-identity"><SourceIcon name="LinkedIn" /><span><b>LinkedIn</b><small>{hasLinkedInProfile ? `Info acquired · ${linkedinEvidenceSkills.length} skills, ${linkedinProfile.resumeData.experience.length} roles, ${linkedinProfile.resumeData.education.length} education entries` : 'Upload your LinkedIn PDF or DOCX export'}</small></span></div><button className="text-button" type="button" onClick={openLinkedInImport}>{hasLinkedInProfile ? 'Replace file' : 'Upload profile'}</button></div>
     </div>{githubConnectionNotice && <p className="source-notice" role="status">{githubConnectionNotice}</p>}{linkedinImportNotice && <p className="source-notice" role="status">{linkedinImportNotice}</p>}{githubCompareError && <p className="source-error" role="alert">{githubCompareError}</p>}</div></section>}
+    {deleteConfirmOpen && <div className="linkedin-import-backdrop delete-draft-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setDeleteConfirmOpen(false) }}>
+      <section className="linkedin-import-dialog delete-draft-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-draft-title" aria-describedby="delete-draft-description">
+        <span className="delete-draft-warning"><Icon name="trash" size={15} /> Draft deletion</span>
+        <h2 id="delete-draft-title">Delete this draft?</h2>
+        <p id="delete-draft-description">Your resume and its edits will be removed. This action cannot be undone.</p>
+        <div className="linkedin-import-actions"><button className="secondary-button" type="button" onClick={() => setDeleteConfirmOpen(false)}>Keep draft</button><button className="delete-confirm-button" type="button" onClick={confirmDeleteDraft}>Delete draft</button></div>
+      </section>
+    </div>}
     {linkedinImportOpen && <LinkedInImportDialog status={linkedinImportStatus} error={linkedinImportError} onClose={closeLinkedInImport} onChooseFile={() => linkedinUploadInputRef.current?.click()} />}
   </Shell>
 }

@@ -13,7 +13,7 @@ function EditableText({ path, elementId = path, children }) {
   return <span data-resume-path={path} data-resume-element-id={elementId}>{children}</span>
 }
 
-function ResumeHeader({ resumeData, presentation = {} }) {
+function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onProfilePhotoClick }) {
   const contactItems = resumeData.contactItems ?? []
   const photo = presentation.photo
   const requestedPhotoSize = Math.max(Number(photo?.width) || 64, Number(photo?.height) || 64)
@@ -21,16 +21,16 @@ function ResumeHeader({ resumeData, presentation = {} }) {
   // and crop within it so a portrait/landscape upload never changes header flow.
   const photoSize = Math.max(48, Math.min(requestedPhotoSize, 96))
   return <header className="generated-resume-header" data-page-header>
-    <div className="generated-resume-identity">
-      <h1><EditableText path="fullName" elementId="resume.header.name">{valueOr(resumeData.fullName, 'YOUR NAME')}</EditableText></h1>
-      <p><EditableText path="headline" elementId="resume.header.headline">{valueOr(resumeData.headline, 'Professional headline')}</EditableText></p>
-    </div>
+    {(resumeData.fullName || resumeData.headline || !blankPreview) && <div className="generated-resume-identity">
+      {(resumeData.fullName || !blankPreview) && <h1><EditableText path="fullName" elementId="resume.header.name">{valueOr(resumeData.fullName, 'YOUR NAME')}</EditableText></h1>}
+      {(resumeData.headline || !blankPreview) && <p><EditableText path="headline" elementId="resume.header.headline">{valueOr(resumeData.headline, 'Professional headline')}</EditableText></p>}
+    </div>}
     <address className="generated-contact">
       {contactItems.length
         ? contactItems.map((item, index) => item.kind === 'link' && item.href
           ? <a className="generated-contact-link" href={item.href} key={item.path || index} target="_blank" rel="noreferrer" title={item.value}><EditableText path={item.path} elementId={`resume.header.link.${index}`}>{item.value}</EditableText></a>
           : <EditableText path={item.path} elementId={`resume.header.${item.kind}`} key={item.path || index}>{item.value}</EditableText>)
-        : <EditableText path="email" elementId="resume.header.email">email@example.com</EditableText>}
+        : !blankPreview && <EditableText path="email" elementId="resume.header.email">email@example.com</EditableText>}
     </address>
     {photo?.source && photo.visible !== false && <img
       className="generated-resume-photo"
@@ -39,6 +39,7 @@ function ResumeHeader({ resumeData, presentation = {} }) {
       src={photo.source}
       style={{ width: photoSize, height: photoSize, objectFit: photo.objectFit || 'cover', objectPosition: photo.objectPosition || 'center', borderRadius: photo.shape === 'circle' ? '50%' : photo.borderRadius ?? 6, border: photo.borderWidth ? `${photo.borderWidth}px solid ${photo.borderColor || '#d8dce5'}` : undefined }}
     />}
+    {photo?.uploadPlaceholder && <button className="generated-resume-photo-upload" type="button" onClick={onProfilePhotoClick} aria-label="Add a profile photo" title="Add a profile photo" style={{ width: photoSize, height: photoSize, borderRadius: '50%' }}><span aria-hidden="true">+</span></button>}
   </header>
 }
 
@@ -57,8 +58,8 @@ function ProjectEntry({ item, itemIndex }) {
   return <article className="resume-entry">
     <div className="resume-entry-heading">
       <strong className="resume-entry-title"><EditableText path={`projects.${itemIndex}.name`} elementId={`projects.${item?.id || itemIndex}.name`}>{item?.name || 'Project'}</EditableText></strong>
-      <span className="resume-entry-meta"><EditableText path={`projects.${itemIndex}.techStack`} elementId={`projects.${item?.id || itemIndex}.techStack`}>{asArray(item?.techStack).join(' · ') || 'Tech stack'}</EditableText></span>
     </div>
+    <p className="resume-entry-meta resume-project-technologies"><span>Technologies: </span><EditableText path={`projects.${itemIndex}.techStack`} elementId={`projects.${item?.id || itemIndex}.techStack`}>{asArray(item?.techStack).join(', ') || 'Add technologies'}</EditableText></p>
     <p className="resume-project-description"><EditableText path={`projects.${itemIndex}.description`} elementId={`projects.${item?.id || itemIndex}.description`}>{item?.description || 'Describe the project and its outcome.'}</EditableText></p>
     {asArray(item?.links).length > 0 && <p className="resume-project-links">{item.links.map((link, index) => <a href={link} target="_blank" rel="noreferrer" key={index}><EditableText path={`projects.${itemIndex}.links.${index}`}>{link}</EditableText></a>)}</p>}
     <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`projects.${itemIndex}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`projects.${itemIndex}.bullets.0`}>Add a project contribution.</EditableText></li>}</ul>
@@ -103,6 +104,10 @@ function buildEntryBlocks(items, type, listKey) {
 }
 
 const sectionOrderByVariant = {
+  'navy-professional': ['education', 'experience', 'summary', 'skills', 'languages', 'projects', 'certifications', 'achievements'],
+  'simple-hipster': ['summary', 'skills', 'languages', 'experience', 'education', 'projects', 'certifications', 'achievements'],
+  'curve-academic': ['experience', 'education', 'summary', 'projects', 'skills', 'certifications', 'achievements', 'languages'],
+  receive: ['summary', 'skills', 'languages', 'education', 'experience', 'projects', 'achievements', 'certifications'],
   azurill: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
   bronzor: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
   chikorita: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
@@ -130,7 +135,7 @@ const sectionOrderByVariant = {
   'product-startup': ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages']
 }
 
-function buildSections(resumeData, variant) {
+function buildSections(resumeData, variant, blankPreview = false) {
   const skills = resumeData.allSkills ?? allSkills(resumeData.skills)
   const experience = asArray(resumeData.experience)
   const projects = asArray(resumeData.projects)
@@ -142,33 +147,33 @@ function buildSections(resumeData, variant) {
     {
       id: 'summary',
       title: 'Summary',
-      blocks: [{ id: 'summary-copy', type: 'summary', value: valueOr(resumeData.summary, 'Write a focused summary that explains the value you bring.') }],
+      blocks: resumeData.summary ? [{ id: 'summary-copy', type: 'summary', value: resumeData.summary }] : blankPreview ? [] : [{ id: 'summary-copy', type: 'summary', value: 'Write a focused summary that explains the value you bring.' }],
     },
     {
       id: 'experience',
       title: 'Experience',
       blocks: experience.length
         ? buildEntryBlocks(experience, 'experience', 'bullets')
-        : [{ id: 'experience-placeholder', type: 'placeholder', value: 'Add your work experience here.' }],
+        : blankPreview ? [] : [{ id: 'experience-placeholder', type: 'placeholder', value: 'Add your work experience here.' }],
     },
     {
       id: 'projects',
       title: 'Projects',
       blocks: projects.length
         ? buildEntryBlocks(projects, 'project', 'bullets')
-        : [{ id: 'project-placeholder', type: 'placeholder', value: 'Add a project that shows your impact.' }],
+        : blankPreview ? [] : [{ id: 'project-placeholder', type: 'placeholder', value: 'Add a project that shows your impact.' }],
     },
     {
       id: 'education',
       title: 'Education',
       blocks: education.length
         ? buildEntryBlocks(education, 'education', 'details')
-        : [{ id: 'education-placeholder', type: 'placeholder', value: 'Add your education details here.' }],
+        : blankPreview ? [] : [{ id: 'education-placeholder', type: 'placeholder', value: 'Add your education details here.' }],
     },
     {
       id: 'skills',
       title: 'Skills',
-      blocks: [{ id: 'skills-copy', type: 'skills', value: skills.length ? skills.join(' · ') : 'Add the skills most relevant to your target role.' }],
+      blocks: resumeData.skillsByCategory?.length || skills.length || !blankPreview ? [{ id: 'skills-copy', type: 'skills', value: resumeData.skillsByCategory?.length ? resumeData.skillsByCategory : skills }] : [],
     },
     ...(certifications.length ? [{
       id: 'certifications',
@@ -192,7 +197,7 @@ function buildSections(resumeData, variant) {
     }))
   ]
   const order = sectionOrderByVariant[variant] ?? sectionOrderByVariant['classic-professional']
-  return sections.sort((left, right) => {
+  return sections.filter(section => section.blocks.length).sort((left, right) => {
     const leftIndex = order.indexOf(left.id)
     const rightIndex = order.indexOf(right.id)
     return (leftIndex < 0 ? order.length : leftIndex) - (rightIndex < 0 ? order.length : rightIndex)
@@ -207,7 +212,10 @@ function RenderBlock({ block }) {
   if (block.type === 'education') return <EducationEntry item={block.value} itemIndex={block.itemIndex} />
   if (block.type === 'education-continuation') return <EntryListContinuation item={block.value} itemIndex={block.itemIndex} valueIndex={block.valueIndex} section="education" listKey="details" />
   if (block.type === 'placeholder') return <p className="resume-placeholder">{block.value}</p>
-  if (block.type === 'skills') return <p className="resume-skills"><EditableText path="skills">{block.value}</EditableText></p>
+  if (block.type === 'skills') {
+    if (block.value.some?.(group => group && typeof group === 'object')) return <div className="resume-skill-groups">{block.value.map(group => <p key={group.category}><strong>{group.category.replace(/([A-Z])/g, ' $1').replace(/^./, character => character.toUpperCase())}: </strong><EditableText path={`skills.${group.category}`}>{group.values.join(', ')}</EditableText></p>)}</div>
+    return <p className="resume-skills"><EditableText path="skills">{block.value.join(' · ') || 'Add the skills most relevant to your target role.'}</EditableText></p>
+  }
   if (block.type === 'languages') return <p className="resume-skills"><EditableText path="languages">{block.value}</EditableText></p>
   if (block.type === 'custom') return <p>{block.value}</p>
   if (block.type === 'list-item') return <ul className="resume-single-item-list"><li><EditableText path={`${block.target}.${block.itemIndex}`}>{block.value}</EditableText></li></ul>
@@ -218,7 +226,7 @@ function ResumeSection({ section, blockIndexes, headingSuffix = '', continued = 
   const headingId = `section-${section.id}${headingSuffix}`
   return <section className={`resume-section resume-section-${section.id}${continued ? ' resume-section-continued' : ''}`} aria-labelledby={headingId}>
     <h2 id={headingId}>{section.title}{continued && <span className="resume-continuation-label"> continued</span>}</h2>
-    {blockIndexes.map(index => <div className="resume-page-block" data-block-index={index} key={section.blocks[index].id}>
+    {blockIndexes.filter(index => section.blocks[index]).map(index => <div className="resume-page-block" data-block-index={index} key={section.blocks[index].id}>
       <RenderBlock block={section.blocks[index]} />
     </div>)}
   </section>
@@ -226,22 +234,24 @@ function ResumeSection({ section, blockIndexes, headingSuffix = '', continued = 
 
 const visualColumnVariants = new Set(['azurill', 'bronzor', 'ditgar', 'gengar', 'glalie', 'ditto', 'leafish', 'scizor', 'product-startup'])
 const sidebarSectionIds = new Set(['skills', 'education', 'certifications', 'achievements', 'languages'])
+const overleafSidebarSectionIds = new Set(['summary', 'skills', 'languages', 'certifications'])
 
 function ResumeSectionFlow({ sections, variant, renderSection }) {
   if (!visualColumnVariants.has(variant)) return <>{sections.map(renderSection)}</>
-  const sidebar = sections.filter(section => sidebarSectionIds.has(section.id || section.sectionId))
-  const main = sections.filter(section => !sidebarSectionIds.has(section.id || section.sectionId))
+  const sidebarIds = ['simple-hipster', 'receive'].includes(variant) ? overleafSidebarSectionIds : sidebarSectionIds
+  const sidebar = sections.filter(section => sidebarIds.has(section.id || section.sectionId))
+  const main = sections.filter(section => !sidebarIds.has(section.id || section.sectionId))
   return <div className={`resume-columns-flow resume-columns-${variant}`}>
     <div className="resume-column resume-sidebar-column">{sidebar.map(renderSection)}</div>
     <div className="resume-column resume-main-column">{main.map(renderSection)}</div>
   </div>
 }
 
-function SingleResume({ resumeData, sections, variant, editorStyle, useGlobalTextColor, footerText, editorRef, preview, onManualEdit, presentation }) {
+function SingleResume({ resumeData, sections, variant, editorStyle, useGlobalTextColor, footerText, editorRef, preview, onManualEdit, presentation, blankPreview, onProfilePhotoClick }) {
   return <article
     ref={editorRef}
     style={editorStyle}
-    className={`generated-resume template-${variant} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${preview ? 'template-live-preview' : ''}`}
+    className={`generated-resume template-${variant} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${preview ? 'template-live-preview' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
     contentEditable={!preview}
     role="textbox"
     aria-multiline="true"
@@ -249,7 +259,7 @@ function SingleResume({ resumeData, sections, variant, editorStyle, useGlobalTex
     suppressContentEditableWarning
     spellCheck
   >
-    <ResumeHeader resumeData={resumeData} presentation={presentation} />
+    <ResumeHeader resumeData={resumeData} presentation={presentation} blankPreview={blankPreview} onProfilePhotoClick={onProfilePhotoClick} />
     <div className="generated-resume-main">
       <ResumeSectionFlow sections={sections} variant={variant} renderSection={section => <ResumeSection
         section={section}
@@ -274,20 +284,38 @@ function initialPages(sections) {
   }]
 }
 
-function paginateMeasurement(measurement, sections) {
+function paginateMeasurement(measurement, sections, splitColumns = true, columnPadding = 0) {
   if (!measurement) return initialPages(sections)
 
   const styles = window.getComputedStyle(measurement)
-  const contentHeight = measurement.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom)
+  // Leave a print-safe inset for font metric differences and fractional pixel
+  // rounding so headings and the last line never sit on the A4 cut edge.
+  const contentHeight = measurement.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom) - columnPadding - 26
   const headerElement = measurement.querySelector('[data-page-header]')
   const footerElement = measurement.querySelector('[data-page-footer]')
   const headerHeight = headerElement?.offsetHeight || 0
   const footerHeight = footerElement?.offsetHeight || 0
   const columnFlow = measurement.querySelector('.resume-columns-flow')
+  if (splitColumns && columnFlow && window.getComputedStyle(columnFlow).display === 'grid') {
+    // Paginate the two rails independently, then combine matching page numbers.
+    // Sidebar content must not consume the main column's vertical budget.
+    const columnPages = [...columnFlow.children].map(column => {
+      const ids = new Set([...column.querySelectorAll('[data-measure-section]')].map(section => section.dataset.measureSection))
+      const columnStyle = window.getComputedStyle(column)
+      const padding = parseFloat(columnStyle.paddingTop) + parseFloat(columnStyle.paddingBottom)
+      return paginateMeasurement(measurement, sections.filter(section => ids.has(section.id)), false, padding)
+    })
+    const count = Math.max(...columnPages.map(pages => pages.length))
+    return Array.from({ length: count }, (_, index) => ({
+      showHeader: index === 0,
+      groups: columnPages.flatMap(pages => pages[index]?.groups || []),
+      showFooter: index === count - 1,
+    }))
+  }
   // For independent sidebar/main flows, summing every section vertically
   // overestimates the page and created the phantom second page seen in the
   // Bronzor capture. Use the actual column height when it fits.
-  if (columnFlow && columnFlow.scrollHeight + headerHeight + footerHeight <= contentHeight) return initialPages(sections)
+  if (splitColumns && columnFlow && columnFlow.scrollHeight + headerHeight + footerHeight <= contentHeight) return initialPages(sections)
   const pages = []
   let page = { showHeader: true, groups: [], showFooter: false }
   let usedHeight = headerHeight
@@ -342,7 +370,7 @@ function paginateMeasurement(measurement, sections) {
   return pages
 }
 
-export default function ResumeTemplateLayout({ resumeData = {}, editorRef, variant, editorStyle, useGlobalTextColor = false, footerText = '', preview = false, onManualEdit, presentation, onElementSelect }) {
+export default function ResumeTemplateLayout({ resumeData = {}, editorRef, variant, editorStyle, useGlobalTextColor = false, footerText = '', preview = false, onManualEdit, presentation, onElementSelect, blankPreview = false, onProfilePhotoClick }) {
   const templateResume = useMemo(() => adaptResumeForTemplate(resumeData), [resumeData])
   const templateStyle = {
     ...editorStyle,
@@ -356,17 +384,25 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
       '--template-project-description-carousel-size': `${.86 * Math.max(.78, Math.min(presentation.projectDescriptionScale, 1))}em`
     } : {})
   }
-  const sections = useMemo(() => buildSections(templateResume, variant), [templateResume, variant])
+  const sections = useMemo(() => buildSections(templateResume, variant, blankPreview), [templateResume, variant, blankPreview])
   const shellRef = useRef(null)
   const measurementRef = useRef(null)
   const [pageWidth, setPageWidth] = useState(MAX_A4_WIDTH)
   const [pages, setPages] = useState(() => initialPages(sections))
+  const [fontLoadRevision, setFontLoadRevision] = useState(0)
   const pageHeight = Math.round(pageWidth * A4_RATIO)
+  // Preserve A4 proportions when the editor is narrower than a desktop sheet.
+  if (!preview && ['navy-professional', 'simple-hipster', 'curve-academic', 'receive'].includes(variant)) {
+    templateStyle.fontSize = `${(parseFloat(editorStyle?.fontSize) || 13.3333) * pageWidth / MAX_A4_WIDTH}px`
+    templateStyle.padding = `${pageWidth * .055}px`
+  }
 
   useEffect(() => {
     const font = resumeFonts.find(item => item.family === presentation?.fontFamily)
-    if (font) loadResumeFont(font)
-  }, [presentation?.fontFamily])
+    const receiveMetaFont = variant === 'receive' ? resumeFonts.find(item => item.name === 'Roboto Mono') : null
+    Promise.all([font && loadResumeFont(font), receiveMetaFont && loadResumeFont(receiveMetaFont)].filter(Boolean))
+      .then(() => setFontLoadRevision(revision => revision + 1))
+  }, [presentation?.fontFamily, variant])
 
   useEffect(() => {
     if (preview || !shellRef.current) return undefined
@@ -386,7 +422,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     if (preview) return
     const nextPages = paginateMeasurement(measurementRef.current, sections)
     setPages(nextPages)
-  }, [editorStyle, footerText, pageHeight, preview, sections, useGlobalTextColor, variant])
+  }, [editorStyle, footerText, fontLoadRevision, pageHeight, preview, sections, useGlobalTextColor, variant, presentation])
 
   if (preview) {
     return <SingleResume
@@ -400,6 +436,8 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
       preview
       onManualEdit={onManualEdit}
       presentation={presentation}
+      blankPreview={blankPreview}
+      onProfilePhotoClick={onProfilePhotoClick}
     />
   }
 
@@ -440,9 +478,9 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
         >
           <article
             style={{ ...templateStyle, width: pageWidth, height: pageHeight }}
-            className={`generated-resume resume-a4-page template-${variant} ${useGlobalTextColor ? 'ai-global-text-color' : ''}`}
+            className={`generated-resume resume-a4-page template-${variant} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
           >
-            {page.showHeader && <ResumeHeader resumeData={templateResume} presentation={presentation} />}
+            {page.showHeader && <ResumeHeader resumeData={templateResume} presentation={presentation} blankPreview={blankPreview} onProfilePhotoClick={onProfilePhotoClick} />}
             <div className="generated-resume-main">
               <ResumeSectionFlow variant={variant} sections={page.groups} renderSection={group => {
                 const section = sections.find(item => item.id === group.sectionId)
@@ -469,7 +507,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     >
       <ResumeHeader resumeData={templateResume} presentation={presentation} />
       <div className="generated-resume-main">
-        <ResumeSectionFlow variant={variant} sections={sections} renderSection={section => <section className="resume-section" data-measure-section={section.id} key={section.id}>
+        <ResumeSectionFlow variant={variant} sections={sections} renderSection={section => <section className={`resume-section resume-section-${section.id}`} data-measure-section={section.id} key={section.id}>
           <h2 data-measure-heading>{section.title}</h2>
           {section.blocks.map((block, blockIndex) => <div className="resume-page-block" data-block-index={blockIndex} key={block.id}>
             <RenderBlock block={block} />
