@@ -10,6 +10,28 @@ const linkHref = value => {
   return `https://${url}`
 }
 
+// Links are shown by where they lead ("LinkedIn", "GitHub"), not as raw addresses.
+const linkSites = [
+  ['linkedin.', 'LinkedIn'], ['github.', 'GitHub'], ['gitlab.', 'GitLab'], ['bitbucket.', 'Bitbucket'], ['leetcode.', 'LeetCode'],
+  ['hackerrank.', 'HackerRank'], ['codechef.', 'CodeChef'], ['codeforces.', 'Codeforces'], ['geeksforgeeks.', 'GeeksforGeeks'],
+  ['kaggle.', 'Kaggle'], ['stackoverflow.', 'Stack Overflow'], ['medium.', 'Medium'], ['dev.to', 'DEV'], ['hashnode.', 'Hashnode'],
+  ['behance.', 'Behance'], ['dribbble.', 'Dribbble'], ['figma.', 'Figma'], ['youtube.', 'YouTube'], ['youtu.be', 'YouTube'],
+  ['twitter.', 'X (Twitter)'], ['x.com', 'X (Twitter)'], ['instagram.', 'Instagram'], ['scholar.google.', 'Google Scholar'],
+  ['orcid.', 'ORCID'], ['researchgate.', 'ResearchGate'], ['credly.', 'Credly']
+]
+const hostingSuffixes = ['github.io', 'vercel.app', 'netlify.app', 'pages.dev', 'web.app', 'firebaseapp.com', 'onrender.com', 'herokuapp.com']
+const looksLikeAddress = value => /^(https?:\/\/|www\.)|^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(clean(value))
+const hostOf = value => clean(value).replace(/^[a-z]+:\/\//i, '').replace(/^www\./i, '').split(/[/?#]/)[0].toLowerCase()
+
+// A label the person typed always wins; otherwise the destination's name, then its domain.
+export function linkDisplayLabel(url, label = '') {
+  if (clean(label) && !looksLikeAddress(label)) return clean(label)
+  const host = hostOf(url)
+  const isPersonalSite = hostingSuffixes.some(suffix => host === suffix || host.endsWith(`.${suffix}`))
+  const site = isPersonalSite ? '' : linkSites.find(([pattern]) => host.includes(pattern))?.[1]
+  return site || host || clean(url)
+}
+
 /**
  * Presentation-only adapter between Resumetrics' normalized resume data and a
  * template. It deliberately does not mutate the source object: parsing, AI
@@ -32,7 +54,12 @@ export function adaptResumeForTemplate(resumeData = {}) {
       { path: 'email', value: clean(resumeData.email), kind: 'email' },
       { path: 'phone', value: clean(resumeData.phone), kind: 'phone' },
       { path: 'location', value: clean(resumeData.location), kind: 'location' },
-      ...links.map(link => ({ path: `links.${link.index}.url`, value: link.url || link.label, kind: 'link', href: linkHref(link.url), label: link.label }))
+      ...links.map(link => {
+        const href = linkHref(link.url || (looksLikeAddress(link.label) ? link.label : ''))
+        return href
+          ? { path: `links.${link.index}.label`, value: linkDisplayLabel(link.url || link.label, link.label), kind: 'link', href, label: link.label, address: link.url }
+          : { path: `links.${link.index}.label`, value: link.label, kind: 'text' }
+      })
     ].filter(item => item.value),
     links,
     skillsByCategory,

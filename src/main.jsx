@@ -17,7 +17,7 @@ import './linkedin-evidence.css'
 import './ai-assistant.css'
 import './resume-builder.css'
 import logo from './assets/resumetrics-logo.png'
-import ResumeStartOptions from './components/ResumeStartOptions.jsx'
+import ResumeStartOptions, { FileTypeIcon } from './components/ResumeStartOptions.jsx'
 import ResumeTemplateSelector from './components/ResumeTemplateSelector.jsx'
 import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
 import GitHubEvidenceReview from './components/GitHubEvidenceReview.jsx'
@@ -138,7 +138,9 @@ function updateManualResumeData(resumeData, path, value) {
   }
   if (parts[0] === 'links' && Number.isInteger(Number(parts[1]))) {
     const index = Number(parts[1])
-    next.links[index] = { ...(next.links[index] ?? {}), url: text, label: next.links[index]?.label || text }
+    // The resume shows a link's label ("LinkedIn"); editing that text renames the link without touching its address.
+    if (parts[2] === 'label') next.links[index] = { ...(next.links[index] ?? {}), label: text }
+    else next.links[index] = { ...(next.links[index] ?? {}), url: text, label: next.links[index]?.label || text }
     return next
   }
   if (['certifications', 'achievements'].includes(parts[0]) && Number.isInteger(Number(parts[1]))) {
@@ -376,29 +378,62 @@ function GoogleMark() {
   return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.2-4.8 3.2-8Z" /><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1-3.7 1-2.8 0-5.2-1.9-6.1-4.5H2.2v2.8A11 11 0 0 0 12 23Z" /><path fill="#FBBC05" d="M5.9 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8l3.7-2.8Z" /><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.1 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.7 2.8C6.8 7.3 9.2 5.4 12 5.4Z" /></svg>
 }
 
+// Accent shades replace the old light/dark/system choice; the interface always stays light.
+const accentShadeStorageKey = 'resumetrics-shade'
+const accentShades = [
+  ['violet', 'Violet', 'The original Resumetrics look', ['#5b45e4', '#6c58f2', '#efecff']],
+  ['ocean', 'Ocean', 'Calm, trustworthy blue', ['#2563eb', '#3b82f6', '#e6effe']],
+  ['emerald', 'Emerald', 'Fresh and confident green', ['#0e9466', '#16b07c', '#e2f5ec']],
+  ['rose', 'Rose', 'Warm and personable', ['#db3f68', '#ec5f84', '#fde8ee']],
+  ['sunset', 'Sunset', 'Energetic amber', ['#dd6b12', '#f0862e', '#fdeedf']],
+  ['graphite', 'Graphite', 'Neutral and understated', ['#3d4757', '#556076', '#eaecf0']]
+]
+const readAccentShade = () => {
+  try {
+    const stored = localStorage.getItem(accentShadeStorageKey)
+    return accentShades.some(([id]) => id === stored) ? stored : 'violet'
+  } catch {
+    return 'violet'
+  }
+}
+function applyAccentShade(shade) {
+  const root = document.documentElement
+  root.dataset.shade = shade
+  root.dataset.resolvedTheme = 'light'
+  delete root.dataset.appearance
+  try {
+    localStorage.setItem(accentShadeStorageKey, shade)
+    localStorage.removeItem('resumetrics-appearance')
+  } catch {
+    // The shade still applies for this visit if browser storage is unavailable.
+  }
+}
+// Apply the saved shade as soon as the app loads, not only after Settings is opened.
+if (typeof document !== 'undefined') applyAccentShade(readAccentShade())
+
 function GeneralSettingsPanel() {
-  const { currentUser } = useAuth()
+  const { currentUser, signOut } = useAuth()
+  const navigate = useNavigate()
+  const [loggingOut, setLoggingOut] = useState(false)
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await signOut()
+    } catch (logoutError) {
+      console.error('Google sign-out failed:', logoutError)
+    } finally {
+      navigate('/login', { replace: true })
+    }
+  }
   const [activeTab, setActiveTab] = useState('account')
-  const [appearance, setAppearance] = useState(() => localStorage.getItem('resumetrics-appearance') || 'system')
+  const [shade, setShade] = useState(readAccentShade)
   const [savedDetails, setSavedDetails] = useState(readProfileDetails)
   const [details, setDetails] = useState(savedDetails)
   const [detailsNotice, setDetailsNotice] = useState('')
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [privacyNotice, setPrivacyNotice] = useState('')
 
-  useEffect(() => {
-    const root = document.documentElement
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const applyTheme = () => {
-      const resolvedTheme = appearance === 'system' ? (mediaQuery.matches ? 'dark' : 'light') : appearance
-      root.dataset.resolvedTheme = resolvedTheme
-    }
-    root.dataset.appearance = appearance
-    localStorage.setItem('resumetrics-appearance', appearance)
-    applyTheme()
-    mediaQuery.addEventListener?.('change', applyTheme)
-    return () => mediaQuery.removeEventListener?.('change', applyTheme)
-  }, [appearance])
+  useEffect(() => { applyAccentShade(shade) }, [shade])
 
   const displayName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User'
   const initials = displayName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
@@ -461,7 +496,7 @@ function GeneralSettingsPanel() {
           <span className="settings-block-title">Linked account</span>
           <div className="settings-linked-row">
             <span className="settings-linked-identity"><GoogleMark /><span><b>Google</b><small>{currentUser?.email}</small></span></span>
-            <span className="settings-status">Connected</span>
+            <button className="settings-logout-button" type="button" onClick={handleLogout} disabled={loggingOut}>{loggingOut ? 'Logging out…' : 'Log out'}</button>
           </div>
         </div>
         <dl className="settings-meta">
@@ -472,11 +507,12 @@ function GeneralSettingsPanel() {
 
       {activeTab === 'appearance' && <>
         <h2>Appearance</h2>
-        <p className="settings-intro">Choose how Resumetrics looks on this device.</p>
-        <div className="settings-theme-options" role="radiogroup" aria-label="Theme">
-          {[['light', 'appearance', 'Light', 'Bright and clear'], ['dark', 'moon', 'Dark', 'Easy on the eyes'], ['system', 'device', 'System', 'Match your device']].map(([option, icon, label, description]) => <button key={option} type="button" role="radio" aria-checked={appearance === option} className={appearance === option ? 'active' : ''} onClick={() => setAppearance(option)}>
-            <span className={`settings-theme-swatch is-${option}`} aria-hidden="true"><Icon name={icon} size={18} /></span>
-            <b>{label}</b><small>{description}</small>
+        <p className="settings-intro">Pick an accent shade for buttons, highlights and menus. Your resume keeps its own template colours.</p>
+        <div className="settings-shade-options" role="radiogroup" aria-label="Accent shade">
+          {accentShades.map(([id, label, description, colors]) => <button key={id} type="button" role="radio" aria-checked={shade === id} className={shade === id ? 'active' : ''} onClick={() => setShade(id)}>
+            <span className="settings-shade-swatch" style={{ '--swatch-a': colors[0], '--swatch-b': colors[1], '--swatch-soft': colors[2] }} aria-hidden="true"><i /><i /><i /></span>
+            <span className="settings-shade-text"><b>{label}</b><small>{description}</small></span>
+            {shade === id && <span className="settings-shade-check" aria-hidden="true"><Icon name="check" size={14} /></span>}
           </button>)}
         </div>
       </>}
@@ -769,6 +805,50 @@ const templateGroups = [
 ]
 const TEMPLATE_PAGE_WIDTH = 794
 
+// Large preview of one template over a blurred page, with a brief description and a button to start.
+function TemplatePreviewDialog({ template, onClose, onUse }) {
+  const paperRef = useRef(null)
+  const [scale, setScale] = useState(.6)
+  const Preview = template.component
+
+  useEffect(() => {
+    const paper = paperRef.current
+    if (!paper) return undefined
+    const update = () => setScale(paper.clientWidth / TEMPLATE_PAGE_WIDTH || .6)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(paper)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const onKey = event => { if (event.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = previousOverflow }
+  }, [onClose])
+
+  return <div className="template-preview-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <div className="template-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="template-preview-title">
+      <div className="template-preview-paper" ref={paperRef} style={{ '--preview-scale': scale }} aria-hidden="true">
+        <span className="template-gallery-sheet template-preview-sheet">
+          <Preview resumeData={templatePreviewResumeData} presentation={{ ...resolveResumePresentation(template, {}), photo: template.supportsPhoto ? template.defaultTheme.photo : undefined }} preview />
+        </span>
+      </div>
+      <div className="template-preview-info">
+        <button className="template-preview-close" type="button" onClick={onClose} aria-label="Close preview">×</button>
+        <span className="template-preview-layout">{template.layout === 'two-column' ? 'Two-column' : 'Single-column'}</span>
+        <h2 id="template-preview-title">{template.name}</h2>
+        <p>{template.summary}</p>
+        <span className="template-gallery-tags">{(template.tags ?? []).filter(tag => !/^(single|two)-column$/i.test(tag)).map(tag => <i key={tag}>{tag}</i>)}</span>
+        <button className="template-preview-use" type="button" onClick={onUse} autoFocus>Use this template</button>
+        <small className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Adapted from Reactive Resume' : 'Resumetrics classic'}</small>
+      </div>
+    </div>
+  </div>
+}
+
 function TemplatesPage() {
   const navigate = useNavigate()
   const galleryRef = useRef(null)
@@ -786,6 +866,8 @@ function TemplatesPage() {
   }, [])
 
   const startWithTemplate = templateId => navigate('/workspace', { state: { dashboardTemplateId: templateId } })
+  const [previewId, setPreviewId] = useState(null)
+  const previewTemplate = resumeTemplates.find(template => template.id === previewId) ?? null
 
   return <Shell>
     <header className="page-header templates-page-header"><div><h1>Templates</h1><p className="dashboard-subtitle">Pick a design to start building. You can change colours and fonts in the editor, and switch templates at any time.</p></div></header>
@@ -800,7 +882,7 @@ function TemplatesPage() {
           <ul className="templates-grid">{templates.map(template => {
             const Preview = template.component
             return <li key={template.id}>
-              <button className="template-gallery-card" type="button" onClick={() => startWithTemplate(template.id)} aria-label={`Start building with the ${template.name} template`}>
+              <button className="template-gallery-card" type="button" onClick={() => setPreviewId(template.id)} aria-label={`Preview the ${template.name} template`}>
                 <span className="template-gallery-paper" aria-hidden="true">
                   <span className="template-gallery-sheet">
                     <Preview resumeData={templatePreviewResumeData} presentation={{ ...resolveResumePresentation(template, {}), photo: template.supportsPhoto ? template.defaultTheme.photo : undefined }} preview />
@@ -818,6 +900,7 @@ function TemplatesPage() {
         </section>
       })}
     </div>
+    {previewTemplate && <TemplatePreviewDialog template={previewTemplate} onClose={() => setPreviewId(null)} onUse={() => startWithTemplate(previewTemplate.id)} />}
   </Shell>
 }
 
@@ -1287,7 +1370,8 @@ function MainPage() {
     setProfilePhotoError('')
     try {
       const source = await readProfilePhoto(file)
-      if (source) setResumePresentation(current => ({ ...current, photo: { source, uploaded: true, width: 72, height: 72, shape: 'circle', objectFit: 'cover', objectPosition: '50% 50%' } }))
+      // The cropper opens straight away; the template's own photo shape (circle or rounded) is kept.
+      if (source) setResumePresentation(current => ({ ...current, photo: { source, originalSource: source, cropPending: true, uploaded: true, width: 72, height: 72, shape: selectedTemplate?.defaultTheme?.photo?.shape || 'circle', objectFit: 'cover', objectPosition: '50% 50%' } }))
     } catch (error) {
       setProfilePhotoError(error.message || 'The profile photo could not be loaded.')
     }
@@ -1640,7 +1724,28 @@ function MainPage() {
     <header className={`page-header${isEditorRoute ? ' editor-page-header' : ''}`}><div>{isEditorRoute && <button className="editor-back-button" type="button" onClick={() => navigate('/workspace')} aria-label="Back to workspace"><span aria-hidden="true">←</span> Back to workspace</button>}<span className="eyebrow">{isEditorRoute ? 'RESUME EDITOR' : 'WORKSPACE'}</span>{isEditorRoute ? <h1>Build and refine your resume.</h1> : <h1>Start a resume.</h1>}</div></header>
     <div className={`workspace-grid ${isEditorPage ? 'editor-workspace-grid' : 'setup-mode'}`}>
       <section className="resume-canvas panel">
-        {isEditorPage && <div className="canvas-top"><div className="resume-title-wrap">{editingName ? <input className="resume-title-input" autoFocus value={resumeName} onChange={event => setResumeName(event.target.value)} onBlur={() => { setResumeName(resumeName.trim() || 'Untitled resume'); setEditingName(false) }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} aria-label="Resume name" /> : <button className="resume-title-button" onClick={() => setEditingName(true)}>{resumeName}</button>}</div><div className="canvas-actions">{isEditorPage && <span className="canvas-draft-actions"><span className="canvas-export-wrap" ref={exportMenuRef}><button className="canvas-export-button" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}><Icon name="download" size={14} />{exportLoading ? 'Exporting…' : 'Export'}<span className="export-chevron" aria-hidden="true">▾</span></button>{exportMenuOpen && <div className="export-format-menu" role="menu" aria-label="Export format"><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('PDF')}>PDF document</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('DOCX')}>Word document (.docx)</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('TXT')}>Plain text (.txt)</button></div>}</span><button className="canvas-delete-button" type="button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={14} />Delete</button></span>}<span className="status-dot">Editable draft</span></div></div>}
+        {isEditorPage && <div className="canvas-top editor-toolbar">
+          <div className="editor-toolbar-identity">
+            <span className="editor-toolbar-icon" aria-hidden="true"><Icon name="document" size={18} /></span>
+            <div className="resume-title-wrap">
+              {editingName
+                ? <input className="resume-title-input" autoFocus value={resumeName} onChange={event => setResumeName(event.target.value)} onBlur={() => { setResumeName(resumeName.trim() || 'Untitled resume'); setEditingName(false) }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} aria-label="Resume name" />
+                : <button className="resume-title-button" type="button" onClick={() => setEditingName(true)} title="Rename this resume">{resumeName}<span className="resume-title-edit" aria-hidden="true"><Icon name="create" size={13} /></span></button>}
+              <small className="editor-toolbar-meta">{selectedTemplate?.name}<i aria-hidden="true">·</i>{selectedTemplate?.layout === 'two-column' ? 'Two-column' : 'Single-column'}<i aria-hidden="true">·</i>{uploadedFileName ? `Imported from ${uploadedFileName}` : 'Started from scratch'}</small>
+            </div>
+          </div>
+          <div className="canvas-actions editor-toolbar-actions">
+            <button className="canvas-delete-button editor-toolbar-delete" type="button" disabled={workspaceMode === 'initial'} onClick={deleteDraft} aria-label="Delete this draft" title="Delete this draft"><Icon name="trash" size={16} /></button>
+            <span className="canvas-export-wrap" ref={exportMenuRef}>
+              <button className="canvas-export-button editor-toolbar-export" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}><Icon name="download" size={15} />{exportLoading ? 'Exporting…' : 'Export'}<span className="export-chevron" aria-hidden="true">▾</span></button>
+              {exportMenuOpen && <div className="export-format-menu" role="menu" aria-label="Export format">
+                <button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('PDF')}><FileTypeIcon fileName="resume.pdf" size={26} /><span><b>PDF document</b><small>Best for sending to employers</small></span></button>
+                <button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('DOCX')}><FileTypeIcon fileName="resume.docx" size={26} /><span><b>Word document</b><small>Editable .docx file</small></span></button>
+                <button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('TXT')}><FileTypeIcon fileName="resume.txt" size={26} /><span><b>Plain text</b><small>For online application forms</small></span></button>
+              </div>}
+            </span>
+          </div>
+        </div>}
         <input ref={uploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={handleUpload} />
         <input ref={linkedinUploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleLinkedInUpload} />
         {isEditorPage && selectedTemplate?.supportsPhoto && <input ref={profilePhotoInputRef} className="upload-input" type="file" accept="image/jpeg,.jpg,.jpeg" aria-label="Choose JPEG profile photo" onChange={handleProfilePhotoUpload} />}
@@ -1652,7 +1757,7 @@ function MainPage() {
         {isEditorPage && <TemplateComponent resumeData={resumeData} editorRef={editorReady} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} onManualEdit={handleManualResumeEdit} onElementSelect={setSelectedResumeElement} presentation={editorPresentation} onProfilePhotoClick={() => profilePhotoInputRef.current?.click()} blankPreview={isScratchResume} />}
       </section>
       {isEditorPage && <div className="right-rail">
-        <aside className="analysis-panel panel">
+        {!isScratchResume && <aside className="analysis-panel panel">
           <div><span className="eyebrow">ROLE ALIGNMENT</span><h2>Job description</h2><p className="muted">Add a target role to uncover what your resume proves—and what it does not.</p></div>
           <textarea value={description} maxLength="5000" onChange={event => { analysisRequestRef.current += 1; setDescription(event.target.value); setAnalysis(null); setAnalysisPreview(null); setAnalysisLoading(false) }} placeholder="Paste the job description here…" />
           <div className="char-count">{description.length} / 5000</div>
@@ -1671,9 +1776,10 @@ function MainPage() {
               {analysis.recommendations?.length > 0 && <div className="analysis-result-section"><strong>Next step</strong><ul>{analysis.recommendations.map(item => <li key={item}>{item}</li>)}</ul></div>}
             </> : <p>{!resumeData ? 'Create or import a resume before analysing a role.' : 'Waiting for a job description.'}</p>}
           </div>
-        </aside>
+        </aside>}
         <div className="editor-tools-rail">
           {isScratchResume ? <ResumeBuilderForm
+            template={selectedTemplate}
             resumeData={resumeData}
             onChange={handleBuilderResumeUpdate}
             fonts={resumeFonts}
@@ -1706,7 +1812,6 @@ function MainPage() {
           <ProfilePhotoControls photo={resumePresentation.photo} onChange={updateProfilePhoto} error={profilePhotoError} />
           </>}
         </div>
-        {isScratchResume && <div className="editor-scratch-assistant">{assistantEditor}</div>}
       </div>}
     </div>
     {isEditorPage && <section className="lower-grid workspace-lower-grid"><div className="panel section-panel evidence-panel"><div className="evidence-panel-heading"><div><span className="eyebrow">EVIDENCE SOURCES</span><h2>Verify the work behind the words.</h2><p className="muted">Connect GitHub or import a LinkedIn profile to surface credible proof for skills, experience, and education.</p></div><button className="primary-button compare-evidence-button" type="button" disabled={!hasConnectedEvidenceSource} onClick={compareEvidence}>Compare</button></div><div className="sources">

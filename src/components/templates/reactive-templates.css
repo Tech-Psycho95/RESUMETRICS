@@ -33,7 +33,7 @@
 .generated-resume.template-reactive .generated-contact { display: flex; flex-wrap: wrap; justify-items: initial; gap: calc(var(--rr-gy) * .125) calc(var(--rr-gx) * 1.5); color: inherit; font-size: 1em; font-style: normal; line-height: 1.5; text-align: inherit; }
 .generated-resume.template-reactive .generated-contact-link { display: inline; color: inherit; text-decoration: none; }
 /* Reactive Resume pictures are a fixed 80pt square; centred headers centre them. */
-.generated-resume.template-reactive .generated-resume-photo { width: 6em !important; height: 6em !important; max-width: none; align-self: auto; aspect-ratio: 1; object-fit: cover; }
+.generated-resume.template-reactive .generated-resume-photo, .generated-resume.template-reactive .generated-resume-photo-upload { width: 6em !important; height: 6em !important; max-width: none; align-self: auto; aspect-ratio: 1; object-fit: cover; }
 .generated-resume.template-reactive .resume-section { margin-top: var(--rr-my); }
 .generated-resume.template-reactive .resume-column > .resume-section:first-child,
 .generated-resume.template-reactive .generated-resume-main > .resume-section:first-child { margin-top: 0; }
@@ -82,7 +82,7 @@
 .generated-resume.template-reactive.template-azurill { --rr-default-primary: #1f6fb8; }
 .generated-resume.template-reactive.template-azurill .generated-resume-header { align-items: center; margin-bottom: var(--rr-my); text-align: center; }
 .generated-resume.template-reactive.template-azurill .generated-resume-identity { justify-items: center; }
-.generated-resume.template-reactive.template-azurill .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-azurill .generated-resume-photo, .generated-resume.template-reactive.template-azurill .generated-resume-photo-upload { order: -1; }
 .generated-resume.template-reactive.template-azurill .generated-contact { justify-content: center; }
 .generated-resume.template-reactive.template-azurill .resume-section h2 { color: var(--rr-primary); }
 .generated-resume.template-reactive.template-azurill .resume-main-column { position: relative; padding-left: 1.6em; }
@@ -94,7 +94,7 @@
 .generated-resume.template-reactive.template-bronzor { --rr-default-primary: #111111; }
 .generated-resume.template-reactive.template-bronzor .generated-resume-header { align-items: center; margin-bottom: var(--rr-my); text-align: center; }
 .generated-resume.template-reactive.template-bronzor .generated-resume-identity { justify-items: center; }
-.generated-resume.template-reactive.template-bronzor .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-bronzor .generated-resume-photo, .generated-resume.template-reactive.template-bronzor .generated-resume-photo-upload { order: -1; }
 .generated-resume.template-reactive.template-bronzor .generated-contact { justify-content: center; column-gap: calc(var(--rr-gx) * 2.5); }
 .generated-resume.template-reactive.template-bronzor .resume-section { display: grid; grid-template-columns: var(--rr-side) minmax(0, 1fr); column-gap: var(--rr-mx); padding-top: calc(var(--rr-gy) * .5); border-top: 1px solid var(--rr-primary); }
 .generated-resume.template-reactive.template-bronzor .resume-section > h2 { grid-column: 1; grid-row: 1 / span 60; margin: 0; color: var(--rr-primary); font-size: 1.05em; font-weight: 500; }
@@ -103,7 +103,7 @@
 /* ---------- Chikorita: header in the main column, full-height accent sidebar on the right ---------- */
 .generated-resume.template-reactive.template-chikorita { --rr-default-primary: #2f6a46; grid-template-columns: minmax(0, 1fr) var(--rr-side); grid-template-rows: auto 1fr; grid-template-areas: "header sidebar" "main sidebar"; }
 .generated-resume.template-reactive.template-chikorita .generated-resume-header { grid-area: header; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "photo contact"; align-items: start; column-gap: calc(var(--rr-gx) * 1.5); row-gap: calc(var(--rr-gy) * .5); padding: var(--rr-my) var(--rr-mx) 0; }
-.generated-resume.template-reactive.template-chikorita .generated-resume-photo { grid-area: photo; border-radius: 50%; }
+.generated-resume.template-reactive.template-chikorita .generated-resume-photo, .generated-resume.template-reactive.template-chikorita .generated-resume-photo-upload { grid-area: photo; border-radius: 50%; }
 .generated-resume.template-reactive.template-chikorita .generated-resume-identity { grid-area: identity; }
 .generated-resume.template-reactive.template-chikorita .generated-contact { grid-area: contact; column-gap: calc(var(--rr-gx) * 2); }
 .generated-resume.template-reactive.template-chikorita .resume-main-column { grid-area: main; padding: var(--rr-my) var(--rr-mx); }
@@ -115,7 +115,7 @@
 .generated-resume.template-reactive.template-ditgar { --rr-default-primary: #2f7fd6; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "header main" "sidebar main"; }
 .generated-resume.template-reactive.template-gengar { --rr-default-primary: #6d3fd1; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "header main" "sidebar main"; }
 .generated-resume.template-reactive.template-ditgar .generated-resume-header, .generated-resume.template-reactive.template-gengar .generated-resume-header { grid-area: header; gap: calc(var(--rr-gy) * .5); padding: var(--rr-my) var(--rr-mx); color: #fff; background: var(--rr-primary); }
-.generated-resume.template-reactive.template-ditgar .generated-resume-photo, .generated-resume.template-reactive.template-gengar .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-ditgar .generated-resume-photo, .generated-resume.template-reactive.template-gengar .generated-resume-photo, .generated-resume.template-reactive.template-ditgar .generated-resume-photo-upload, .generated-resume.template-reactive.template-gengar .generated-resume-photo-upload { order: -1; }
 .generated-resume.template-reactive.template-ditgar .generated-contact, .generated-resume.template-reactive.template-gengar .generated-contact { display: grid; gap: calc(var(--rr-gy) * .2); }
 .generated-resume.template-reactive.template-ditgar .resume-sidebar-column, .generated-resume.template-reactive.template-gengar .resume-sidebar-column { grid-area: sidebar; padding: var(--rr-my) var(--rr-mx); background: var(--rr-tint); }
 .generated-resume.template-reactive.template-ditgar .resume-main-column, .generated-resume.template-reactive.template-gengar .resume-main-column { grid-area: main; padding: var(--rr-my) var(--rr-mx); }
@@ -131,7 +131,7 @@
 .generated-resume.template-reactive.template-ditto .generated-resume-header::before { content: ""; position: absolute; z-index: 0; top: 0; right: 0; left: 0; height: var(--ditto-band, 6.2em); background: var(--rr-primary); }
 .generated-resume.template-reactive.template-ditto .generated-resume-identity { position: relative; z-index: 1; grid-area: identity; min-height: var(--ditto-band, 6.2em); align-content: center; padding: var(--rr-my) var(--rr-mx); color: #fff; }
 .generated-resume.template-reactive.template-ditto .generated-contact { grid-area: contact; padding: var(--rr-my) var(--rr-mx) 0; column-gap: calc(var(--rr-gx) * 2); }
-.generated-resume.template-reactive.template-ditto .generated-resume-photo { position: relative; z-index: 1; grid-area: photo; justify-self: center; margin-top: calc(var(--rr-my) * .75); }
+.generated-resume.template-reactive.template-ditto .generated-resume-photo, .generated-resume.template-reactive.template-ditto .generated-resume-photo-upload { position: relative; z-index: 1; grid-area: photo; justify-self: center; margin-top: calc(var(--rr-my) * .75); }
 .generated-resume.template-reactive.template-ditto .generated-resume-main { padding: 0 var(--rr-mx); }
 .generated-resume.template-reactive.template-ditto .resume-section h2 { color: var(--rr-primary); }
 
@@ -142,7 +142,7 @@
 .generated-resume.template-reactive.template-glalie { --rr-default-primary: #4f6f8f; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "header main" "sidebar main"; }
 .generated-resume.template-reactive.template-glalie .generated-resume-header { grid-area: header; align-items: center; padding: var(--rr-my) var(--rr-mx) 0; text-align: center; background: var(--rr-tint); }
 .generated-resume.template-reactive.template-glalie .generated-resume-identity { justify-items: center; }
-.generated-resume.template-reactive.template-glalie .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-glalie .generated-resume-photo, .generated-resume.template-reactive.template-glalie .generated-resume-photo-upload { order: -1; }
 .generated-resume.template-reactive.template-glalie .generated-contact { box-sizing: border-box; display: grid; width: 100%; gap: calc(var(--rr-gy) * .125); padding: calc(var(--rr-gx) * .75); border: 1px solid var(--rr-primary); text-align: left; }
 .generated-resume.template-reactive.template-glalie .resume-sidebar-column { grid-area: sidebar; padding: var(--rr-my) var(--rr-mx); background: var(--rr-tint); }
 .generated-resume.template-reactive.template-glalie .resume-main-column { grid-area: main; padding: var(--rr-my) var(--rr-mx); }
@@ -152,14 +152,14 @@
 .generated-resume.template-reactive.template-kakuna { --rr-default-primary: #a8790f; }
 .generated-resume.template-reactive.template-kakuna .generated-resume-header { align-items: center; margin-bottom: var(--rr-my); text-align: center; }
 .generated-resume.template-reactive.template-kakuna .generated-resume-identity { justify-items: center; }
-.generated-resume.template-reactive.template-kakuna .generated-resume-photo { order: -1; border: 2px solid var(--rr-primary); }
+.generated-resume.template-reactive.template-kakuna .generated-resume-photo, .generated-resume.template-reactive.template-kakuna .generated-resume-photo-upload { order: -1; border: 2px solid var(--rr-primary); }
 .generated-resume.template-reactive.template-kakuna .generated-contact { justify-content: center; column-gap: calc(var(--rr-gx) * .75 + .4em); }
 .generated-resume.template-reactive.template-kakuna .resume-section h2 { padding-bottom: calc(var(--rr-gy) * .125); border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); font-size: 1.2em; text-align: center; }
 
 /* ---------- Lapras: single column of outlined cards with headings set into the border ---------- */
 .generated-resume.template-reactive.template-lapras { --rr-default-primary: #2563eb; }
 .generated-resume.template-reactive.template-lapras .generated-resume-header { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "photo contact"; align-items: center; gap: calc(var(--rr-gy) * .5) var(--rr-gx); margin-bottom: calc(var(--rr-gy) * 1.5); padding: var(--rr-gx); border: 1px solid #ccc; border-radius: 10px; }
-.generated-resume.template-reactive.template-lapras .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-lapras .generated-resume-photo, .generated-resume.template-reactive.template-lapras .generated-resume-photo-upload { grid-area: photo; }
 .generated-resume.template-reactive.template-lapras .generated-resume-identity { grid-area: identity; align-self: end; }
 .generated-resume.template-reactive.template-lapras .generated-contact { grid-area: contact; align-self: start; }
 .generated-resume.template-reactive.template-lapras .resume-section { margin-top: calc(var(--rr-gy) * 1.5 + .9em); padding: var(--rr-gx) calc(var(--rr-gx) * 2.5); border: 1px solid #ccc; border-radius: 10px; }
@@ -169,7 +169,7 @@
 /* ---------- Leafish: tinted name band and contact band, main column with a right sidebar ---------- */
 .generated-resume.template-reactive.template-leafish { --rr-default-primary: #5b9a1b; padding: 0 0 var(--rr-my); }
 .generated-resume.template-reactive.template-leafish .generated-resume-header { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "contact contact"; gap: 0; margin-bottom: var(--rr-my); background: var(--rr-tint-light); }
-.generated-resume.template-reactive.template-leafish .generated-resume-photo { grid-area: photo; margin: var(--rr-my) 0 var(--rr-my) var(--rr-mx); }
+.generated-resume.template-reactive.template-leafish .generated-resume-photo, .generated-resume.template-reactive.template-leafish .generated-resume-photo-upload { grid-area: photo; margin: var(--rr-my) 0 var(--rr-my) var(--rr-mx); }
 .generated-resume.template-reactive.template-leafish .generated-resume-identity { grid-area: identity; align-content: center; padding: var(--rr-my) var(--rr-mx); }
 .generated-resume.template-reactive.template-leafish .generated-contact { grid-area: contact; padding: var(--rr-my) var(--rr-mx); background: var(--rr-tint); }
 .generated-resume.template-reactive.template-leafish .generated-resume-main { padding: 0 var(--rr-mx); }
@@ -181,7 +181,7 @@
 .generated-resume.template-reactive.template-meowth .generated-resume-identity { grid-area: identity; }
 .generated-resume.template-reactive.template-meowth .generated-resume-header p { opacity: .8; }
 .generated-resume.template-reactive.template-meowth .generated-contact { grid-area: contact; }
-.generated-resume.template-reactive.template-meowth .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-meowth .generated-resume-photo, .generated-resume.template-reactive.template-meowth .generated-resume-photo-upload { grid-area: photo; }
 .generated-resume.template-reactive.template-meowth .resume-section h2 { padding-bottom: calc(var(--rr-gy) * .125); border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); font-size: 1.1em; text-transform: uppercase; }
 .generated-resume.template-reactive.template-meowth .resume-entry { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; column-gap: var(--rr-gx); }
 .generated-resume.template-reactive.template-meowth .resume-entry-heading { display: contents; }
@@ -193,7 +193,7 @@
 /* ---------- Onyx: single column, photo beside the name, ruled header ---------- */
 .generated-resume.template-reactive.template-onyx { --rr-default-primary: #1f2937; }
 .generated-resume.template-reactive.template-onyx .generated-resume-header { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "photo contact"; align-items: center; gap: calc(var(--rr-gy) * .5) var(--rr-mx); margin-bottom: var(--rr-my); padding-bottom: var(--rr-my); border-bottom: 1px solid var(--rr-primary); }
-.generated-resume.template-reactive.template-onyx .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-onyx .generated-resume-photo, .generated-resume.template-reactive.template-onyx .generated-resume-photo-upload { grid-area: photo; }
 .generated-resume.template-reactive.template-onyx .generated-resume-identity { grid-area: identity; align-self: end; }
 .generated-resume.template-reactive.template-onyx .generated-contact { grid-area: contact; align-self: start; }
 
@@ -202,11 +202,11 @@
 .generated-resume.template-reactive.template-pikachu .generated-resume-header { grid-area: header; gap: calc(var(--rr-gy) * .5); margin-bottom: var(--rr-my); padding: var(--rr-my) var(--rr-mx); color: #fff; background: var(--rr-primary); border-radius: 6px; }
 .generated-resume.template-reactive.template-pikachu .generated-resume-identity { padding-bottom: calc(var(--rr-gy) * .5); border-bottom: 1px solid #fff; }
 /* The photo fills the top of the sidebar: same width as the 35% sidebar track, square. */
-.generated-resume.template-reactive.template-pikachu .generated-resume-photo { position: absolute; top: var(--rr-my); left: var(--rr-mx); width: calc((100% - 2 * var(--rr-mx)) * .35) !important; max-width: none; height: auto !important; aspect-ratio: 1; }
+.generated-resume.template-reactive.template-pikachu .generated-resume-photo, .generated-resume.template-reactive.template-pikachu .generated-resume-photo-upload { position: absolute; top: var(--rr-my); left: var(--rr-mx); width: calc((100% - 2 * var(--rr-mx)) * .35) !important; max-width: none; height: auto !important; aspect-ratio: 1; }
 .generated-resume.template-reactive.template-pikachu.generated-resume { position: relative; }
 .generated-resume.template-reactive.template-pikachu .resume-sidebar-column { grid-area: sidebar; }
 /* Percentage padding resolves against the sidebar's own width, so this reserves exactly the photo's height. */
-.generated-resume.template-reactive.template-pikachu:has(.generated-resume-photo) .resume-sidebar-column { padding-top: calc(100% + var(--rr-my)); }
+.generated-resume.template-reactive.template-pikachu:has(.generated-resume-photo) .resume-sidebar-column, .generated-resume.template-reactive.template-pikachu:has(.generated-resume-photo-upload) .resume-sidebar-column { padding-top: calc(100% + var(--rr-my)); }
 .generated-resume.template-reactive.template-pikachu .resume-main-column { grid-area: main; }
 .generated-resume.template-reactive.template-pikachu .resume-section h2 { border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); }
 
@@ -217,7 +217,7 @@
 .generated-resume.template-reactive.template-rhyhorn .generated-contact { grid-area: contact; align-self: start; column-gap: 0; }
 .generated-resume.template-reactive.template-rhyhorn .generated-contact > * { padding: 0 calc(var(--rr-gx) * .5); border-left: 1px solid var(--rr-primary); }
 .generated-resume.template-reactive.template-rhyhorn .generated-contact > :first-child { padding-left: 0; border-left: 0; }
-.generated-resume.template-reactive.template-rhyhorn .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-rhyhorn .generated-resume-photo, .generated-resume.template-reactive.template-rhyhorn .generated-resume-photo-upload { grid-area: photo; }
 .generated-resume.template-reactive.template-rhyhorn .resume-section h2 { border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); }
 
 /* ---------- Scizor: accent rule across the top of every page, ruled uppercase sections ---------- */
@@ -226,9 +226,19 @@
 .generated-resume.template-reactive.template-scizor .generated-resume-identity { grid-area: identity; }
 .generated-resume.template-reactive.template-scizor .generated-resume-header h1 { width: 72%; padding-bottom: calc(var(--rr-gy) * .3); border-bottom: 2px solid #d8dce2; font-size: 2.59em; font-weight: 700; }
 .generated-resume.template-reactive.template-scizor .generated-contact { grid-area: contact; }
-.generated-resume.template-reactive.template-scizor .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-scizor .generated-resume-photo, .generated-resume.template-reactive.template-scizor .generated-resume-photo-upload { grid-area: photo; }
 .generated-resume.template-reactive.template-scizor .resume-section { padding-top: calc(var(--rr-gy) * .65); border-top: 1px solid #d8dce2; }
 .generated-resume.template-reactive.template-scizor .resume-section h2 { font-size: 1.26em; font-weight: 700; text-transform: uppercase; }
 
 /* Continuation headings on later pages keep each template's heading style. */
 .generated-resume.template-reactive .resume-continuation-label { font-weight: 400; opacity: .7; text-transform: none; }
+
+
+/* Empty photo slot shown while building from scratch: same size and position as the picture. */
+.generated-resume.template-reactive .generated-resume-photo-upload { display: grid; place-items: center; padding: 0; border: 1.5px dashed color-mix(in srgb, var(--rr-primary) 55%, #fff); border-radius: 6px; color: var(--rr-primary); background: color-mix(in srgb, var(--rr-primary) 8%, #fff); font: inherit; font-size: 1em; cursor: pointer; }
+.generated-resume.template-reactive .generated-resume-photo-upload span { font-size: 2.4em; line-height: 1; }
+.generated-resume.template-reactive.template-chikorita .generated-resume-photo-upload { border-radius: 50% !important; }
+/* On a solid colour header block blue would be unreadable, so links there stay white but underlined. */
+.generated-resume.template-reactive.template-ditgar .generated-resume-header a.generated-contact-link,
+.generated-resume.template-reactive.template-gengar .generated-resume-header a.generated-contact-link,
+.generated-resume.template-reactive.template-pikachu .generated-resume-header a.generated-contact-link { color: #fff !important; }
