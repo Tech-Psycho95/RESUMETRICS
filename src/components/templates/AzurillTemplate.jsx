@@ -1,5 +1,3 @@
-import ResumeTemplateLayout from './ResumeTemplateLayout.jsx'
+﻿import { AzurillTemplate } from './ReactiveTemplate.jsx'
 
-export default function AzurillTemplate(props) {
-  return <ResumeTemplateLayout {...props} variant="azurill" />
-}
+export default AzurillTemplate

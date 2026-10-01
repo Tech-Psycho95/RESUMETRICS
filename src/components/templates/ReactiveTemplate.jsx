@@ -1,16 +1,21 @@
 import ResumeTemplateLayout from './ResumeTemplateLayout.jsx'
+import './reactive-templates.css'
 
-// Adapted from the MIT-licensed Reactive Resume template family.
-// The source checkout used for the visual reference is kept outside the app;
-// this small adapter lets Resumetrics keep its existing resume data/editing
-// pipeline while exposing the same fifteen template identities.
+// Adapted from the MIT-licensed Reactive Resume template family
+// (https://github.com/AmruthPillai/Reactive-Resume, packages/pdf/src/templates).
+// Each design is recreated on the shared Resumetrics layout so it keeps the
+// existing resume data, editing and pagination pipeline.
 export const createReactiveTemplate = variant => function ReactiveResumeTemplate(props) {
   return <ResumeTemplateLayout {...props} variant={variant} />
 }
 
+export const AzurillTemplate = createReactiveTemplate('azurill')
+export const BronzorTemplate = createReactiveTemplate('bronzor')
+export const ChikoritaTemplate = createReactiveTemplate('chikorita')
+export const DitgarTemplate = createReactiveTemplate('ditgar')
+export const DittoTemplate = createReactiveTemplate('ditto')
 export const GengarTemplate = createReactiveTemplate('gengar')
 export const GlalieTemplate = createReactiveTemplate('glalie')
-export const DitgarTemplate = createReactiveTemplate('ditgar')
 export const KakunaTemplate = createReactiveTemplate('kakuna')
 export const LaprasTemplate = createReactiveTemplate('lapras')
 export const LeafishTemplate = createReactiveTemplate('leafish')

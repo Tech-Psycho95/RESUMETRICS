@@ -27,6 +27,7 @@ import AIAssistantEditor from './components/AIAssistantEditor.jsx'
 import ResumeBuilderForm from './components/ResumeBuilderForm.jsx'
 import ProfilePhotoControls from './components/ProfilePhotoControls.jsx'
 import { createResumePresentation, getResumeTemplate, resolveResumePresentation, resumeTemplates } from './config/resumeTemplates.js'
+import { templatePreviewResumeData } from './data/templatePreviewData.js'
 import { createBlankResumeData } from './data/resumeData.js'
 import { applyResumeEditPlan } from './utils/applyResumeEditPlan.js'
 import { getPathValue } from './editor/resumeEditingEngine.js'
@@ -37,10 +38,26 @@ import { readProfilePhoto } from './utils/readProfilePhoto.js'
 import useAIAnimationState, { EXCLAIM_MS, MIN_PROCESSING_MS, MIN_THINKING_MS, SUCCESS_MS } from './hooks/useAIAnimationState.js'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
 
-const navItems = [
-  ['Dashboard', '/dashboard', 'dashboard'],
-  ['Settings', '/settings', 'settings']
+// Items without a path are planned features shown as "Soon" until their pages exist.
+const navSections = [
+  { label: 'Main menu', items: [
+    ['Dashboard', '/dashboard', 'dashboard'],
+    ['Resume builder', '/workspace', 'create'],
+    ['Templates', '/templates', 'layout'],
+    ['Plan', null, 'crown']
+  ] },
+  { label: 'Career tools', items: [
+    ['Job tailoring', null, 'target'],
+    ['Cover letters', null, 'mail'],
+    ['Evidence check', '/evaluation', 'evidence'],
+    ['Job tracker', null, 'briefcase']
+  ] }
 ]
+const navUtilityItems = [
+  ['Settings', '/settings', 'settings'],
+  ['Help & support', '/help', 'help']
+]
+const recentProjectColors = ['#7c5cff', '#e0559a', '#1fa37a', '#e59a1a', '#3b82f6']
 
 const safeFileName = value => (value || 'untitled-resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled-resume'
 const githubResumeSnapshotKey = 'resumetrics:pending-github-evidence-resume'
@@ -183,6 +200,83 @@ function readQueuedEvidenceComparison() {
   return null
 }
 
+const savedProjectsStorageKey = 'resumetrics:saved-projects'
+const placeholderSavedProjects = [
+  { id: 'saved-work-1', name: 'Saved work', resumeData: null },
+  { id: 'saved-work-2', name: 'Saved work', resumeData: null }
+]
+
+function describeSavedProject(project) {
+  const updatedAt = Number(project.updatedAt)
+  return {
+    ...project,
+    name: project.name || project.resumeData?.fullName || 'Untitled resume',
+    templateName: resumeTemplates.find(template => template.id === project.templateId)?.name || '',
+    updatedLabel: updatedAt ? `Edited ${new Date(updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Not edited yet'
+  }
+}
+
+function readSavedProjects() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(savedProjectsStorageKey) || 'null')
+    const projects = Array.isArray(stored) ? stored.filter(project => project?.id) : placeholderSavedProjects
+    return projects.map(describeSavedProject)
+  } catch {
+    return placeholderSavedProjects.map(describeSavedProject)
+  }
+}
+
+function storeSavedProjects(projects) {
+  try {
+    localStorage.setItem(savedProjectsStorageKey, JSON.stringify(projects.map(({ id, name, templateId, updatedAt, resumeData, progress }) => ({ id, name, templateId, updatedAt, resumeData, progress }))))
+  } catch {
+    // The dashboard still updates for this visit if browser storage is unavailable.
+  }
+}
+
+function getResumeHealth(resumeData) {
+  const data = resumeData ?? {}
+  const has = value => typeof value === 'string' && value.trim().length > 0
+  const count = value => (Array.isArray(value) ? value.filter(Boolean).length : 0)
+  const skillCount = Object.values(data.skills ?? {}).flat().filter(has).length
+  const experience = Array.isArray(data.experience) ? data.experience : []
+  const bulletCount = [...experience, ...(data.projects ?? [])].reduce((total, item) => total + count(item?.bullets), 0)
+  const experienceBullets = experience.reduce((total, item) => total + count(item?.bullets), 0)
+  const summaryWords = has(data.summary) ? data.summary.trim().split(/\s+/).length : 0
+  const contactFields = [data.fullName, data.email, data.phone, data.location].filter(has).length
+  const rate = (done, partial) => done ? 'done' : partial ? 'partial' : 'missing'
+  const checks = [
+    { key: 'contact', label: 'Contact details', weight: 15, status: rate(contactFields === 4, contactFields > 0), detail: `${contactFields} of 4 fields`, tip: 'Complete your name, email, phone and location.' },
+    { key: 'headline', label: 'Headline', weight: 8, status: rate(has(data.headline), false), detail: has(data.headline) ? 'Added' : 'Missing', tip: 'Add a headline that names the role you want.' },
+    { key: 'summary', label: 'Summary', weight: 15, status: rate(summaryWords >= 30, summaryWords > 0), detail: summaryWords ? `${summaryWords} words` : 'Missing', tip: summaryWords ? 'Expand your summary to at least 30 words.' : 'Write a short professional summary.' },
+    { key: 'experience', label: 'Experience', weight: 25, status: rate(experience.length > 0 && experienceBullets >= experience.length * 2, experience.length > 0), detail: experience.length ? `${experience.length} role${experience.length === 1 ? '' : 's'}, ${experienceBullets} bullets` : 'Missing', tip: experience.length ? 'Give each role at least two achievement bullets.' : 'Add your work or internship experience.' },
+    { key: 'education', label: 'Education', weight: 12, status: rate(count(data.education) > 0, false), detail: count(data.education) ? `${count(data.education)} entr${count(data.education) === 1 ? 'y' : 'ies'}` : 'Missing', tip: 'Add your education history.' },
+    { key: 'skills', label: 'Skills', weight: 13, status: rate(skillCount >= 6, skillCount > 0), detail: skillCount ? `${skillCount} skills` : 'Missing', tip: skillCount ? 'List at least six relevant skills.' : 'Add the skills recruiters search for.' },
+    { key: 'projects', label: 'Projects', weight: 7, status: rate(count(data.projects) > 0, false), detail: count(data.projects) ? `${count(data.projects)} project${count(data.projects) === 1 ? '' : 's'}` : 'Missing', tip: 'Showcase a project that proves your skills.' },
+    { key: 'links', label: 'Links', weight: 5, status: rate(count(data.links) > 0, false), detail: count(data.links) ? `${count(data.links)} link${count(data.links) === 1 ? '' : 's'}` : 'Missing', tip: 'Link your portfolio, GitHub or LinkedIn.' }
+  ]
+  const progress = {
+    contact: contactFields / 4,
+    headline: has(data.headline) ? 1 : 0,
+    summary: Math.min(summaryWords / 30, 1),
+    experience: experience.length ? .25 + .75 * Math.min(experienceBullets / (experience.length * 2), 1) : 0,
+    education: count(data.education) ? 1 : 0,
+    skills: Math.min(skillCount / 6, 1),
+    projects: count(data.projects) ? 1 : 0,
+    links: count(data.links) ? 1 : 0
+  }
+  checks.forEach(check => { check.progress = resumeData ? progress[check.key] : 0 })
+  const completion = resumeData ? Math.round((checks.reduce((total, check) => total + check.progress, 0) / checks.length) * 100) : 0
+  const tone = !resumeData ? 'empty' : completion >= 80 ? 'strong' : completion >= 50 ? 'fair' : 'weak'
+  return {
+    completion,
+    tone,
+    checks,
+    completedSections: checks.filter(check => check.progress >= 1).length,
+    missing: checks.filter(check => check.progress < 1).sort((a, b) => b.weight - a.weight)
+  }
+}
+
 const downloadBlob = (blob, fileName) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -238,6 +332,14 @@ function Icon({ name, size = 18 }) {
   if (name === 'notifications') return <svg {...common}><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
   if (name === 'privacy') return <svg {...common}><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2" /></svg>
   if (name === 'help') return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1 .8-1.8 1.2-1.8 2.8M12 17h.01" /></svg>
+  if (name === 'rocket') return <svg {...common}><path d="M14.5 4.5c2.6-1 4.8-1 5-1 0 .2 0 2.4-1 5a13 13 0 0 1-6 6.5l-3-3a13 13 0 0 1 5-7.5Z" /><circle cx="15" cy="9" r="1.6" /><path d="m9.5 12-3.3-.7L8.5 8h3.4M12 14.5l.7 3.3L16 15.5v-3.4M6.5 15.5c-1.5.5-2.5 2.5-2.5 4.5 2 0 4-1 4.5-2.5" /></svg>
+  if (name === 'search') return <svg {...common}><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+  if (name === 'user') return <svg {...common}><circle cx="12" cy="8" r="4" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></svg>
+  if (name === 'layout') return <svg {...common}><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M3.5 9h17M9 9v11.5" /></svg>
+  if (name === 'crown') return <svg {...common}><path d="m3 7 4.5 4L12 5l4.5 6L21 7l-2 11H5L3 7Z" /></svg>
+  if (name === 'target') return <svg {...common}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r=".8" fill="currentColor" /></svg>
+  if (name === 'briefcase') return <svg {...common}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 12.5h18" /></svg>
+  if (name === 'mail') return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></svg>
   if (name === 'plus') return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>
   return null
 }
@@ -248,15 +350,41 @@ function SourceIcon({ name }) {
   return <span className="source-icon leetcode-mark" aria-hidden="true">&lt;/&gt;</span>
 }
 
+const profileDetailsStorageKey = 'resumetrics:profile-details'
+const settingsTabs = [
+  ['account', 'Account', 'user'],
+  ['appearance', 'Appearance', 'appearance'],
+  ['notifications', 'Notifications', 'notifications'],
+  ['privacy', 'Privacy & Data', 'privacy']
+]
+
+function readProfileDetails() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(profileDetailsStorageKey) || 'null')
+    return { phone: String(stored?.phone ?? ''), location: String(stored?.location ?? '') }
+  } catch {
+    return { phone: '', location: '' }
+  }
+}
+
+const formatAccountDate = value => {
+  const date = value ? new Date(value) : null
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
+}
+
+function GoogleMark() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.2-4.8 3.2-8Z" /><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1-3.7 1-2.8 0-5.2-1.9-6.1-4.5H2.2v2.8A11 11 0 0 0 12 23Z" /><path fill="#FBBC05" d="M5.9 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8l3.7-2.8Z" /><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.1 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.7 2.8C6.8 7.3 9.2 5.4 12 5.4Z" /></svg>
+}
+
 function GeneralSettingsPanel() {
+  const { currentUser } = useAuth()
+  const [activeTab, setActiveTab] = useState('account')
   const [appearance, setAppearance] = useState(() => localStorage.getItem('resumetrics-appearance') || 'system')
-  const [notice, setNotice] = useState('')
-  const settings = [
-    ['security', 'Account & Security', 'Login, password & security'],
-    ['notifications', 'Notifications & updates', 'Manage alerts and updates'],
-    ['privacy', 'Privacy & Data', 'Data storage and permissions'],
-    ['help', 'Help & Support', 'Feedback, FAQs and support']
-  ]
+  const [savedDetails, setSavedDetails] = useState(readProfileDetails)
+  const [details, setDetails] = useState(savedDetails)
+  const [detailsNotice, setDetailsNotice] = useState('')
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const [privacyNotice, setPrivacyNotice] = useState('')
 
   useEffect(() => {
     const root = document.documentElement
@@ -272,23 +400,108 @@ function GeneralSettingsPanel() {
     return () => mediaQuery.removeEventListener?.('change', applyTheme)
   }, [appearance])
 
-  return <div className="panel section-panel settings-panel">
-    <span className="eyebrow">GENERAL SETTINGS</span>
-    <h2>Make the workspace yours.</h2>
-    <p className="muted">Manage your preferences and account basics.</p>
-    <div className="settings-list">
-      <div className="setting-row appearance-row">
-        <div className="setting-identity"><span className="setting-icon"><Icon name="appearance" size={17} /></span><span><b>Appearance</b><small>Light / Dark / System</small></span></div>
-        <div className="appearance-toggle" role="group" aria-label="Appearance">
-          <span className={`appearance-toggle-thumb ${appearance}`} aria-hidden="true" />
-          {[['light', 'appearance', 'Light'], ['dark', 'moon', 'Dark'], ['system', 'device', 'System']].map(([option, icon, label]) => <button className={appearance === option ? 'active' : ''} type="button" key={option} onClick={() => setAppearance(option)} aria-label={label} title={label} aria-pressed={appearance === option}><Icon name={icon} size={15} /></button>)}
-        </div>
-      </div>
-      {settings.map(([icon, title, description]) => <button className="setting-row setting-button" key={title} type="button" onClick={() => setNotice(`${title} settings will be available in a future update.`)}>
-        <span className="setting-identity"><span className="setting-icon"><Icon name={icon} size={17} /></span><span><b>{title}</b><small>{description}</small></span></span><span className="setting-chevron" aria-hidden="true">›</span>
+  const displayName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User'
+  const initials = displayName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
+  const profilePhoto = currentUser?.photoURL || currentUser?.providerData?.find(provider => provider.providerId === 'google.com')?.photoURL
+  const detailsChanged = details.phone.trim() !== savedDetails.phone || details.location.trim() !== savedDetails.location
+
+  const saveDetails = event => {
+    event.preventDefault()
+    const next = { phone: details.phone.trim(), location: details.location.trim() }
+    try {
+      localStorage.setItem(profileDetailsStorageKey, JSON.stringify(next))
+      setSavedDetails(next)
+      setDetails(next)
+      setDetailsNotice('Your details were saved on this device.')
+    } catch {
+      setDetailsNotice('Your browser blocked saving these details.')
+    }
+  }
+
+  const clearSavedProjects = () => {
+    try { localStorage.removeItem(savedProjectsStorageKey) } catch {
+      // Nothing to clear if browser storage is unavailable.
+    }
+    setClearConfirmOpen(false)
+    setPrivacyNotice('Saved projects were removed from this browser.')
+  }
+
+  return <div className="settings-layout">
+    <nav className="settings-tabs" role="tablist" aria-label="Settings sections">
+      {settingsTabs.map(([id, label, icon]) => <button key={id} id={`settings-tab-${id}`} className={activeTab === id ? 'active' : ''} type="button" role="tab" aria-selected={activeTab === id} aria-controls="settings-tab-panel" onClick={() => setActiveTab(id)}>
+        <Icon name={icon} size={17} /><span>{label}</span>
       </button>)}
-    </div>
-    {notice && <p className="settings-notice" role="status">{notice}</p>}
+    </nav>
+
+    <section className="panel settings-card" id="settings-tab-panel" role="tabpanel" aria-labelledby={`settings-tab-${activeTab}`}>
+      {activeTab === 'account' && <>
+        <h2>Account</h2>
+        <div className="settings-block">
+          <span className="settings-block-title">Profile photo</span>
+          <div className="settings-avatar-row">
+            {profilePhoto ? <img className="settings-avatar" src={profilePhoto} alt="" referrerPolicy="no-referrer" /> : <span className="settings-avatar settings-avatar-placeholder" aria-hidden="true">{initials}</span>}
+            <p>Your photo comes from your Google account. Change it in Google to update it here.</p>
+          </div>
+        </div>
+        <div className="settings-block settings-field-grid">
+          <label className="settings-field"><span><b>Name</b><small>From Google</small></span><input value={displayName} readOnly aria-readonly="true" /></label>
+          <label className="settings-field"><span><b>Email address</b><small>Used to sign in</small></span><input value={currentUser?.email || ''} readOnly aria-readonly="true" /></label>
+        </div>
+        <form className="settings-block" onSubmit={saveDetails}>
+          <div className="settings-field-grid">
+            <label className="settings-field"><span><b>Phone number</b><small>Optional</small></span><input type="tel" autoComplete="tel" value={details.phone} placeholder="Add a phone number" onChange={event => { setDetails(current => ({ ...current, phone: event.target.value })); setDetailsNotice('') }} /></label>
+            <label className="settings-field"><span><b>Location</b><small>City, country</small></span><input autoComplete="address-level2" value={details.location} placeholder="Add your location" onChange={event => { setDetails(current => ({ ...current, location: event.target.value })); setDetailsNotice('') }} /></label>
+          </div>
+          <div className="settings-form-footer">
+            {detailsNotice ? <span role="status">{detailsNotice}</span> : <span>These are saved on this device only.</span>}
+            <button className="primary-button" type="submit" disabled={!detailsChanged}>Save changes</button>
+          </div>
+        </form>
+        <div className="settings-block">
+          <span className="settings-block-title">Linked account</span>
+          <div className="settings-linked-row">
+            <span className="settings-linked-identity"><GoogleMark /><span><b>Google</b><small>{currentUser?.email}</small></span></span>
+            <span className="settings-status">Connected</span>
+          </div>
+        </div>
+        <dl className="settings-meta">
+          <div><dt>Member since</dt><dd>{formatAccountDate(currentUser?.metadata?.creationTime)}</dd></div>
+          <div><dt>Last sign-in</dt><dd>{formatAccountDate(currentUser?.metadata?.lastSignInTime)}</dd></div>
+        </dl>
+      </>}
+
+      {activeTab === 'appearance' && <>
+        <h2>Appearance</h2>
+        <p className="settings-intro">Choose how Resumetrics looks on this device.</p>
+        <div className="settings-theme-options" role="radiogroup" aria-label="Theme">
+          {[['light', 'appearance', 'Light', 'Bright and clear'], ['dark', 'moon', 'Dark', 'Easy on the eyes'], ['system', 'device', 'System', 'Match your device']].map(([option, icon, label, description]) => <button key={option} type="button" role="radio" aria-checked={appearance === option} className={appearance === option ? 'active' : ''} onClick={() => setAppearance(option)}>
+            <span className={`settings-theme-swatch is-${option}`} aria-hidden="true"><Icon name={icon} size={18} /></span>
+            <b>{label}</b><small>{description}</small>
+          </button>)}
+        </div>
+      </>}
+
+      {activeTab === 'notifications' && <>
+        <h2>Notifications</h2>
+        <div className="settings-empty">
+          <span aria-hidden="true"><Icon name="notifications" size={22} /></span>
+          <b>Nothing to set up yet</b>
+          <p>Email updates and resume reminders are coming in a future update.</p>
+        </div>
+      </>}
+
+      {activeTab === 'privacy' && <>
+        <h2>Privacy & Data</h2>
+        <p className="settings-intro">Resumetrics keeps your projects and preferences in this browser. Your Google password is never seen or stored.</p>
+        <div className="settings-block settings-danger-row">
+          <span><b>Clear saved projects</b><small>Removes every saved project from this browser. This can't be undone.</small></span>
+          {clearConfirmOpen
+            ? <span className="settings-confirm"><button type="button" onClick={() => setClearConfirmOpen(false)}>Cancel</button><button className="is-danger" type="button" onClick={clearSavedProjects}>Clear projects</button></span>
+            : <button className="settings-danger-button" type="button" onClick={() => { setClearConfirmOpen(true); setPrivacyNotice('') }}>Clear…</button>}
+        </div>
+        {privacyNotice && <p className="settings-notice" role="status">{privacyNotice}</p>}
+      </>}
+    </section>
   </div>
 }
 
@@ -318,20 +531,134 @@ function DashboardPage() {
     }
   }, [updateProjectRail])
 
-  const projectCards = [
-    { type: 'create', label: 'Create new project' },
-    { type: 'saved', label: 'Saved work' },
-    { type: 'saved', label: 'Saved work' }
+  const [savedProjects, setSavedProjects] = useState(readSavedProjects)
+  const [selectedProjectId, setSelectedProjectId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const selectedProject = savedProjects.find(project => project.id === selectedProjectId) ?? null
+  const health = getResumeHealth(selectedProject?.resumeData)
+  const previewData = selectedProject?.resumeData ?? null
+  const previewSkills = Object.values(previewData?.skills ?? {}).flat().filter(Boolean).slice(0, 6)
+
+  useEffect(() => { updateProjectRail() }, [savedProjects, updateProjectRail])
+
+  // Clicking the logo navigates here again with a new location key; reload the dashboard data in place.
+  const location = useLocation()
+  const pageRef = useRef(null)
+  useEffect(() => {
+    setSavedProjects(readSavedProjects())
+    setSelectedProjectId(null)
+    setConfirmDeleteId(null)
+    projectRailRef.current?.scrollTo({ left: 0 })
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) pageRef.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' })
+  }, [location.key])
+
+  const selectProject = id => {
+    setConfirmDeleteId(null)
+    setSelectedProjectId(current => current === id ? null : id)
+  }
+
+  const deleteProject = id => {
+    const next = savedProjects.filter(project => project.id !== id)
+    setSavedProjects(next)
+    storeSavedProjects(next)
+    setSelectedProjectId(null)
+    setConfirmDeleteId(null)
+  }
+
+  const progressStages = [
+    { key: 'building', label: 'Resume building', icon: 'document', value: health.completion },
+    { key: 'tailoring', label: 'Resume tailoring', icon: 'spark', value: Math.round(Number(selectedProject?.progress?.tailoring) || 0) },
+    { key: 'cover-letter', label: 'Cover letter', icon: 'mail', value: Math.round(Number(selectedProject?.progress?.coverLetter) || 0) }
   ]
 
   return <Shell dashboard>
-    <div className="dashboard-page">
-      <header className="dashboard-header"><span className="eyebrow">DASHBOARD</span><h1>Welcome, {displayName}.</h1></header>
+    <div className="dashboard-page" ref={pageRef}>
+      <section className={`dashboard-health dashboard-health-${health.tone}`} aria-label="Resume progress" aria-live="polite">
+        <div className="dashboard-health-copy">
+          <span className="dashboard-health-greeting">Welcome back, {displayName}</span>
+          <h1>{selectedProject ? selectedProject.name : 'Your resume progress'}</h1>
+          <p>{selectedProject
+            ? health.missing.length ? 'A few more details will make this resume ready to send.' : 'This resume is complete. Tailor it for each job you apply to.'
+            : 'Select a project below to see its progress.'}</p>
+          {selectedProject && health.missing.length > 0 && <span className="dashboard-health-next"><b>Next step</b>{health.missing[0].tip}</span>}
+        </div>
+
+        <ul className="dashboard-health-stages" aria-label="Progress">
+          {progressStages.map(stage => <li key={stage.key}>
+            <span className="dashboard-health-stage-icon" aria-hidden="true"><Icon name={stage.icon} size={18} /></span>
+            <span className="dashboard-health-stage-body">
+              <span><b>{stage.label}</b><strong>{selectedProject ? `${stage.value}%` : '–'}</strong></span>
+              <span className="dashboard-health-stage-bar" role="progressbar" aria-label={stage.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={stage.value}><span style={{ width: `${stage.value}%` }} /></span>
+            </span>
+          </li>)}
+        </ul>
+
+        <figure className="dashboard-health-preview" aria-hidden="true">
+          <div className="dashboard-health-paper">
+            {previewData
+              ? <>
+                <header><strong>{previewData.fullName || selectedProject.name}</strong>{previewData.headline && <span>{previewData.headline}</span>}</header>
+                <div className="dashboard-health-paper-cols">
+                  <div>
+                    <em>Details</em>
+                    {[previewData.email, previewData.phone, previewData.location].filter(Boolean).map(value => <span key={value}>{value}</span>)}
+                    {previewSkills.length > 0 && <><em>Skills</em>{previewSkills.map(skill => <span key={skill}>{skill}</span>)}</>}
+                  </div>
+                  <div>
+                    {previewData.summary && <><em>Profile</em><p>{previewData.summary}</p></>}
+                    {previewData.experience?.length > 0 && <><em>Experience</em>{previewData.experience.slice(0, 3).map((item, index) => <span key={index}><b>{item?.role || 'Role'}</b>{item?.company && ` · ${item.company}`}</span>)}</>}
+                    {previewData.education?.length > 0 && <><em>Education</em>{previewData.education.slice(0, 2).map((item, index) => <span key={index}>{item?.degree || item?.institution || 'Education'}</span>)}</>}
+                  </div>
+                </div>
+              </>
+              : <div className="dashboard-health-paper-skeleton"><i /><i /><i /><i /><i /><i /><i /></div>}
+          </div>
+          {selectedProject && <span className="dashboard-health-paper-badge">{health.completion}%</span>}
+        </figure>
+      </section>
+
+      <div className="dashboard-projects-heading">
+        <h2>Your projects</h2>
+        <span>{savedProjects.length} saved</span>
+      </div>
       <section className="dashboard-project-section" aria-label="Projects">
-        <div className="dashboard-project-rail" ref={projectRailRef}>{projectCards.map((project, index) => <button className={`dashboard-project-card ${project.type === 'create' ? 'is-create' : ''}`} type="button" key={`${project.type}-${index}`} onClick={() => navigate('/workspace')}>
-          <span className="dashboard-project-icon"><Icon name={project.type === 'create' ? 'plus' : 'folder'} size={31} /></span>
-          <strong>{project.label}</strong>
-        </button>)}</div>
+        <button className="dashboard-project-card is-create" type="button" onClick={() => navigate('/workspace')}>
+          <span className="dashboard-project-icon"><Icon name="plus" size={28} /></span>
+          <strong>Create new project</strong>
+          <small>Start blank or import an existing resume</small>
+        </button>
+        <div className="dashboard-project-rail" ref={projectRailRef}>
+          {savedProjects.length === 0 && <div className="dashboard-project-empty">
+            <Icon name="folder" size={22} />
+            <p>No saved projects yet. Resumes you save will show up here.</p>
+          </div>}
+          {savedProjects.map(project => {
+            const projectHealth = getResumeHealth(project.resumeData)
+            const isSelected = project.id === selectedProjectId
+            return <article className={`dashboard-project-card is-saved${isSelected ? ' is-selected' : ''}`} key={project.id}>
+              <button className="dashboard-project-select" type="button" aria-pressed={isSelected} onClick={() => selectProject(project.id)}>
+                <span className="dashboard-project-paper" aria-hidden="true"><i /><i /><i /><i /><i /></span>
+                <span className="dashboard-project-meta">
+                  <strong>{project.name}</strong>
+                  <small>{project.updatedLabel}</small>
+                </span>
+                <span className={`dashboard-project-pill is-${projectHealth.tone}`}>{project.resumeData ? `${projectHealth.completion}%` : 'Empty'}</span>
+              </button>
+              {isSelected && <div className="dashboard-project-actions">
+                {confirmDeleteId === project.id
+                  ? <>
+                    <span>Delete this project?</span>
+                    <button className="is-danger" type="button" onClick={() => deleteProject(project.id)}>Delete</button>
+                    <button type="button" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                  </>
+                  : <>
+                    <button className="is-primary" type="button" onClick={() => navigate('/workspace', { state: { savedProjectId: project.id } })}><Icon name="create" size={15} />Open</button>
+                    <button className="is-danger" type="button" onClick={() => setConfirmDeleteId(project.id)}><Icon name="trash" size={15} />Delete</button>
+                  </>}
+              </div>}
+            </article>
+          })}
+        </div>
         {canAdvanceProjects && <button className="dashboard-project-arrow" type="button" aria-label="View more projects" onClick={() => projectRailRef.current?.scrollBy({ left: projectRailRef.current.clientWidth * .82, behavior: 'smooth' })}>→</button>}
       </section>
     </div>
@@ -340,19 +667,191 @@ function DashboardPage() {
 
 function SettingsPage() {
   return <Shell>
-    <header className="page-header settings-page-header"><div><span className="eyebrow">SETTINGS</span><h1>Make Resumetrics yours.</h1><p className="dashboard-subtitle">Manage your preferences and account basics.</p></div></header>
+    <header className="page-header settings-page-header"><div><h1>Settings</h1><p className="dashboard-subtitle">Manage your account and preferences.</p></div></header>
     <GeneralSettingsPanel />
   </Shell>
 }
 
+const helpTopics = [
+  { id: 'start', icon: 'rocket', title: 'Getting started', description: 'Create your first resume in a few steps.' },
+  { id: 'import', icon: 'import', title: 'Importing a resume', description: 'Bring in an existing PDF, DOCX or TXT file.' },
+  { id: 'editing', icon: 'layout', title: 'Templates & editing', description: 'Choose a design and edit any section.' },
+  { id: 'nimbus', icon: 'spark', title: 'NIMBUS assistant', description: 'Ask the AI to edit and tailor your resume.' },
+  { id: 'evidence', icon: 'evidence', title: 'GitHub & LinkedIn', description: 'Back up your claims with real evidence.' },
+  { id: 'export', icon: 'download', title: 'Exporting & saving', description: 'Download your resume and keep your work.' }
+]
+
+const helpArticles = [
+  { topic: 'start', question: 'How do I create my first resume?', steps: ['Open Resume builder from the sidebar, or select Create new project on the dashboard.', 'Choose to start from a blank resume or import an existing file.', 'Pick a template. You will see a live preview of each design.', 'Fill in or review your sections in the editor, then export it.'] },
+  { topic: 'start', question: 'Why do I need to sign in with Google?', answer: 'Signing in keeps your workspace private to you and lets Resumetrics connect services such as GitHub to your account. Your Google password is never seen or stored by Resumetrics.' },
+  { topic: 'import', question: 'Which files can I import?', answer: 'You can import PDF, DOCX and TXT files. PDFs exported from a word processor work best. Scanned images or photos of a resume may not contain readable text.' },
+  { topic: 'import', question: 'What happens after I upload my resume?', answer: 'Resumetrics reads the text in your file and sorts it into sections such as experience, education and skills. You then get a review screen to check everything before choosing a template. Nothing is added that was not in your file.' },
+  { topic: 'editing', question: 'How do I edit text on my resume?', answer: 'In the editor, select any part of the resume to edit it directly. Use the style controls to change the font, text size and colour.' },
+  { topic: 'editing', question: 'Can I add a profile photo?', answer: 'Yes, on templates that support a photo. Upload a JPEG image from the editor, then adjust its position and size.' },
+  { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS is the AI assistant in the editor. Ask it to rewrite a section, improve wording or change the style, and it will explain what it changed. It only works with the facts already in your resume and will not invent experience.' },
+  { topic: 'nimbus', question: 'How do I tailor my resume to a job?', steps: ['Open your resume in the editor.', 'Paste the job description into the role match panel.', 'Review your match score and the skills the job asks for that your resume is missing.', 'Ask NIMBUS to help you highlight relevant experience you already have.'] },
+  { topic: 'evidence', question: 'How do I import my LinkedIn profile?', steps: ['On a desktop browser, open LinkedIn and go to Me → View Profile.', 'In your profile introduction, choose More (or Resources), then Save to PDF.', 'In Resumetrics, choose to import LinkedIn and upload that PDF. A DOCX export is accepted too.'] },
+  { topic: 'evidence', question: 'Why connect GitHub?', answer: 'Connecting GitHub lets Resumetrics check your repositories for evidence that supports the skills and projects on your resume. Open Evidence check from the sidebar to compare your sources side by side.' },
+  { topic: 'export', question: 'Which formats can I download?', answer: 'Use the Export menu in the editor to download your resume as a PDF, a Word document (DOCX) or plain text (TXT).' },
+  { topic: 'export', question: 'Is my resume saved automatically?', answer: 'Not yet. Work in the editor stays available while the tab is open, so export your resume before you close or refresh the page. Automatic saving is coming in a future update.' },
+  { topic: 'export', question: 'Where is my data stored, and how do I remove it?', answer: 'Your saved projects and preferences are kept in this browser. You can remove saved projects at any time from Settings → Privacy & Data.' }
+]
+
+function HelpPage() {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+  const [activeTopic, setActiveTopic] = useState(null)
+  const articlesRef = useRef(null)
+  const searchTerm = query.trim().toLocaleLowerCase()
+  const visibleArticles = helpArticles.filter(article => {
+    if (searchTerm) return [article.question, article.answer, ...(article.steps ?? [])].join(' ').toLocaleLowerCase().includes(searchTerm)
+    return !activeTopic || article.topic === activeTopic
+  })
+  const activeTopicTitle = helpTopics.find(topic => topic.id === activeTopic)?.title
+
+  const chooseTopic = id => {
+    setQuery('')
+    setActiveTopic(current => current === id ? null : id)
+    window.requestAnimationFrame(() => articlesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  return <Shell>
+    <div className="help-page">
+      <section className="help-hero">
+        <span className="help-hero-eyebrow">Help & support</span>
+        <h1>Hi! How can we help you?</h1>
+        <form className="help-search" role="search" onSubmit={event => { event.preventDefault(); articlesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>
+          <label className="visually-hidden" htmlFor="help-search-input">Search help articles</label>
+          <input id="help-search-input" type="search" value={query} placeholder="Ask a question, e.g. how do I export?" onChange={event => { setQuery(event.target.value); setActiveTopic(null) }} />
+          <button type="submit" aria-label="Search"><Icon name="search" size={19} /></button>
+        </form>
+      </section>
+
+      <section className="help-topics" aria-label="Help topics">
+        {helpTopics.map(topic => <button key={topic.id} type="button" className={activeTopic === topic.id ? 'active' : ''} aria-pressed={activeTopic === topic.id} onClick={() => chooseTopic(topic.id)}>
+          <span className="help-topic-icon" aria-hidden="true"><Icon name={topic.icon} size={24} /></span>
+          <b>{topic.title}</b>
+          <small>{topic.description}</small>
+        </button>)}
+      </section>
+
+      <section className="help-articles" ref={articlesRef} aria-labelledby="help-articles-title">
+        <div className="help-articles-heading">
+          <h2 id="help-articles-title">{searchTerm ? `Results for “${query.trim()}”` : activeTopicTitle || 'Popular questions'}</h2>
+          {(searchTerm || activeTopic) && <button type="button" onClick={() => { setQuery(''); setActiveTopic(null) }}>Show all</button>}
+        </div>
+        {visibleArticles.length
+          ? <div className="help-accordion">{visibleArticles.map(article => <details key={article.question}>
+            <summary><span>{article.question}</span><span className="help-accordion-icon" aria-hidden="true">›</span></summary>
+            <div className="help-answer">
+              {article.answer && <p>{article.answer}</p>}
+              {article.steps && <ol>{article.steps.map(step => <li key={step}>{step}</li>)}</ol>}
+            </div>
+          </details>)}</div>
+          : <p className="help-no-results">No articles match that search. Try a different word, such as “import” or “export”.</p>}
+      </section>
+
+      <section className="help-contact">
+        <span className="help-topic-icon" aria-hidden="true"><Icon name="help" size={22} /></span>
+        <div><b>Still need help?</b><p>Start with a fresh resume to try things out safely, or review your account and data options in Settings.</p></div>
+        <div className="help-contact-actions">
+          <button type="button" onClick={() => navigate('/workspace')}>Open resume builder</button>
+          <button type="button" className="is-primary" onClick={() => navigate('/settings')}>Go to Settings</button>
+        </div>
+      </section>
+    </div>
+  </Shell>
+}
+
+const templateGroups = [
+  ['single-column', 'Single-column', 'One clean column, read top to bottom. The safest choice for applicant tracking systems and long careers.'],
+  ['two-column', 'Two-column', 'A main column with a sidebar for skills and extras. Fits more on a page and gives the design more character.']
+]
+const TEMPLATE_PAGE_WIDTH = 794
+
+function TemplatesPage() {
+  const navigate = useNavigate()
+  const galleryRef = useRef(null)
+  const [previewScale, setPreviewScale] = useState(.3)
+
+  // Every preview is a real A4 page (794px wide) zoomed down to the card width.
+  useEffect(() => {
+    const paper = galleryRef.current?.querySelector('.template-gallery-paper')
+    if (!paper) return undefined
+    const update = () => setPreviewScale(paper.clientWidth / TEMPLATE_PAGE_WIDTH || .3)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(paper)
+    return () => observer.disconnect()
+  }, [])
+
+  const startWithTemplate = templateId => navigate('/workspace', { state: { dashboardTemplateId: templateId } })
+
+  return <Shell>
+    <header className="page-header templates-page-header"><div><h1>Templates</h1><p className="dashboard-subtitle">Pick a design to start building. You can change colours and fonts in the editor, and switch templates at any time.</p></div></header>
+    <div className="templates-gallery" ref={galleryRef} style={{ '--gallery-scale': previewScale }}>
+      {templateGroups.map(([layout, title, description]) => {
+        const templates = resumeTemplates.filter(template => template.layout === layout)
+        return <section className="templates-group" key={layout} aria-labelledby={`templates-${layout}`}>
+          <div className="templates-group-heading">
+            <h2 id={`templates-${layout}`}>{title} <span>{templates.length}</span></h2>
+            <p>{description}</p>
+          </div>
+          <ul className="templates-grid">{templates.map(template => {
+            const Preview = template.component
+            return <li key={template.id}>
+              <button className="template-gallery-card" type="button" onClick={() => startWithTemplate(template.id)} aria-label={`Start building with the ${template.name} template`}>
+                <span className="template-gallery-paper" aria-hidden="true">
+                  <span className="template-gallery-sheet">
+                    <Preview resumeData={templatePreviewResumeData} presentation={{ ...resolveResumePresentation(template, {}), photo: template.supportsPhoto ? template.defaultTheme.photo : undefined }} preview />
+                  </span>
+                </span>
+                <span className="template-gallery-info">
+                  <b>{template.name}</b>
+                  <small>{template.description}</small>
+                  <span className="template-gallery-tags">{(template.tags ?? []).filter(tag => !/^(single|two)-column$/i.test(tag)).slice(0, 3).map(tag => <i key={tag}>{tag}</i>)}</span>
+                  <span className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Reactive Resume' : 'Resumetrics classic'}</span>
+                </span>
+              </button>
+            </li>
+          })}</ul>
+        </section>
+      })}
+    </div>
+  </Shell>
+}
+
+function SidebarLink({ label, path, icon }) {
+  if (path) return <NavLink className="sidebar-link" to={path}><Icon name={icon} size={18} /><span>{label}</span></NavLink>
+  return <span className="sidebar-link is-soon" aria-disabled="true" title={`${label} is coming soon`}><Icon name={icon} size={18} /><span>{label}</span><small>Soon</small></span>
+}
+
 function Shell({ children, immersive = false, dashboard = false }) {
-  return <div className={`app-shell${immersive ? ' editor-shell' : ''}${dashboard ? ' dashboard-shell dashboard-entry' : ''}`}>
+  const navigate = useNavigate()
+  const location = useLocation()
+  const recentProjects = useMemo(() => readSavedProjects().filter(project => project.resumeData).slice(0, 3), [location.key])
+
+  return <div className={`app-shell${immersive ? ' editor-shell' : ''}${dashboard ? ' dashboard-shell' : ''}`}>
     {!immersive && <aside className="sidebar">
-      <NavLink to="/" className="brand" aria-label="Resumetrics home">
+      <NavLink to="/dashboard" state={{ refresh: true }} className="brand" aria-label="Resumetrics dashboard">
         <img src={logo} alt="Resumetrics" />
       </NavLink>
-      <nav>{navItems.slice(0, 1).map(([label, path, icon]) => <NavLink end={path === '/'} key={path} to={path}><Icon name={icon} size={17} /><span>{label}</span></NavLink>)}{dashboard && <a href="#templates"><Icon name="document" size={17} /><span>Plan</span></a>}{navItems.slice(1).map(([label, path, icon]) => <NavLink end={path === '/'} key={path} to={path}><Icon name={icon} size={17} /><span>{label}</span></NavLink>)}</nav>
-      {dashboard && <div className="dashboard-sidebar-utility"><span><Icon name="workspace" size={17} />About</span><span><Icon name="help" size={17} />Help</span></div>}
+      <div className="sidebar-scroll">
+        {navSections.map(section => <div className="sidebar-section" key={section.label}>
+          <span className="sidebar-label">{section.label}</span>
+          <nav aria-label={section.label}>{section.items.map(([label, path, icon]) => <SidebarLink key={label} label={label} path={path} icon={icon} />)}</nav>
+        </div>)}
+        {recentProjects.length > 0 && <div className="sidebar-section sidebar-recent">
+          <span className="sidebar-label">Recent resumes</span>
+          <ul>{recentProjects.map((project, index) => <li key={project.id}>
+            <button type="button" onClick={() => navigate('/dashboard')}>
+              <span className="sidebar-recent-mark" style={{ '--recent-color': recentProjectColors[index % recentProjectColors.length] }} aria-hidden="true">{project.name.trim().charAt(0).toUpperCase() || 'R'}</span>
+              <span>{project.name}</span>
+            </button>
+          </li>)}</ul>
+        </div>}
+      </div>
+      <nav className="sidebar-utility" aria-label="Account">{navUtilityItems.map(([label, path, icon]) => <SidebarLink key={label} label={label} path={path} icon={icon} />)}</nav>
       <div className="sidebar-footer">
         <UserMenu />
       </div>
@@ -719,6 +1218,10 @@ function MainPage() {
   const handleUpload = event => {
     const file = event.target.files?.[0]
     event.target.value = ''
+    selectUploadFile(file)
+  }
+
+  const selectUploadFile = file => {
     if (!file) return
 
     setWorkspaceError('')
@@ -742,7 +1245,7 @@ function MainPage() {
       const response = await fetch('/api/resume/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ document: { pages: extractedDocument.pages, metadata: extractedDocument.metadata } })
+        body: JSON.stringify({ document: { pages: extractedDocument.pages, links: extractedDocument.links ?? [], metadata: extractedDocument.metadata } })
       })
       const isJson = response.headers.get('content-type')?.includes('application/json')
       if (!isJson) {
@@ -758,23 +1261,14 @@ function MainPage() {
     } catch (error) {
       const message = error instanceof TypeError && /fetch/i.test(error.message)
         ? 'The AI server is not running. Start the app with npm run dev:all, then try again.'
-        : error.message || 'Could not read this file. Try a text-based PDF, DOCX, or TXT file.'
+        : /central directory|zip file/i.test(error.message || '')
+          ? 'This DOCX file looks damaged or is not a real Word document. Save it again from Word, or upload it as a PDF.'
+          : error.message || 'Could not read this file. Try a text-based PDF, DOCX, or TXT file.'
       setWorkspaceError(message)
       setWorkspaceMode('error')
     }
   }
 
-  const startCreate = () => {
-    setResumeData(ensureResumeElementIds(createBlankResumeData()))
-    setUploadedFileName('')
-    setSelectedTemplateId(null)
-    setResumePresentation(createResumePresentation())
-    setProfilePhotoError('')
-    setWorkspaceError('')
-    setGithubCompareError('')
-    setResumeName('Untitled resume')
-    setWorkspaceMode('template-selection')
-  }
 
   const chooseTemplate = templateId => {
     setSelectedTemplateId(templateId)
@@ -1122,14 +1616,6 @@ function MainPage() {
     }
   }
 
-  const canvasHeading = {
-    initial: 'Start a resume',
-    'file-selected': 'Review uploaded document',
-    extracting: 'Extracting resume details',
-    'extraction-review': 'Review extracted details',
-    'template-selection': 'Choose a template',
-    error: 'Import resume skills'
-  }[workspaceMode] || resumeName
   const activeFontFamily = resumePresentation.fontFamily || selectedTemplate?.defaultTheme?.fontFamily || resumeFonts[0].family
   const editorPresentation = resolveResumePresentation(selectedTemplate, resumePresentation)
   if (isEditorPage && selectedTemplate?.supportsPhoto && !editorPresentation.photo?.uploaded) {
@@ -1154,16 +1640,15 @@ function MainPage() {
     <header className={`page-header${isEditorRoute ? ' editor-page-header' : ''}`}><div>{isEditorRoute && <button className="editor-back-button" type="button" onClick={() => navigate('/workspace')} aria-label="Back to workspace"><span aria-hidden="true">←</span> Back to workspace</button>}<span className="eyebrow">{isEditorRoute ? 'RESUME EDITOR' : 'WORKSPACE'}</span>{isEditorRoute ? <h1>Build and refine your resume.</h1> : <h1>Start a resume.</h1>}</div></header>
     <div className={`workspace-grid ${isEditorPage ? 'editor-workspace-grid' : 'setup-mode'}`}>
       <section className="resume-canvas panel">
-        <div className="canvas-top"><div className="resume-title-wrap">{isEditorPage && editingName ? <input className="resume-title-input" autoFocus value={resumeName} onChange={event => setResumeName(event.target.value)} onBlur={() => { setResumeName(resumeName.trim() || 'Untitled resume'); setEditingName(false) }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} aria-label="Resume name" /> : isEditorPage ? <button className="resume-title-button" onClick={() => setEditingName(true)}>{resumeName}</button> : <strong>{workspaceMode === 'editor-ready' ? 'Start a resume' : canvasHeading}</strong>}</div><div className="canvas-actions">{isEditorPage && <span className="canvas-draft-actions"><span className="canvas-export-wrap" ref={exportMenuRef}><button className="canvas-export-button" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}><Icon name="download" size={14} />{exportLoading ? 'Exporting…' : 'Export'}<span className="export-chevron" aria-hidden="true">▾</span></button>{exportMenuOpen && <div className="export-format-menu" role="menu" aria-label="Export format"><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('PDF')}>PDF document</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('DOCX')}>Word document (.docx)</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('TXT')}>Plain text (.txt)</button></div>}</span><button className="canvas-delete-button" type="button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={14} />Delete</button></span>}{workspaceMode !== 'extracting' && <span className="status-dot">{isEditorPage ? 'Editable draft' : workspaceMode === 'file-selected' ? 'File ready' : 'Draft'}</span>}</div></div>
+        {isEditorPage && <div className="canvas-top"><div className="resume-title-wrap">{editingName ? <input className="resume-title-input" autoFocus value={resumeName} onChange={event => setResumeName(event.target.value)} onBlur={() => { setResumeName(resumeName.trim() || 'Untitled resume'); setEditingName(false) }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} aria-label="Resume name" /> : <button className="resume-title-button" onClick={() => setEditingName(true)}>{resumeName}</button>}</div><div className="canvas-actions">{isEditorPage && <span className="canvas-draft-actions"><span className="canvas-export-wrap" ref={exportMenuRef}><button className="canvas-export-button" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}><Icon name="download" size={14} />{exportLoading ? 'Exporting…' : 'Export'}<span className="export-chevron" aria-hidden="true">▾</span></button>{exportMenuOpen && <div className="export-format-menu" role="menu" aria-label="Export format"><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('PDF')}>PDF document</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('DOCX')}>Word document (.docx)</button><button type="button" role="menuitem" disabled={exportLoading} onClick={() => chooseExportFormat('TXT')}>Plain text (.txt)</button></div>}</span><button className="canvas-delete-button" type="button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={14} />Delete</button></span>}<span className="status-dot">Editable draft</span></div></div>}
         <input ref={uploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={handleUpload} />
         <input ref={linkedinUploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleLinkedInUpload} />
         {isEditorPage && selectedTemplate?.supportsPhoto && <input ref={profilePhotoInputRef} className="upload-input" type="file" accept="image/jpeg,.jpg,.jpeg" aria-label="Choose JPEG profile photo" onChange={handleProfilePhotoUpload} />}
-        {(workspaceMode === 'initial' || (!isEditorRoute && workspaceMode === 'editor-ready')) && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onCreate={startCreate} />}
-        {workspaceMode === 'file-selected' && pendingUploadFile && <div className="file-selected-state"><div className="upload-ready-card" aria-live="polite"><div className="upload-ready-icon" aria-hidden="true"><Icon name="document" size={25} /></div><span className="eyebrow">DOCUMENT READY</span><h2>{pendingUploadFile.name}</h2><p>Choose when Resumetrics should read this file and extract the resume details.</p><div className="upload-ready-actions"><button className="primary-button" type="button" onClick={readDocument}>Read document</button><button className="secondary-button" type="button" onClick={() => uploadInputRef.current?.click()}>Change file</button><button className="delete-file-button" type="button" onClick={resetWorkspace}>Delete file</button></div></div></div>}
-        {workspaceMode === 'extracting' && <div className="flow-loading"><DotLottieReact className="flow-loading-animation" src="/loading.lottie" loop autoplay mode="bounce" speed={2} aria-label="Extracting resume data" /><h2>Extracting resume details…</h2><p>Identifying only the information present in your source file.</p></div>}
+        {(workspaceMode === 'initial' || workspaceMode === 'file-selected' || (!isEditorRoute && workspaceMode === 'editor-ready')) && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onFile={selectUploadFile} onCreate={() => navigate('/templates')} selectedFile={workspaceMode === 'file-selected' ? pendingUploadFile : null} onRead={readDocument} />}
+        {workspaceMode === 'extracting' && <div className="flow-loading" aria-live="polite"><div className="flow-loading-card"><DotLottieReact className="flow-loading-animation" src="/loading.lottie" loop autoplay mode="bounce" speed={2} aria-label="Extracting resume data" /><h2>Extracting resume details…</h2>{pendingUploadFile && <p className="flow-loading-name">{pendingUploadFile.name}</p>}</div></div>}
         {workspaceMode === 'extraction-review' && resumeData && <ResumeExtractionReview resumeData={resumeData} uploadedFileName={uploadedFileName} parseMetadata={parseMetadata} onContinue={() => setWorkspaceMode('template-selection')} onStartOver={resetWorkspace} />}
         {workspaceMode === 'template-selection' && <ResumeTemplateSelector templates={resumeTemplates} editorStyle={resumeStyle} presentation={resumePresentation} useGlobalTextColor={useGlobalTextColor} footerText={footerText} selectedTemplateId={selectedTemplateId} onSelect={chooseTemplate} onBack={() => uploadedFileName ? setWorkspaceMode('extraction-review') : resetWorkspace()} isImported={Boolean(uploadedFileName)} />}
-        {workspaceMode === 'error' && <div className="flow-error"><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="secondary-button" onClick={resetWorkspace}>Start over</button><button className="primary-button" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
+        {workspaceMode === 'error' && <div className="flow-error" role="alert"><span className="flow-error-icon" aria-hidden="true">!</span><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="secondary-button" onClick={resetWorkspace}>Start over</button><button className="primary-button" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
         {isEditorPage && <TemplateComponent resumeData={resumeData} editorRef={editorReady} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} onManualEdit={handleManualResumeEdit} onElementSelect={setSelectedResumeElement} presentation={editorPresentation} onProfilePhotoClick={() => profilePhotoInputRef.current?.click()} blankPreview={isScratchResume} />}
       </section>
       {isEditorPage && <div className="right-rail">
@@ -1362,6 +1847,8 @@ function App() {
     <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
     <Route path="/workspace/*" element={<ProtectedRoute><MainPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+    <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
+    <Route path="/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
     <Route path="/evaluation" element={<ProtectedRoute><EvaluationPage /></ProtectedRoute>} />
   </Routes>
 }

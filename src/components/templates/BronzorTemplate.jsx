@@ -1,5 +1,3 @@
-import ResumeTemplateLayout from './ResumeTemplateLayout.jsx'
+﻿import { BronzorTemplate } from './ReactiveTemplate.jsx'
 
-export default function BronzorTemplate(props) {
-  return <ResumeTemplateLayout {...props} variant="bronzor" />
-}
+export default BronzorTemplate

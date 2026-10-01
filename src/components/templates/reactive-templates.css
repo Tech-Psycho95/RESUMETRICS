@@ -1,0 +1,234 @@
+/*
+ * Reactive Resume template family (MIT, https://github.com/AmruthPillai/Reactive-Resume).
+ * Recreated from packages/pdf/src/templates/<name>/<Name>Page.tsx on the shared Resumetrics markup:
+ *   article.generated-resume > header.generated-resume-header (identity, contact, photo)
+ *   > .generated-resume-main > [.resume-columns-flow > .resume-sidebar-column + .resume-main-column] > section.resume-section
+ * Units follow Reactive Resume's defaults, expressed in em of the 10pt body:
+ * page margins 14pt x 12pt, gaps 4pt x 6pt, headings 14pt, name 21pt, sidebar 35%.
+ */
+
+/* ---------- Shared base ---------- */
+.generated-resume.template-reactive {
+  --rr-primary: var(--template-accent-color, var(--rr-default-primary, #dc2626));
+  --rr-fg: #111;
+  --rr-muted: #444;
+  --rr-mx: 1.4em;
+  --rr-my: 1.2em;
+  --rr-gx: .4em;
+  --rr-gy: .6em;
+  --rr-side: var(--template-sidebar-width, 35%);
+  --rr-tint: color-mix(in srgb, var(--rr-primary) 20%, #fff);
+  --rr-tint-light: color-mix(in srgb, var(--rr-primary) 10%, #fff);
+  box-sizing: border-box;
+  padding: var(--rr-my) var(--rr-mx);
+  color: var(--rr-fg);
+  background: #fff;
+  font-size: 13.3333px;
+  line-height: 1.5;
+}
+.generated-resume.template-reactive .generated-resume-header { display: flex; flex-direction: column; gap: calc(var(--rr-gy) * .5); padding: 0; border: 0; }
+.generated-resume.template-reactive .generated-resume-identity { display: grid; gap: calc(var(--rr-gy) * .2); }
+.generated-resume.template-reactive .generated-resume-header h1 { margin: 0; color: inherit; font-size: 2.1em; font-weight: 600; letter-spacing: 0; line-height: 1.2; }
+.generated-resume.template-reactive .generated-resume-header p { margin: 0; color: inherit; font-size: 1em; font-weight: 400; }
+.generated-resume.template-reactive .generated-contact { display: flex; flex-wrap: wrap; justify-items: initial; gap: calc(var(--rr-gy) * .125) calc(var(--rr-gx) * 1.5); color: inherit; font-size: 1em; font-style: normal; line-height: 1.5; text-align: inherit; }
+.generated-resume.template-reactive .generated-contact-link { display: inline; color: inherit; text-decoration: none; }
+/* Reactive Resume pictures are a fixed 80pt square; centred headers centre them. */
+.generated-resume.template-reactive .generated-resume-photo { width: 6em !important; height: 6em !important; max-width: none; align-self: auto; aspect-ratio: 1; object-fit: cover; }
+.generated-resume.template-reactive .resume-section { margin-top: var(--rr-my); }
+.generated-resume.template-reactive .resume-column > .resume-section:first-child,
+.generated-resume.template-reactive .generated-resume-main > .resume-section:first-child { margin-top: 0; }
+.generated-resume.template-reactive .resume-section h2 { margin: 0 0 calc(var(--rr-gy) * .4); color: var(--rr-fg); font-size: 1.4em; font-weight: 600; letter-spacing: 0; line-height: 1.5; text-transform: none; }
+.generated-resume.template-reactive .resume-entry { margin: 0 0 calc(var(--rr-gy) * .9); color: inherit; }
+.generated-resume.template-reactive .resume-entry-heading { display: flex; justify-content: space-between; gap: calc(var(--rr-gx) * 2); color: inherit; font-size: 1em; }
+.generated-resume.template-reactive .resume-entry-title { font-weight: 600; }
+.generated-resume.template-reactive .resume-entry-period { max-width: none; color: inherit; font-size: 1em; text-align: right; }
+.generated-resume.template-reactive .resume-entry-meta { max-width: none; margin: 0; color: inherit; font-size: 1em; text-align: left; white-space: normal; }
+.generated-resume.template-reactive .resume-skill-groups strong, .generated-resume.template-reactive .resume-entry strong { color: inherit; }
+.generated-resume.template-reactive .resume-entry-heading span { color: inherit; font-size: 1em; }
+.generated-resume.template-reactive .resume-entry-subtitle { margin: 0; color: inherit !important; font-size: 1em !important; }
+.generated-resume.template-reactive .resume-project-description { color: inherit !important; font-size: 1em !important; line-height: 1.5; }
+.generated-resume.template-reactive .resume-entry p { margin: 0; }
+.generated-resume.template-reactive .resume-entry ul,
+.generated-resume.template-reactive .resume-section ul { margin: calc(var(--rr-gy) * .25) 0 0; padding-left: 1.3em; }
+.generated-resume.template-reactive .resume-entry li,
+.generated-resume.template-reactive .resume-section li { margin: 0 0 calc(var(--rr-gy) * .15); }
+.generated-resume.template-reactive .resume-skills,
+.generated-resume.template-reactive .resume-skill-groups p { margin: 0; color: inherit; }
+.generated-resume.template-reactive .resume-skill-groups { display: grid; gap: calc(var(--rr-gy) * .3); }
+.generated-resume.template-reactive .resume-placeholder { color: var(--rr-muted); }
+.generated-resume.template-reactive .resume-columns-flow { display: grid !important; gap: var(--rr-mx); align-items: start; }
+.generated-resume.template-reactive.template-reactive-sidebar-left .resume-columns-flow { grid-template-columns: var(--rr-side) minmax(0, 1fr); }
+.generated-resume.template-reactive.template-reactive-sidebar-right .resume-columns-flow { grid-template-columns: minmax(0, 1fr) var(--rr-side); }
+.generated-resume.template-reactive.template-reactive-sidebar-right .resume-sidebar-column { order: 2; }
+.generated-resume.template-reactive .resume-sidebar-column { min-height: 0; }
+/* In a narrow sidebar the date moves under the title instead of squeezing beside it. */
+.generated-resume.template-reactive .resume-sidebar-column .resume-entry-heading { display: grid; gap: 0; }
+.generated-resume.template-reactive .resume-sidebar-column .resume-entry-period { text-align: left; }
+
+/* Layouts that place the header inside a column flatten the wrappers so the
+   header, sidebar and main column become cells of one page grid. */
+.generated-resume.template-reactive.template-chikorita,
+.generated-resume.template-reactive.template-ditgar,
+.generated-resume.template-reactive.template-gengar,
+.generated-resume.template-reactive.template-glalie,
+.generated-resume.template-reactive.template-pikachu { display: grid; padding: 0; align-content: stretch; }
+.generated-resume.template-reactive.template-chikorita .generated-resume-main, .generated-resume.template-reactive.template-chikorita .resume-columns-flow,
+.generated-resume.template-reactive.template-ditgar .generated-resume-main, .generated-resume.template-reactive.template-ditgar .resume-columns-flow,
+.generated-resume.template-reactive.template-gengar .generated-resume-main, .generated-resume.template-reactive.template-gengar .resume-columns-flow,
+.generated-resume.template-reactive.template-glalie .generated-resume-main, .generated-resume.template-reactive.template-glalie .resume-columns-flow,
+.generated-resume.template-reactive.template-pikachu .generated-resume-main, .generated-resume.template-reactive.template-pikachu .resume-columns-flow { display: contents !important; }
+
+/* ---------- Azurill: centred header, left sidebar, accent headings, timeline ---------- */
+.generated-resume.template-reactive.template-azurill { --rr-default-primary: #1f6fb8; }
+.generated-resume.template-reactive.template-azurill .generated-resume-header { align-items: center; margin-bottom: var(--rr-my); text-align: center; }
+.generated-resume.template-reactive.template-azurill .generated-resume-identity { justify-items: center; }
+.generated-resume.template-reactive.template-azurill .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-azurill .generated-contact { justify-content: center; }
+.generated-resume.template-reactive.template-azurill .resume-section h2 { color: var(--rr-primary); }
+.generated-resume.template-reactive.template-azurill .resume-main-column { position: relative; padding-left: 1.6em; }
+.generated-resume.template-reactive.template-azurill .resume-main-column::before { content: ""; position: absolute; top: 0; bottom: 0; left: .55em; width: 1px; background: var(--rr-primary); }
+.generated-resume.template-reactive.template-azurill .resume-main-column .resume-entry { position: relative; }
+.generated-resume.template-reactive.template-azurill .resume-main-column .resume-entry::before { content: ""; position: absolute; top: .45em; left: calc(-1.6em + .55em - 4.5px); width: 9px; height: 9px; box-sizing: border-box; border: 1px solid var(--rr-primary); border-radius: 50%; background: #fff; }
+
+/* ---------- Bronzor: single column, every section ruled with its heading in a left column ---------- */
+.generated-resume.template-reactive.template-bronzor { --rr-default-primary: #111111; }
+.generated-resume.template-reactive.template-bronzor .generated-resume-header { align-items: center; margin-bottom: var(--rr-my); text-align: center; }
+.generated-resume.template-reactive.template-bronzor .generated-resume-identity { justify-items: center; }
+.generated-resume.template-reactive.template-bronzor .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-bronzor .generated-contact { justify-content: center; column-gap: calc(var(--rr-gx) * 2.5); }
+.generated-resume.template-reactive.template-bronzor .resume-section { display: grid; grid-template-columns: var(--rr-side) minmax(0, 1fr); column-gap: var(--rr-mx); padding-top: calc(var(--rr-gy) * .5); border-top: 1px solid var(--rr-primary); }
+.generated-resume.template-reactive.template-bronzor .resume-section > h2 { grid-column: 1; grid-row: 1 / span 60; margin: 0; color: var(--rr-primary); font-size: 1.05em; font-weight: 500; }
+.generated-resume.template-reactive.template-bronzor .resume-section > .resume-page-block { grid-column: 2; }
+
+/* ---------- Chikorita: header in the main column, full-height accent sidebar on the right ---------- */
+.generated-resume.template-reactive.template-chikorita { --rr-default-primary: #2f6a46; grid-template-columns: minmax(0, 1fr) var(--rr-side); grid-template-rows: auto 1fr; grid-template-areas: "header sidebar" "main sidebar"; }
+.generated-resume.template-reactive.template-chikorita .generated-resume-header { grid-area: header; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "photo contact"; align-items: start; column-gap: calc(var(--rr-gx) * 1.5); row-gap: calc(var(--rr-gy) * .5); padding: var(--rr-my) var(--rr-mx) 0; }
+.generated-resume.template-reactive.template-chikorita .generated-resume-photo { grid-area: photo; border-radius: 50%; }
+.generated-resume.template-reactive.template-chikorita .generated-resume-identity { grid-area: identity; }
+.generated-resume.template-reactive.template-chikorita .generated-contact { grid-area: contact; column-gap: calc(var(--rr-gx) * 2); }
+.generated-resume.template-reactive.template-chikorita .resume-main-column { grid-area: main; padding: var(--rr-my) var(--rr-mx); }
+.generated-resume.template-reactive.template-chikorita .resume-sidebar-column { grid-area: sidebar; padding: var(--rr-my) var(--rr-mx); color: #fff; background: var(--rr-primary); }
+.generated-resume.template-reactive.template-chikorita .resume-section h2 { padding-bottom: calc(var(--rr-gy) * .125); border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); font-size: 1.19em; }
+.generated-resume.template-reactive.template-chikorita .resume-sidebar-column .resume-section h2 { border-bottom-color: #fff; color: #fff; }
+
+/* ---------- Ditgar: tinted left sidebar with a solid header block, featured summary, accent bars on entries ---------- */
+.generated-resume.template-reactive.template-ditgar { --rr-default-primary: #2f7fd6; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "header main" "sidebar main"; }
+.generated-resume.template-reactive.template-gengar { --rr-default-primary: #6d3fd1; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "header main" "sidebar main"; }
+.generated-resume.template-reactive.template-ditgar .generated-resume-header, .generated-resume.template-reactive.template-gengar .generated-resume-header { grid-area: header; gap: calc(var(--rr-gy) * .5); padding: var(--rr-my) var(--rr-mx); color: #fff; background: var(--rr-primary); }
+.generated-resume.template-reactive.template-ditgar .generated-resume-photo, .generated-resume.template-reactive.template-gengar .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-ditgar .generated-contact, .generated-resume.template-reactive.template-gengar .generated-contact { display: grid; gap: calc(var(--rr-gy) * .2); }
+.generated-resume.template-reactive.template-ditgar .resume-sidebar-column, .generated-resume.template-reactive.template-gengar .resume-sidebar-column { grid-area: sidebar; padding: var(--rr-my) var(--rr-mx); background: var(--rr-tint); }
+.generated-resume.template-reactive.template-ditgar .resume-main-column, .generated-resume.template-reactive.template-gengar .resume-main-column { grid-area: main; padding: var(--rr-my) var(--rr-mx); }
+.generated-resume.template-reactive.template-ditgar .resume-section h2, .generated-resume.template-reactive.template-gengar .resume-section h2 { padding-bottom: calc(var(--rr-gy) * .125); border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); font-size: 1.26em; }
+.generated-resume.template-reactive.template-ditgar .resume-main-column .resume-section-summary, .generated-resume.template-reactive.template-gengar .resume-main-column .resume-section-summary { margin: calc(var(--rr-my) * -1) calc(var(--rr-mx) * -1) var(--rr-my); padding: var(--rr-my) var(--rr-mx); background: var(--rr-tint); }
+.generated-resume.template-reactive.template-ditgar .resume-main-column .resume-section-summary h2, .generated-resume.template-reactive.template-gengar .resume-main-column .resume-section-summary h2 { display: none; }
+.generated-resume.template-reactive.template-ditgar .resume-main-column .resume-entry-heading { margin-left: calc(-2px - var(--rr-gx) * .5); padding: calc(var(--rr-gy) * .125) 0 calc(var(--rr-gy) * .125) calc(var(--rr-gx) * .5); border-left: 2px solid var(--rr-primary); }
+.generated-resume.template-reactive.template-ditgar .resume-main-column .resume-entry-subtitle { margin-left: calc(-2px - var(--rr-gx) * .5); padding-left: calc(var(--rr-gx) * .5); border-left: 2px solid var(--rr-primary); }
+
+/* ---------- Ditto: full-width accent band, photo over the band, plain left sidebar ---------- */
+.generated-resume.template-reactive.template-ditto { --rr-default-primary: #c2185b; padding: 0 0 var(--rr-my); }
+.generated-resume.template-reactive.template-ditto .generated-resume-header { position: relative; display: grid; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-areas: "photo identity" "photo contact"; gap: 0; margin-bottom: var(--rr-my); }
+.generated-resume.template-reactive.template-ditto .generated-resume-header::before { content: ""; position: absolute; z-index: 0; top: 0; right: 0; left: 0; height: var(--ditto-band, 6.2em); background: var(--rr-primary); }
+.generated-resume.template-reactive.template-ditto .generated-resume-identity { position: relative; z-index: 1; grid-area: identity; min-height: var(--ditto-band, 6.2em); align-content: center; padding: var(--rr-my) var(--rr-mx); color: #fff; }
+.generated-resume.template-reactive.template-ditto .generated-contact { grid-area: contact; padding: var(--rr-my) var(--rr-mx) 0; column-gap: calc(var(--rr-gx) * 2); }
+.generated-resume.template-reactive.template-ditto .generated-resume-photo { position: relative; z-index: 1; grid-area: photo; justify-self: center; margin-top: calc(var(--rr-my) * .75); }
+.generated-resume.template-reactive.template-ditto .generated-resume-main { padding: 0 var(--rr-mx); }
+.generated-resume.template-reactive.template-ditto .resume-section h2 { color: var(--rr-primary); }
+
+/* ---------- Gengar: as Ditgar's structure without the entry bars, sans typography ---------- */
+.generated-resume.template-reactive.template-gengar .generated-contact { gap: calc(var(--rr-gy) * .25); }
+
+/* ---------- Glalie: tinted left sidebar with a centred header and a boxed contact list ---------- */
+.generated-resume.template-reactive.template-glalie { --rr-default-primary: #4f6f8f; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "header main" "sidebar main"; }
+.generated-resume.template-reactive.template-glalie .generated-resume-header { grid-area: header; align-items: center; padding: var(--rr-my) var(--rr-mx) 0; text-align: center; background: var(--rr-tint); }
+.generated-resume.template-reactive.template-glalie .generated-resume-identity { justify-items: center; }
+.generated-resume.template-reactive.template-glalie .generated-resume-photo { order: -1; }
+.generated-resume.template-reactive.template-glalie .generated-contact { box-sizing: border-box; display: grid; width: 100%; gap: calc(var(--rr-gy) * .125); padding: calc(var(--rr-gx) * .75); border: 1px solid var(--rr-primary); text-align: left; }
+.generated-resume.template-reactive.template-glalie .resume-sidebar-column { grid-area: sidebar; padding: var(--rr-my) var(--rr-mx); background: var(--rr-tint); }
+.generated-resume.template-reactive.template-glalie .resume-main-column { grid-area: main; padding: var(--rr-my) var(--rr-mx); }
+.generated-resume.template-reactive.template-glalie .resume-section h2 { border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); }
+
+/* ---------- Kakuna: single column, everything centred, ruled centred headings ---------- */
+.generated-resume.template-reactive.template-kakuna { --rr-default-primary: #a8790f; }
+.generated-resume.template-reactive.template-kakuna .generated-resume-header { align-items: center; margin-bottom: var(--rr-my); text-align: center; }
+.generated-resume.template-reactive.template-kakuna .generated-resume-identity { justify-items: center; }
+.generated-resume.template-reactive.template-kakuna .generated-resume-photo { order: -1; border: 2px solid var(--rr-primary); }
+.generated-resume.template-reactive.template-kakuna .generated-contact { justify-content: center; column-gap: calc(var(--rr-gx) * .75 + .4em); }
+.generated-resume.template-reactive.template-kakuna .resume-section h2 { padding-bottom: calc(var(--rr-gy) * .125); border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); font-size: 1.2em; text-align: center; }
+
+/* ---------- Lapras: single column of outlined cards with headings set into the border ---------- */
+.generated-resume.template-reactive.template-lapras { --rr-default-primary: #2563eb; }
+.generated-resume.template-reactive.template-lapras .generated-resume-header { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "photo contact"; align-items: center; gap: calc(var(--rr-gy) * .5) var(--rr-gx); margin-bottom: calc(var(--rr-gy) * 1.5); padding: var(--rr-gx); border: 1px solid #ccc; border-radius: 10px; }
+.generated-resume.template-reactive.template-lapras .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-lapras .generated-resume-identity { grid-area: identity; align-self: end; }
+.generated-resume.template-reactive.template-lapras .generated-contact { grid-area: contact; align-self: start; }
+.generated-resume.template-reactive.template-lapras .resume-section { margin-top: calc(var(--rr-gy) * 1.5 + .9em); padding: var(--rr-gx) calc(var(--rr-gx) * 2.5); border: 1px solid #ccc; border-radius: 10px; }
+.generated-resume.template-reactive.template-lapras .generated-resume-main > .resume-section:first-child { margin-top: .9em; }
+.generated-resume.template-reactive.template-lapras .resume-section h2 { display: table; margin: calc(-1 * (var(--rr-gx) + .75em)) 0 calc(var(--rr-gy) * .25) calc(var(--rr-gx) * -1); padding: 0 var(--rr-gx); color: var(--rr-primary); background: #fff; font-size: 1.15em; }
+
+/* ---------- Leafish: tinted name band and contact band, main column with a right sidebar ---------- */
+.generated-resume.template-reactive.template-leafish { --rr-default-primary: #5b9a1b; padding: 0 0 var(--rr-my); }
+.generated-resume.template-reactive.template-leafish .generated-resume-header { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "contact contact"; gap: 0; margin-bottom: var(--rr-my); background: var(--rr-tint-light); }
+.generated-resume.template-reactive.template-leafish .generated-resume-photo { grid-area: photo; margin: var(--rr-my) 0 var(--rr-my) var(--rr-mx); }
+.generated-resume.template-reactive.template-leafish .generated-resume-identity { grid-area: identity; align-content: center; padding: var(--rr-my) var(--rr-mx); }
+.generated-resume.template-reactive.template-leafish .generated-contact { grid-area: contact; padding: var(--rr-my) var(--rr-mx); background: var(--rr-tint); }
+.generated-resume.template-reactive.template-leafish .generated-resume-main { padding: 0 var(--rr-mx); }
+.generated-resume.template-reactive.template-leafish .resume-section h2 { border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); }
+
+/* ---------- Meowth: single column, uppercase ruled headings, one-line entry headers ---------- */
+.generated-resume.template-reactive.template-meowth { --rr-default-primary: #4f46e5; }
+.generated-resume.template-reactive.template-meowth .generated-resume-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "identity photo" "contact photo"; align-items: start; gap: calc(var(--rr-gy) * .5) var(--rr-mx); margin-bottom: var(--rr-my); }
+.generated-resume.template-reactive.template-meowth .generated-resume-identity { grid-area: identity; }
+.generated-resume.template-reactive.template-meowth .generated-resume-header p { opacity: .8; }
+.generated-resume.template-reactive.template-meowth .generated-contact { grid-area: contact; }
+.generated-resume.template-reactive.template-meowth .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-meowth .resume-section h2 { padding-bottom: calc(var(--rr-gy) * .125); border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); font-size: 1.1em; text-transform: uppercase; }
+.generated-resume.template-reactive.template-meowth .resume-entry { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; column-gap: var(--rr-gx); }
+.generated-resume.template-reactive.template-meowth .resume-entry-heading { display: contents; }
+.generated-resume.template-reactive.template-meowth .resume-entry-title { grid-column: 1; grid-row: 1; }
+.generated-resume.template-reactive.template-meowth .resume-entry-subtitle { grid-column: 2; grid-row: 1; font-weight: 600; text-align: center; }
+.generated-resume.template-reactive.template-meowth .resume-entry-period { grid-column: 3; grid-row: 1; }
+.generated-resume.template-reactive.template-meowth .resume-entry > :not(.resume-entry-heading):not(.resume-entry-subtitle) { grid-column: 1 / -1; }
+
+/* ---------- Onyx: single column, photo beside the name, ruled header ---------- */
+.generated-resume.template-reactive.template-onyx { --rr-default-primary: #1f2937; }
+.generated-resume.template-reactive.template-onyx .generated-resume-header { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "photo identity" "photo contact"; align-items: center; gap: calc(var(--rr-gy) * .5) var(--rr-mx); margin-bottom: var(--rr-my); padding-bottom: var(--rr-my); border-bottom: 1px solid var(--rr-primary); }
+.generated-resume.template-reactive.template-onyx .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-onyx .generated-resume-identity { grid-area: identity; align-self: end; }
+.generated-resume.template-reactive.template-onyx .generated-contact { grid-area: contact; align-self: start; }
+
+/* ---------- Pikachu: left sidebar under the photo, solid rounded header block in the main column ---------- */
+.generated-resume.template-reactive.template-pikachu { --rr-default-primary: #9a8233; grid-template-columns: var(--rr-side) minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "sidebar header" "sidebar main"; column-gap: var(--rr-mx); padding: var(--rr-my) var(--rr-mx); }
+.generated-resume.template-reactive.template-pikachu .generated-resume-header { grid-area: header; gap: calc(var(--rr-gy) * .5); margin-bottom: var(--rr-my); padding: var(--rr-my) var(--rr-mx); color: #fff; background: var(--rr-primary); border-radius: 6px; }
+.generated-resume.template-reactive.template-pikachu .generated-resume-identity { padding-bottom: calc(var(--rr-gy) * .5); border-bottom: 1px solid #fff; }
+/* The photo fills the top of the sidebar: same width as the 35% sidebar track, square. */
+.generated-resume.template-reactive.template-pikachu .generated-resume-photo { position: absolute; top: var(--rr-my); left: var(--rr-mx); width: calc((100% - 2 * var(--rr-mx)) * .35) !important; max-width: none; height: auto !important; aspect-ratio: 1; }
+.generated-resume.template-reactive.template-pikachu.generated-resume { position: relative; }
+.generated-resume.template-reactive.template-pikachu .resume-sidebar-column { grid-area: sidebar; }
+/* Percentage padding resolves against the sidebar's own width, so this reserves exactly the photo's height. */
+.generated-resume.template-reactive.template-pikachu:has(.generated-resume-photo) .resume-sidebar-column { padding-top: calc(100% + var(--rr-my)); }
+.generated-resume.template-reactive.template-pikachu .resume-main-column { grid-area: main; }
+.generated-resume.template-reactive.template-pikachu .resume-section h2 { border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); }
+
+/* ---------- Rhyhorn: single column, photo on the right, contact items split by accent rules ---------- */
+.generated-resume.template-reactive.template-rhyhorn { --rr-default-primary: #374151; }
+.generated-resume.template-reactive.template-rhyhorn .generated-resume-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "identity photo" "contact photo"; align-items: center; gap: calc(var(--rr-gy) * .5) var(--rr-mx); margin-bottom: var(--rr-my); }
+.generated-resume.template-reactive.template-rhyhorn .generated-resume-identity { grid-area: identity; align-self: end; }
+.generated-resume.template-reactive.template-rhyhorn .generated-contact { grid-area: contact; align-self: start; column-gap: 0; }
+.generated-resume.template-reactive.template-rhyhorn .generated-contact > * { padding: 0 calc(var(--rr-gx) * .5); border-left: 1px solid var(--rr-primary); }
+.generated-resume.template-reactive.template-rhyhorn .generated-contact > :first-child { padding-left: 0; border-left: 0; }
+.generated-resume.template-reactive.template-rhyhorn .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-rhyhorn .resume-section h2 { border-bottom: 1px solid var(--rr-primary); color: var(--rr-primary); }
+
+/* ---------- Scizor: accent rule across the top of every page, ruled uppercase sections ---------- */
+.generated-resume.template-reactive.template-scizor { --rr-default-primary: #2563eb; border-top: calc(var(--rr-gy) * .45) solid var(--rr-primary) !important; }
+.generated-resume.template-reactive.template-scizor .generated-resume-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "identity photo" "contact photo"; align-items: start; gap: calc(var(--rr-gy) * .35) var(--rr-mx); margin-bottom: var(--rr-my); padding-bottom: calc(var(--rr-gy) * .35); }
+.generated-resume.template-reactive.template-scizor .generated-resume-identity { grid-area: identity; }
+.generated-resume.template-reactive.template-scizor .generated-resume-header h1 { width: 72%; padding-bottom: calc(var(--rr-gy) * .3); border-bottom: 2px solid #d8dce2; font-size: 2.59em; font-weight: 700; }
+.generated-resume.template-reactive.template-scizor .generated-contact { grid-area: contact; }
+.generated-resume.template-reactive.template-scizor .generated-resume-photo { grid-area: photo; }
+.generated-resume.template-reactive.template-scizor .resume-section { padding-top: calc(var(--rr-gy) * .65); border-top: 1px solid #d8dce2; }
+.generated-resume.template-reactive.template-scizor .resume-section h2 { font-size: 1.26em; font-weight: 700; text-transform: uppercase; }
+
+/* Continuation headings on later pages keep each template's heading style. */
+.generated-resume.template-reactive .resume-continuation-label { font-weight: 400; opacity: .7; text-transform: none; }
