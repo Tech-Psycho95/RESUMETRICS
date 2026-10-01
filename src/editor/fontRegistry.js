@@ -13,6 +13,7 @@ export const resumeFonts = [
   { name: 'Fira Sans', family: 'Fira Sans, sans-serif', category: 'Sans serif', weights: [400, 500, 700] },
   { name: 'Nunito Sans', family: 'Nunito Sans, sans-serif', category: 'Sans serif', weights: [400, 600, 700] },
   { name: 'IBM Plex Sans', family: 'IBM Plex Sans, sans-serif', category: 'Sans serif', weights: [400, 500, 600, 700] },
+  { name: 'IBM Plex Serif', family: 'IBM Plex Serif, serif', category: 'Serif', weights: [400, 500, 600, 700] },
   { name: 'Libre Franklin', family: 'Libre Franklin, sans-serif', category: 'Sans serif', weights: [400, 500, 600, 700] },
   { name: 'Montserrat', family: 'Montserrat, sans-serif', category: 'Sans serif', weights: [400, 500, 700] },
   { name: 'DM Sans', family: 'DM Sans, sans-serif', category: 'Sans serif', weights: [400, 500, 700] },

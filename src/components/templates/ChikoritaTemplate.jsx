@@ -1,5 +1,3 @@
-import ResumeTemplateLayout from './ResumeTemplateLayout.jsx'
+﻿import { ChikoritaTemplate } from './ReactiveTemplate.jsx'
 
-export default function ChikoritaTemplate(props) {
-  return <ResumeTemplateLayout {...props} variant="chikorita" />
-}
+export default ChikoritaTemplate

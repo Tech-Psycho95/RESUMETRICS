@@ -1,5 +1,3 @@
-import ResumeTemplateLayout from './ResumeTemplateLayout.jsx'
+﻿import { DittoTemplate } from './ReactiveTemplate.jsx'
 
-export default function DittoTemplate(props) {
-  return <ResumeTemplateLayout {...props} variant="ditto" />
-}
+export default DittoTemplate

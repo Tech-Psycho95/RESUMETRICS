@@ -12,8 +12,15 @@ export default function UserMenu() {
     const handleOutsideClick = event => {
       if (menuRef.current && !menuRef.current.contains(event.target)) setOpen(false)
     }
+    const handleEscape = event => {
+      if (event.key === 'Escape') setOpen(false)
+    }
     document.addEventListener('mousedown', handleOutsideClick)
-    return () => document.removeEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [])
 
   if (!currentUser) return null
@@ -34,15 +41,16 @@ export default function UserMenu() {
     }
   }
 
-  return <div className="user-menu" ref={menuRef}>
-    <button className="user-menu-trigger" type="button" onClick={() => setOpen(value => !value)} aria-label="Open account menu" aria-expanded={open}>
+  return <div className={`user-menu${open ? ' open' : ''}`} ref={menuRef}>
+    <div className="user-menu-dropdown" id="user-menu-panel" inert={!open}>
+      <div className="user-menu-panel-inner">
+        {currentUser.email && <div className="user-menu-email">{currentUser.email}</div>}
+        <button className="user-menu-item" type="button" onClick={handleLogout}>Log out</button>
+      </div>
+    </div>
+    <button className="user-menu-trigger" type="button" onClick={() => setOpen(value => !value)} aria-label={open ? 'Close account menu' : 'Open account menu'} aria-expanded={open} aria-controls="user-menu-panel">
       {profilePhoto ? <img className="user-avatar" src={profilePhoto} alt={`${firstName}'s profile`} referrerPolicy="no-referrer" /> : <span className="user-avatar-placeholder">{initials}</span>}
       <span className="user-menu-label"><strong>{firstName}</strong><small>Google account</small></span>
-      <span className={`user-menu-chevron ${open ? 'open' : ''}`} aria-hidden="true">⌄</span>
     </button>
-    {open && <div className="user-menu-dropdown" role="menu">
-      {currentUser.email && <div className="user-menu-email">{currentUser.email}</div>}
-      <button className="user-menu-item" type="button" onClick={handleLogout}>Log out</button>
-    </div>}
   </div>
 }

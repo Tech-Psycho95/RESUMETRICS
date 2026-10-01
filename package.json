@@ -30,6 +30,7 @@
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
+    "simple-icons": "^16.33.0",
     "tailwindcss": "latest",
     "vite": "latest"
   },
