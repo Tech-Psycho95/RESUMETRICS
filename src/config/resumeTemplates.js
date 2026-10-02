@@ -12,8 +12,31 @@ const supportedFeatures = Object.freeze([
   'personal-information', 'summary', 'experience', 'education', 'projects',
   'skills', 'certifications', 'achievements', 'links', 'languages', 'custom-sections'
 ])
+// One-line pitch shown in the template preview window; unique for every template.
+const templateSummaries = {
+  'navy-professional': 'Formal and education-first with navy headings — a safe choice for graduates and public-sector roles.',
+  'simple-hipster': 'A dark name band over one clean column, suited to modern tech and product roles.',
+  'curve-academic': 'Academic CV styling with ruled sections and clear dates for research and teaching posts.',
+  receive: 'An engineering CV with a profile header and warm copper accents for technical specialists.',
+  azurill: 'A centred header and a timeline of roles beside a skills sidebar — bright and visual.',
+  bronzor: 'Ruled sections with headings set in the margin — calm, corporate and easy to scan.',
+  chikorita: 'A bold green sidebar and round photo made for people-facing roles.',
+  ditgar: 'A blue header block and highlighted summary built for developers and data roles.',
+  ditto: 'A magenta name band over a dense two-column layout that still reads cleanly.',
+  gengar: 'A purple sidebar header with a featured summary panel — balanced and modern.',
+  glalie: 'A quiet tinted sidebar with boxed contact details for formal industries.',
+  kakuna: 'Centred and compact on a single column, ideal for internships and first jobs.',
+  lapras: 'Every section in its own outlined card — polished for senior roles.',
+  leafish: 'Soft green header bands and a right-hand sidebar — calm and approachable.',
+  meowth: 'One-line entry headers and capitalised headings — dense and efficient.',
+  onyx: 'A clean ruled header and plain headings that suit almost any role.',
+  pikachu: 'A photo-topped sidebar and solid header block for creative and junior roles.',
+  rhyhorn: 'A minimal header and generous whitespace for designers and writers.',
+  scizor: 'An accent rule on every page and capitalised headings for executive resumes.'
+}
 const defineTemplate = definition => Object.freeze({
   supportedFeatures, category: 'Resume template',
+  summary: templateSummaries[definition.id] ?? definition.description,
   ...definition,
   defaultTheme: { pageSize: 'A4', spacing: 'comfortable', ...definition.defaultTheme }
 })
@@ -32,9 +55,9 @@ const reactive = (id, name, component, { description, layout, tags, accentColor,
 
 export const resumeTemplates = [
   defineTemplate({ id: 'navy-professional', name: 'Navy Professional', description: 'Formal navy headings, centered identity, and an education-first single column.', source: 'Christian Maria Giannetti — supplied resume.cls example', component: NavyProfessionalTemplate, layout: 'single-column', tags: ['Formal', 'Education first'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#294a69', fontFamily: 'Roboto, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
-  defineTemplate({ id: 'simple-hipster', name: 'Simple Hipster', description: 'Dark identity band, clear headings, and a readable experience timeline.', source: 'LaTeX Ninja — supplied simplehipstercv example', component: SimpleHipsterTemplate, layout: 'two-column', tags: ['Identity band', 'Timeline'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#397b69', fontFamily: 'Montserrat, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
+  defineTemplate({ id: 'simple-hipster', name: 'Simple Hipster', description: 'Dark identity band, clear headings, and a readable experience timeline.', source: 'LaTeX Ninja — supplied simplehipstercv example', component: SimpleHipsterTemplate, layout: 'single-column', tags: ['Identity band', 'Timeline'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#397b69', fontFamily: 'Montserrat, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
   defineTemplate({ id: 'curve-academic', name: 'CurVe Academic', description: 'Academic typography, section rules, and clearly dated entries.', source: 'LianTze Lim — supplied CurVe example (2024)', component: CurveAcademicTemplate, layout: 'single-column', tags: ['Academic', 'Section rules'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#62774a', fontFamily: 'Roboto Slab, serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
-  defineTemplate({ id: 'receive', name: 'ReCeiVe', description: 'Engineering CV with a profile header, clear dates, and soft copper accents.', source: 'Ged Lex — supplied ReCeiVe 1.12.0 example', component: ReceiveTemplate, layout: 'two-column', tags: ['Engineering', 'Profile header'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#a45c35', fontFamily: 'Roboto, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
+  defineTemplate({ id: 'receive', name: 'ReCeiVe', description: 'Engineering CV with a profile header, clear dates, and soft copper accents.', source: 'Ged Lex — supplied ReCeiVe 1.12.0 example', component: ReceiveTemplate, layout: 'single-column', tags: ['Engineering', 'Profile header'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#a45c35', fontFamily: 'Roboto, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
 
   reactive('azurill', 'Azurill', AzurillTemplate, { layout: 'two-column', accentColor: '#1f6fb8', fontFamily: serif, tags: ['Two-column', 'Timeline', 'Tech'], description: 'Two-column with a centred header, accent headings and a timeline; great for creative or tech roles where visual flair is welcome.' }),
   reactive('bronzor', 'Bronzor', BronzorTemplate, { layout: 'single-column', accentColor: '#111111', fontFamily: serif, tags: ['Clean', 'Corporate', 'Section dividers'], description: 'Clean and professional with ruled sections and side headings; suits corporate, finance, or consulting positions.' }),

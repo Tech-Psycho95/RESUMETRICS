@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { adaptResumeForTemplate } from '../../templates/templateDataAdapter.js'
+import { adaptResumeForTemplate, linkDisplayLabel } from '../../templates/templateDataAdapter.js'
 import { loadResumeFont, resumeFonts } from '../../editor/fontRegistry.js'
 
 const valueOr = (value, fallback) => value || fallback
@@ -28,7 +28,7 @@ function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onP
     <address className="generated-contact">
       {contactItems.length
         ? contactItems.map((item, index) => item.kind === 'link' && item.href
-          ? <a className="generated-contact-link" href={item.href} key={item.path || index} target="_blank" rel="noreferrer" title={item.value}><EditableText path={item.path} elementId={`resume.header.link.${index}`}>{item.value}</EditableText></a>
+          ? <a className="generated-contact-link" href={item.href} key={item.path || index} target="_blank" rel="noreferrer" title={item.address || item.href}><EditableText path={item.path} elementId={`resume.header.link.${index}`}>{item.value}</EditableText></a>
           : <EditableText path={item.path} elementId={`resume.header.${item.kind}`} key={item.path || index}>{item.value}</EditableText>)
         : !blankPreview && <EditableText path="email" elementId="resume.header.email">email@example.com</EditableText>}
     </address>
@@ -49,7 +49,8 @@ function ExperienceEntry({ item, itemIndex }) {
       <strong className="resume-entry-title"><EditableText path={`experience.${itemIndex}.role`} elementId={`experience.${item?.id || itemIndex}.role`}>{item?.role || 'Role'}</EditableText></strong>
       <span className="resume-entry-period"><EditableText path={`experience.${itemIndex}.startDate`} elementId={`experience.${item?.id || itemIndex}.startDate`}>{item?.startDate || 'Start date'}</EditableText> — <EditableText path={`experience.${itemIndex}.endDate`} elementId={`experience.${item?.id || itemIndex}.endDate`}>{item?.endDate || 'End date'}</EditableText></span>
     </div>
-    <p className="resume-entry-subtitle"><EditableText path={`experience.${itemIndex}.company`} elementId={`experience.${item?.id || itemIndex}.company`}>{item?.company || 'Company'}</EditableText> · <EditableText path={`experience.${itemIndex}.location`} elementId={`experience.${item?.id || itemIndex}.location`}>{item?.location || 'Location'}</EditableText></p>
+    {/* An empty location is left out instead of printing the word "Location" on the resume. */}
+    <p className="resume-entry-subtitle"><EditableText path={`experience.${itemIndex}.company`} elementId={`experience.${item?.id || itemIndex}.company`}>{item?.company || 'Company'}</EditableText>{item?.location && <> · <EditableText path={`experience.${itemIndex}.location`} elementId={`experience.${item?.id || itemIndex}.location`}>{item.location}</EditableText></>}</p>
     <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`experience.${itemIndex}.bullets.${index}`} elementId={`experience.${item?.id || itemIndex}.bullet.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`experience.${itemIndex}.bullets.0`} elementId={`experience.${item?.id || itemIndex}.bullet.0`}>Add an achievement or responsibility.</EditableText></li>}</ul>
   </article>
 }
@@ -61,7 +62,7 @@ function ProjectEntry({ item, itemIndex }) {
     </div>
     <p className="resume-entry-meta resume-project-technologies"><span>Technologies: </span><EditableText path={`projects.${itemIndex}.techStack`} elementId={`projects.${item?.id || itemIndex}.techStack`}>{asArray(item?.techStack).join(', ') || 'Add technologies'}</EditableText></p>
     <p className="resume-project-description"><EditableText path={`projects.${itemIndex}.description`} elementId={`projects.${item?.id || itemIndex}.description`}>{item?.description || 'Describe the project and its outcome.'}</EditableText></p>
-    {asArray(item?.links).length > 0 && <p className="resume-project-links">{item.links.map((link, index) => <a href={link} target="_blank" rel="noreferrer" key={index}><EditableText path={`projects.${itemIndex}.links.${index}`}>{link}</EditableText></a>)}</p>}
+    {asArray(item?.links).length > 0 && <p className="resume-project-links">{item.links.map((link, index) => <a className="generated-contact-link" href={/^https?:\/\//i.test(link) ? link : `https://${link}`} target="_blank" rel="noreferrer" title={link} key={index}>{linkDisplayLabel(link)}</a>)}</p>}
     <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`projects.${itemIndex}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`projects.${itemIndex}.bullets.0`}>Add a project contribution.</EditableText></li>}</ul>
   </article>
 }
@@ -72,7 +73,7 @@ function EducationEntry({ item, itemIndex }) {
       <strong className="resume-entry-title"><EditableText path={`education.${itemIndex}.degree`} elementId={`education.${item?.id || itemIndex}.degree`}>{item?.degree || 'Degree'}</EditableText></strong>
       <span className="resume-entry-period"><EditableText path={`education.${itemIndex}.startDate`}>{item?.startDate || 'Start date'}</EditableText> — <EditableText path={`education.${itemIndex}.endDate`}>{item?.endDate || 'End date'}</EditableText></span>
     </div>
-    <p className="resume-entry-subtitle"><EditableText path={`education.${itemIndex}.institution`}>{item?.institution || 'Institution'}</EditableText> · <EditableText path={`education.${itemIndex}.location`}>{item?.location || 'Location'}</EditableText></p>
+    <p className="resume-entry-subtitle"><EditableText path={`education.${itemIndex}.institution`}>{item?.institution || 'Institution'}</EditableText>{item?.location && <> · <EditableText path={`education.${itemIndex}.location`}>{item.location}</EditableText></>}</p>
     <ul>{asArray(item?.details).length ? item.details.map((detail, index) => <li key={index}><EditableText path={`education.${itemIndex}.details.${index}`}>{detail}</EditableText></li>) : <li><EditableText path={`education.${itemIndex}.details.0`}>Add coursework, honors, or relevant details.</EditableText></li>}</ul>
   </article>
 }
@@ -236,6 +237,28 @@ const isReactiveSidebarSection = id => reactiveSidebarSectionIds.has(id) || Stri
 const visualColumnVariants = new Set(['product-startup', ...Object.entries(reactiveSidebarPositions).filter(([, side]) => side !== 'none').map(([id]) => id)])
 const sidebarSectionIds = new Set(['skills', 'education', 'certifications', 'achievements', 'languages'])
 const overleafSidebarSectionIds = new Set(['summary', 'skills', 'languages', 'certifications'])
+
+const plannedSectionTitles = { summary: 'Summary', experience: 'Experience', projects: 'Projects', education: 'Education', skills: 'Skills', certifications: 'Certifications', achievements: 'Achievements', languages: 'Languages' }
+
+/**
+ * The order and placement of every section exactly as this template draws them.
+ * The scratch form is built from this so its structure always matches the page.
+ */
+export function getTemplateSectionPlan(variant) {
+  const order = sectionOrderByVariant[variant] ?? sectionOrderByVariant['classic-professional']
+  const ids = [...order, ...Object.keys(plannedSectionTitles).filter(id => !order.includes(id))]
+  // Simple Hipster and ReCeiVe draw one ATS-safe column, so only true column variants have a sidebar.
+  const sidebarSide = isReactiveVariant(variant) ? reactiveSidebarPositions[variant] : visualColumnVariants.has(variant) ? 'left' : 'none'
+  const inSidebar = id => {
+    if (sidebarSide === 'none') return false
+    if (isReactiveVariant(variant)) return isReactiveSidebarSection(id)
+    return sidebarSectionIds.has(id)
+  }
+  return {
+    sidebarSide,
+    sections: ids.filter(id => plannedSectionTitles[id]).map(id => ({ id, title: plannedSectionTitles[id], placement: inSidebar(id) ? 'sidebar' : 'main' }))
+  }
+}
 
 function ResumeSectionFlow({ sections, variant, renderSection }) {
   if (!visualColumnVariants.has(variant)) return <>{sections.map(renderSection)}</>
