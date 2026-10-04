@@ -30,8 +30,7 @@
 }
 
 .workspace-state-heading h2,
-.extraction-review h2,
-.template-selector h2 {
+.extraction-review h2 {
   margin: 7px 0;
   color: #13203a;
   font-size: 1.35rem;
@@ -40,8 +39,7 @@
 .resume-start-options,
 .flow-loading,
 .flow-error,
-.extraction-review,
-.template-selector {
+.extraction-review {
   padding: 20px 28px 30px;
 }
 
@@ -201,7 +199,6 @@
 .flow-error h3 { margin: 0 0 8px; color: #982e2e; }
 
 .state-actions,
-.template-selector-heading,
 .canvas-actions,
 .extraction-review-header {
   display: flex;
@@ -238,8 +235,6 @@
 .extract-count b { display: block; margin-top: 3px; color: #222f49; font-size: .95rem; }
 .confidence-list { margin: 14px 0 0; padding-left: 18px; color: #66728a; font-size: .82rem; line-height: 1.45; }
 
-.template-selector .template-selector-heading { margin-bottom: 18px; align-items: flex-start; }
-.template-selector-heading .secondary-button { white-space: nowrap; }
 
 .resume-template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -332,8 +327,6 @@
 
 /* Active flow component styling. The component names stay deliberately
    semantic so more templates can share the same editing surface. */
-.resume-template-selector { padding: 20px 28px 30px; }
-.resume-template-selector .workspace-state-heading,
 .extraction-review .workspace-state-heading,
 .resume-start-options .workspace-state-heading { padding: 0 0 18px; }
 
@@ -452,7 +445,6 @@
 @keyframes analysis-pulse { 50% { opacity: .36; } }
 
 @media (max-width: 650px) {
-  .resume-template-selector { padding-left: 18px; padding-right: 18px; }
   .generated-resume-header { flex-direction: column; }
   .generated-contact { justify-items: start; text-align: left; }
   .generated-resume-sidebar-layout { grid-template-columns: 1fr; gap: 0; }
@@ -465,10 +457,10 @@
 }
 
 @media (max-width: 650px) {
-  .resume-start-options, .file-selected-state, .flow-loading, .extraction-review, .template-selector, .workspace-state-heading { padding-left: 18px; padding-right: 18px; }
+  .resume-start-options, .file-selected-state, .flow-loading, .extraction-review, .workspace-state-heading { padding-left: 18px; padding-right: 18px; }
   .flow-error { margin-left: 18px; margin-right: 18px; }
   .resume-start-grid, .resume-template-grid { grid-template-columns: 1fr; }
-  .template-selector-heading, .extraction-review-header { align-items: flex-start; flex-direction: column; }
+  .extraction-review-header { align-items: flex-start; flex-direction: column; }
   .state-actions { align-items: stretch; flex-direction: column-reverse; }
   .state-actions button { width: 100%; }
   .upload-ready-card { padding: 24px; }
@@ -531,70 +523,15 @@
 [data-resolved-theme="dark"] .app-shell .resume-page-scroller { background: #111827; }
 
 /* One A4-style preview, driven by the same template component as the editor. */
-.template-carousel { max-width: 980px; margin: 0 auto; }
-.template-carousel .template-selector-heading { margin-bottom: 12px; }
-.template-carousel-meta { display: grid; justify-items: center; max-width: 580px; margin: 0 auto 16px; text-align: center; }
-.template-carousel-meta .template-category { margin: 0 0 6px; }
-.template-carousel-meta h3 { margin: 0; color: #17233d; font-size: 1.22rem; }
-.template-carousel-meta p { max-width: 490px; margin: 6px 0 10px; color: #66728a; font-size: .88rem; line-height: 1.5; }
 .ats-friendly-badge { padding: 5px 9px; border: 1px solid #c8e7da; border-radius: 999px; background: #effaf5; color: #257057; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.template-carousel-stage { display: grid; grid-template-columns: 52px minmax(0, 540px) 52px; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 32px); }
-.template-carousel-paper { width: min(100%, 540px); aspect-ratio: 210 / 297; overflow: hidden; border: 1px solid #daddea; background: #fff; box-shadow: 0 18px 38px rgba(33, 40, 72, .14); transform-origin: center; animation: template-preview-enter .24s cubic-bezier(.2, .8, .25, 1) both; }
-.template-carousel-paper.is-exiting { pointer-events: none; animation: template-preview-exit .17s cubic-bezier(.55, 0, .8, .35) both; }
-.template-carousel-paper .generated-resume { box-sizing: border-box; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 7.5%; overflow: hidden; font-size: clamp(5px, 1.15vw, 8px); line-height: 1.33; box-shadow: none; }
-.template-carousel-paper .generated-resume-header { gap: 12px; padding-bottom: 5px; border-bottom-width: 1px; }
-.template-carousel-paper .generated-resume-header h1 { font-size: 2.15em; }
-.template-carousel-paper .generated-resume-header p { margin-top: 1px; font-size: 1.05em; }
-.template-carousel-paper .generated-contact { gap: 1px; font-size: .82em; }
-.template-carousel-paper .resume-section { margin-top: 6px; }
-.template-carousel-paper .resume-section h2 { margin-bottom: 2px; font-size: .94em; letter-spacing: .08em; }
-.template-carousel-paper .resume-entry { margin-bottom: 4px; }
-.template-carousel-paper .resume-entry-heading { gap: 6px; font-size: .96em; }
-.template-carousel-paper .resume-entry-heading span, .template-carousel-paper .resume-entry-subtitle { font-size: .82em !important; }
-.template-carousel-paper .resume-entry p { margin: 1px 0; }
-.template-carousel-paper .resume-entry ul, .template-carousel-paper .resume-section ul { margin-top: 1px; padding-left: 10px; }
-.template-carousel-paper .resume-entry li, .template-carousel-paper .resume-section li { margin: 0; }
-.template-carousel-paper .template-tech-focused .generated-resume-header { padding: 6px; border-radius: 2px; }
-.template-carousel-paper .template-elegant-sidebar { border-left-width: 5px; }
-.template-carousel-arrow { width: 44px; height: 44px; border: 1px solid #dcd7f5; border-radius: 50%; background: #fff; color: #5c49cf; box-shadow: 0 4px 12px rgba(63, 50, 137, .08); font-size: 2rem; line-height: 1; transition: transform .18s ease, background .18s ease, border-color .18s ease; }
-.template-carousel-arrow:hover:not(:disabled) { border-color: #9e91e9; background: #f4f2ff; transform: translateY(-1px); }
-.template-carousel-arrow:disabled { opacity: .45; cursor: wait; }
-.template-carousel-arrow:focus-visible { outline: 3px solid rgba(95, 77, 208, .25); outline-offset: 3px; }
-.template-carousel-actions { display: grid; justify-items: center; gap: 12px; margin-top: 19px; }
-.template-carousel-actions .primary-button { min-width: 190px; }
 .template-position { color: #758198; font-size: .82rem; font-variant-numeric: tabular-nums; }
-@keyframes template-preview-enter { from { opacity: .18; transform: scale(.88) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes template-preview-exit { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: .1; transform: scale(.86) translateY(-10px); } }
 
 @media (max-width: 650px) {
   .resume-page-scroller { max-height: calc(100vh - 120px); padding: 10px 8px 22px; }
   .resume-page-document { gap: 12px; }
-  .template-carousel-stage { position: relative; display: block; padding: 0 12px; }
-  .template-carousel-paper { margin: 0 auto; }
-  .template-carousel-arrow { position: absolute; z-index: 1; top: 50%; width: 34px; height: 34px; font-size: 1.55rem; transform: translateY(-50%); }
-  .template-carousel-arrow.previous { left: 0; }
-  .template-carousel-arrow.next { right: 0; }
-  .template-carousel-arrow:hover { transform: translateY(-50%); }
-  .template-carousel-paper .generated-resume { font-size: clamp(5px, 1.75vw, 6.8px); }
 }
 
-@media print {
-  /* Print the live resume only so Save to PDF preserves the selected
-     template, semantic text, styling, and calculated A4 page breaks. */
-  body { background: #fff !important; }
-  body * { visibility: hidden !important; }
-  .resume-canvas,
-  .resume-canvas * { visibility: visible !important; }
-  .resume-canvas { position: absolute !important; inset: 0 !important; width: 100% !important; min-height: 0 !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; }
-  .resume-canvas > .canvas-top,
-  .resume-pagination-measure { display: none !important; }
-  @page { size: A4; margin: 0; }
-  .resume-page-scroller { max-height: none; overflow: visible; padding: 0; background: transparent; }
-  .resume-page-document { display: block; }
-  .resume-page-frame { width: 210mm !important; height: 297mm !important; break-after: page; page-break-after: always; }
-  .resume-page-frame:last-child { break-after: auto; page-break-after: auto; }
-  .generated-resume.resume-a4-page { width: 210mm !important; height: 297mm !important; border: 0; box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-}
+/* Printing is handled by src/print.css (an A4 copy rendered for the print dialog). */
 
 /* Eight genuinely different, linear document structures. These use only
    ordinary text flow, standard headings, and simple borders so critical
@@ -759,9 +696,6 @@
 
 /* The browser paper is already scaled down; rem-based body styles previously
    escaped that scale and made project descriptions look like headings. */
-.template-carousel-paper .resume-entry p, .template-carousel-paper .resume-project-description { font-size: var(--template-project-description-carousel-size, .86em) !important; line-height: 1.32; }
-.template-carousel-paper .resume-entry li, .template-carousel-paper .resume-section li, .template-carousel-paper .resume-skills { font-size: .84em; line-height: 1.3; }
-.template-carousel-paper .resume-entry-period, .template-carousel-paper .resume-entry-meta { font-size: .78em !important; }
 
 /* Sidebar templates use one shared, stacked header geometry. The old layouts
    placed a real photo and contact details in the same grid cell. */
@@ -978,3 +912,15 @@
 .generated-resume a.generated-contact-link { color: #1d4ed8 !important; text-decoration: underline !important; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .generated-resume a.generated-contact-link [data-resume-path] { color: inherit !important; }
 .resume-project-links { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 0; }
+
+/* Three ways to start: upload (left, tall) · scratch and LinkedIn stacked on the right. */
+.workspace-grid.setup-mode .resume-start-options .resume-start-grid { grid-template-rows: auto auto; }
+.workspace-grid.setup-mode .resume-start-options .import-start-card { grid-row: span 2; }
+.resume-start-options .scratch-start-card { align-content: start; }
+.resume-start-options .scratch-start-card p { margin: 6px 0 14px; }
+.resume-start-options .scratch-start-card .btn { justify-self: start; }
+.resume-start-options .start-card-icon.is-linkedin { background: #e8f1fb; }
+@media (max-width: 900px) {
+  .workspace-grid.setup-mode .resume-start-options .resume-start-grid { grid-template-columns: 1fr; }
+  .workspace-grid.setup-mode .resume-start-options .import-start-card { grid-row: auto; }
+}

@@ -1,5 +1,5 @@
 const validColors = value => typeof value === 'string' && (/^#[0-9a-f]{3,8}$/i.test(value) || /^rgb(a)?\(/.test(value))
-const validStyleProperties = new Set(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'color', 'textAlign', 'lineHeight', 'letterSpacing', 'marginTop', 'marginBottom', 'paddingTop', 'paddingBottom', 'gap', 'backgroundColor', 'borderColor', 'borderWidth', 'borderRadius', 'visibility', 'width', 'height', 'objectFit', 'objectPosition', 'pageSize', 'density', 'spacing', 'alignment'])
+const validStyleProperties = new Set(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'textDecoration', 'color', 'textAlign', 'lineHeight', 'letterSpacing', 'marginTop', 'marginBottom', 'paddingTop', 'paddingBottom', 'gap', 'backgroundColor', 'borderColor', 'borderWidth', 'borderRadius', 'visibility', 'width', 'height', 'objectFit', 'objectPosition', 'pageSize', 'density', 'spacing', 'alignment'])
 
 const readPath = (target, path) => path.split('.').reduce((value, key) => value?.[key], target)
 const writePath = (target, path, value) => {
@@ -29,10 +29,21 @@ export function applyResumeEditingOperations(document, operations = []) {
       if (!operation.target || !operation.changes || typeof operation.changes !== 'object') throw new ResumeEditingError('Invalid style edit.')
       Object.entries(operation.changes).forEach(([property, value]) => {
         if (!validStyleProperties.has(property)) throw new ResumeEditingError(`Unsupported style property: ${property}`)
+        // null removes the property, so the element falls back to the resume or template style.
+        if (value === null) return
         if ((property === 'color' || property.endsWith('Color')) && !validColors(value)) throw new ResumeEditingError(`Invalid color for ${property}`)
         if (property === 'fontSize' && (!Number.isFinite(value) || value < 7 || value > 48)) throw new ResumeEditingError('Font size must be between 7 and 48.')
       })
-      next.presentation.elementOverrides[operation.target] = { ...(next.presentation.elementOverrides[operation.target] ?? {}), ...operation.changes }
+      const merged = { ...(next.presentation.elementOverrides[operation.target] ?? {}), ...operation.changes }
+      Object.keys(merged).forEach(property => { if (merged[property] === null) delete merged[property] })
+      if (Object.keys(merged).length) next.presentation.elementOverrides[operation.target] = merged
+      else delete next.presentation.elementOverrides[operation.target]
+      return
+    }
+    if (operation.type === 'clear_style') {
+      if (operation.target === '*') next.presentation.elementOverrides = {}
+      else if (operation.target) delete next.presentation.elementOverrides[operation.target]
+      else throw new ResumeEditingError('Invalid style reset.')
       return
     }
     if (operation.type === 'set_theme') {

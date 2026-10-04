@@ -1,26 +1,80 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { adaptResumeForTemplate, linkDisplayLabel } from '../../templates/templateDataAdapter.js'
-import { loadResumeFont, resumeFonts } from '../../editor/fontRegistry.js'
+import { findFont, loadFontsForPresentation, loadResumeFont } from '../../editor/fontRegistry.js'
+import { parseMarks, rangeOffsetsWithin, readMarkedText } from '../../editor/inlineMarks.js'
 
 const valueOr = (value, fallback) => value || fallback
 const asArray = value => Array.isArray(value) ? value : []
 const allSkills = skills => Object.values(skills ?? {}).flat().filter(Boolean)
 const period = item => [item?.startDate, item?.endDate].filter(Boolean).join(' — ')
 const A4_RATIO = 297 / 210
+const PAGE_EDGE_TOLERANCE = 4
+// Height a block really takes in the flow: its box plus its own vertical margins.
+const outerHeight = element => {
+  if (!element) return 0
+  const style = window.getComputedStyle(element)
+  return element.offsetHeight + parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0)
+}
 const MAX_A4_WIDTH = 794
 
-function EditableText({ path, elementId = path, children }) {
-  return <span data-resume-path={path} data-resume-element-id={elementId}>{children}</span>
+// Per-element formatting from the editor's format panel (presentation.elementOverrides) and the current selection.
+const ResumeStyleContext = createContext({ overrides: {}, selectedId: null, focusSectionId: null })
+
+// Sizes are stored as they print on an A4 page; --page-scale shrinks them with the on-screen page.
+export function overrideToStyle(override = {}) {
+  const style = {}
+  if (override.fontFamily) style.fontFamily = findFont(override.fontFamily)?.family ?? override.fontFamily
+  if (override.fontWeight) style.fontWeight = override.fontWeight
+  if (override.fontStyle) style.fontStyle = override.fontStyle
+  if (override.textDecoration) style.textDecoration = override.textDecoration
+  if (override.color) style.color = override.color
+  if (Number.isFinite(override.lineHeight)) style.lineHeight = override.lineHeight
+  if (Number.isFinite(override.letterSpacing)) style.letterSpacing = `calc(${override.letterSpacing}px * var(--page-scale, 1))`
+  if (override.textAlign) {
+    style.textAlign = override.textAlign
+    style.display = 'block'
+  }
+  return style
 }
 
+const markTags = { b: 'strong', i: 'em', u: 'u', s: 's' }
+
+// Text with inline marks becomes nested <strong>/<em>/<u>/<s>; plain strings render unchanged.
+export function MarkedText({ text }) {
+  const runs = parseMarks(text)
+  if (!runs.some(run => run.marks.length)) return runs.map(run => run.text).join('')
+  return runs.map((run, index) => <span key={index}>{run.marks.reduceRight((child, mark) => {
+    const Tag = markTags[mark]
+    return <Tag>{child}</Tag>
+  }, run.text)}</span>)
+}
+
+function StyledElement({ as: Tag = 'span', elementId, path, children }) {
+  const { overrides, selectedId } = useContext(ResumeStyleContext)
+  const override = overrides?.[elementId]
+  return <Tag
+    data-resume-path={path}
+    data-resume-element-id={elementId}
+    data-selected={selectedId && selectedId === elementId ? 'true' : undefined}
+    style={override ? overrideToStyle(override) : undefined}
+  >{typeof children === 'string' ? <MarkedText text={children} /> : children}</Tag>
+}
+
+function EditableText({ path, elementId = path, children }) {
+  return <StyledElement path={path} elementId={elementId}>{children}</StyledElement>
+}
+
+const itemKey = (item, itemIndex) => item?.id || itemIndex
+
 function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onProfilePhotoClick }) {
+  const { selectedId, focusSectionId } = useContext(ResumeStyleContext)
   const contactItems = resumeData.contactItems ?? []
   const photo = presentation.photo
   const requestedPhotoSize = Math.max(Number(photo?.width) || 64, Number(photo?.height) || 64)
   // A real image can have any natural dimensions. Keep its frame predictable
   // and crop within it so a portrait/landscape upload never changes header flow.
   const photoSize = Math.max(48, Math.min(requestedPhotoSize, 96))
-  return <header className="generated-resume-header" data-page-header>
+  return <header className={`generated-resume-header${focusSectionId === 'personal' ? ' is-form-focus' : ''}`} data-page-header>
     {(resumeData.fullName || resumeData.headline || !blankPreview) && <div className="generated-resume-identity">
       {(resumeData.fullName || !blankPreview) && <h1><EditableText path="fullName" elementId="resume.header.name">{valueOr(resumeData.fullName, 'YOUR NAME')}</EditableText></h1>}
       {(resumeData.headline || !blankPreview) && <p><EditableText path="headline" elementId="resume.header.headline">{valueOr(resumeData.headline, 'Professional headline')}</EditableText></p>}
@@ -35,6 +89,7 @@ function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onP
     {photo?.source && photo.visible !== false && <img
       className="generated-resume-photo"
       data-resume-element-id="resume.header.photo"
+      data-selected={selectedId === 'resume.header.photo' ? 'true' : undefined}
       alt="Profile"
       src={photo.source}
       style={{ width: photoSize, height: photoSize, objectFit: photo.objectFit || 'cover', objectPosition: photo.objectPosition || 'center', borderRadius: photo.shape === 'circle' ? '50%' : photo.borderRadius ?? 6, border: photo.borderWidth ? `${photo.borderWidth}px solid ${photo.borderColor || '#d8dce5'}` : undefined }}
@@ -51,7 +106,7 @@ function ExperienceEntry({ item, itemIndex }) {
     </div>
     {/* An empty location is left out instead of printing the word "Location" on the resume. */}
     <p className="resume-entry-subtitle"><EditableText path={`experience.${itemIndex}.company`} elementId={`experience.${item?.id || itemIndex}.company`}>{item?.company || 'Company'}</EditableText>{item?.location && <> · <EditableText path={`experience.${itemIndex}.location`} elementId={`experience.${item?.id || itemIndex}.location`}>{item.location}</EditableText></>}</p>
-    <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`experience.${itemIndex}.bullets.${index}`} elementId={`experience.${item?.id || itemIndex}.bullet.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`experience.${itemIndex}.bullets.0`} elementId={`experience.${item?.id || itemIndex}.bullet.0`}>Add an achievement or responsibility.</EditableText></li>}</ul>
+    <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`experience.${itemIndex}.bullets.${index}`} elementId={`experience.${itemKey(item, itemIndex)}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`experience.${itemIndex}.bullets.0`} elementId={`experience.${itemKey(item, itemIndex)}.bullets.0`}>Add an achievement or responsibility.</EditableText></li>}</ul>
   </article>
 }
 
@@ -63,7 +118,7 @@ function ProjectEntry({ item, itemIndex }) {
     <p className="resume-entry-meta resume-project-technologies"><span>Technologies: </span><EditableText path={`projects.${itemIndex}.techStack`} elementId={`projects.${item?.id || itemIndex}.techStack`}>{asArray(item?.techStack).join(', ') || 'Add technologies'}</EditableText></p>
     <p className="resume-project-description"><EditableText path={`projects.${itemIndex}.description`} elementId={`projects.${item?.id || itemIndex}.description`}>{item?.description || 'Describe the project and its outcome.'}</EditableText></p>
     {asArray(item?.links).length > 0 && <p className="resume-project-links">{item.links.map((link, index) => <a className="generated-contact-link" href={/^https?:\/\//i.test(link) ? link : `https://${link}`} target="_blank" rel="noreferrer" title={link} key={index}>{linkDisplayLabel(link)}</a>)}</p>}
-    <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`projects.${itemIndex}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`projects.${itemIndex}.bullets.0`}>Add a project contribution.</EditableText></li>}</ul>
+    <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`projects.${itemIndex}.bullets.${index}`} elementId={`projects.${itemKey(item, itemIndex)}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`projects.${itemIndex}.bullets.0`} elementId={`projects.${itemKey(item, itemIndex)}.bullets.0`}>Add a project contribution.</EditableText></li>}</ul>
   </article>
 }
 
@@ -71,10 +126,10 @@ function EducationEntry({ item, itemIndex }) {
   return <article className="resume-entry">
     <div className="resume-entry-heading">
       <strong className="resume-entry-title"><EditableText path={`education.${itemIndex}.degree`} elementId={`education.${item?.id || itemIndex}.degree`}>{item?.degree || 'Degree'}</EditableText></strong>
-      <span className="resume-entry-period"><EditableText path={`education.${itemIndex}.startDate`}>{item?.startDate || 'Start date'}</EditableText> — <EditableText path={`education.${itemIndex}.endDate`}>{item?.endDate || 'End date'}</EditableText></span>
+      <span className="resume-entry-period"><EditableText path={`education.${itemIndex}.startDate`} elementId={`education.${itemKey(item, itemIndex)}.startDate`}>{item?.startDate || 'Start date'}</EditableText> — <EditableText path={`education.${itemIndex}.endDate`} elementId={`education.${itemKey(item, itemIndex)}.endDate`}>{item?.endDate || 'End date'}</EditableText></span>
     </div>
-    <p className="resume-entry-subtitle"><EditableText path={`education.${itemIndex}.institution`}>{item?.institution || 'Institution'}</EditableText>{item?.location && <> · <EditableText path={`education.${itemIndex}.location`}>{item.location}</EditableText></>}</p>
-    <ul>{asArray(item?.details).length ? item.details.map((detail, index) => <li key={index}><EditableText path={`education.${itemIndex}.details.${index}`}>{detail}</EditableText></li>) : <li><EditableText path={`education.${itemIndex}.details.0`}>Add coursework, honors, or relevant details.</EditableText></li>}</ul>
+    <p className="resume-entry-subtitle"><EditableText path={`education.${itemIndex}.institution`} elementId={`education.${itemKey(item, itemIndex)}.institution`}>{item?.institution || 'Institution'}</EditableText>{item?.location && <> · <EditableText path={`education.${itemIndex}.location`} elementId={`education.${itemKey(item, itemIndex)}.location`}>{item.location}</EditableText></>}</p>
+    <ul>{asArray(item?.details).length ? item.details.map((detail, index) => <li key={index}><EditableText path={`education.${itemIndex}.details.${index}`} elementId={`education.${itemKey(item, itemIndex)}.details.${index}`}>{detail}</EditableText></li>) : <li><EditableText path={`education.${itemIndex}.details.0`} elementId={`education.${itemKey(item, itemIndex)}.details.0`}>Add coursework, honors, or relevant details.</EditableText></li>}</ul>
   </article>
 }
 
@@ -82,7 +137,7 @@ function EntryListContinuation({ item, itemIndex, valueIndex, section, listKey }
   const value = asArray(item?.[listKey])[valueIndex]
   if (!value) return null
   return <div className="resume-entry resume-entry-continuation">
-    <ul><li><EditableText path={`${section}.${itemIndex}.${listKey}.${valueIndex}`} elementId={`${section}.${item?.id || itemIndex}.${listKey}.${valueIndex}`}>{value}</EditableText></li></ul>
+    <ul><li><EditableText path={`${section}.${itemIndex}.${listKey}.${valueIndex}`} elementId={`${section}.${itemKey(item, itemIndex)}.${listKey}.${valueIndex}`}>{value}</EditableText></li></ul>
   </div>
 }
 
@@ -214,9 +269,10 @@ function RenderBlock({ block }) {
 }
 
 function ResumeSection({ section, blockIndexes, headingSuffix = '', continued = false }) {
+  const { focusSectionId } = useContext(ResumeStyleContext)
   const headingId = `section-${section.id}${headingSuffix}`
-  return <section className={`resume-section resume-section-${section.id}${continued ? ' resume-section-continued' : ''}`} aria-labelledby={headingId}>
-    <h2 id={headingId}>{section.title}{continued && <span className="resume-continuation-label"> continued</span>}</h2>
+  return <section className={`resume-section resume-section-${section.id}${continued ? ' resume-section-continued' : ''}${focusSectionId === section.id ? ' is-form-focus' : ''}`} aria-labelledby={headingId}>
+    <h2 id={headingId}><StyledElement elementId={`section.${section.id}.heading`}>{section.title}</StyledElement>{continued && <span className="resume-continuation-label"> continued</span>}</h2>
     {blockIndexes.filter(index => section.blocks[index]).map(index => <div className="resume-page-block" data-block-index={index} key={section.blocks[index].id}>
       <RenderBlock block={section.blocks[index]} />
     </div>)}
@@ -309,100 +365,89 @@ function initialPages(sections) {
   }]
 }
 
-function paginateMeasurement(measurement, sections, splitColumns = true, columnPadding = 0) {
+/**
+ * Splits sections into A4 pages using where each block really sits in a full-length measurement copy
+ * (so margins, card borders, side headings and two-column grids are all accounted for). A block moves
+ * to the next page only when its real bottom would cross the page's printable edge.
+ */
+function paginateMeasurement(measurement, sections) {
   if (!measurement) return initialPages(sections)
-
   const styles = window.getComputedStyle(measurement)
-  // Leave a print-safe inset for font metric differences and fractional pixel
-  // rounding so headings and the last line never sit on the A4 cut edge.
-  const contentHeight = measurement.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom) - columnPadding - 26
-  const headerElement = measurement.querySelector('[data-page-header]')
-  const footerElement = measurement.querySelector('[data-page-footer]')
-  const headerHeight = headerElement?.offsetHeight || 0
-  const footerHeight = footerElement?.offsetHeight || 0
-  const columnFlow = measurement.querySelector('.resume-columns-flow')
-  // Reactive Resume layouts flatten the column wrapper (display: contents) so the header can sit inside a column.
-  const columnDisplay = columnFlow ? window.getComputedStyle(columnFlow).display : ''
-  if (splitColumns && columnFlow && (columnDisplay === 'grid' || (columnFlow.dataset.layout === 'columns' && columnDisplay === 'contents'))) {
-    // Paginate the two rails independently, then combine matching page numbers.
-    // Sidebar content must not consume the main column's vertical budget.
-    const columnPages = [...columnFlow.children].map(column => {
-      const ids = new Set([...column.querySelectorAll('[data-measure-section]')].map(section => section.dataset.measureSection))
-      const columnStyle = window.getComputedStyle(column)
-      const padding = parseFloat(columnStyle.paddingTop) + parseFloat(columnStyle.paddingBottom)
-      return paginateMeasurement(measurement, sections.filter(section => ids.has(section.id)), false, padding)
-    })
-    const count = Math.max(...columnPages.map(pages => pages.length))
-    return Array.from({ length: count }, (_, index) => ({
-      showHeader: index === 0,
-      groups: columnPages.flatMap(pages => pages[index]?.groups || []),
-      showFooter: index === count - 1,
-    }))
-  }
-  // For independent sidebar/main flows, summing every section vertically
-  // overestimates the page and created the phantom second page seen in the
-  // Bronzor capture. Use the actual column height when it fits.
-  if (splitColumns && columnFlow && columnFlow.scrollHeight + headerHeight + footerHeight <= contentHeight) return initialPages(sections)
-  const pages = []
-  let page = { showHeader: true, groups: [], showFooter: false }
-  let usedHeight = headerHeight
+  const box = measurement.getBoundingClientRect()
+  const contentTop = box.top + parseFloat(styles.borderTopWidth || 0) + parseFloat(styles.paddingTop)
+  const contentHeight = measurement.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom) - PAGE_EDGE_TOLERANCE
+  const limit = contentTop + contentHeight
+  const footerHeight = outerHeight(measurement.querySelector('[data-page-footer]'))
 
-  const pushPage = () => {
-    if (page.groups.length || page.showHeader) pages.push(page)
-    page = { showHeader: false, groups: [], showFooter: false }
-    usedHeight = 0
-  }
-
-  sections.forEach(section => {
-    const measuredSection = measurement.querySelector(`[data-measure-section="${section.id}"]`)
-    const heading = measuredSection?.querySelector('[data-measure-heading]')
-    const sectionStyle = measuredSection ? window.getComputedStyle(measuredSection) : null
-    const headingStyle = heading ? window.getComputedStyle(heading) : null
-    const sectionMargin = parseFloat(sectionStyle?.marginTop || 0)
-    const headingHeight = (heading?.offsetHeight || 0) + parseFloat(headingStyle?.marginBottom || 0)
-    let group = null
-
-    section.blocks.forEach((_, blockIndex) => {
-      const measuredBlock = measuredSection?.querySelector(`[data-block-index="${blockIndex}"]`)
-      const blockHeight = measuredBlock?.offsetHeight || 0
-      const needsHeading = !group
-      const requiredHeight = blockHeight + (needsHeading ? sectionMargin + headingHeight : 0)
-
-      if (usedHeight + requiredHeight > contentHeight && (page.groups.length || !page.showHeader)) {
-        pushPage()
-        group = null
-      }
-
-      if (!group) {
-        group = {
-          sectionId: section.id,
-          blockIndexes: [],
-          continued: blockIndex > 0,
+  const flow = list => {
+    const pages = []
+    let page = { groups: [] }
+    let shift = 0
+    let lastBottom = contentTop
+    list.forEach(section => {
+      const sectionElement = measurement.querySelector(`[data-measure-section="${section.id}"]`)
+      if (!sectionElement) return
+      const sectionRect = sectionElement.getBoundingClientRect()
+      const sectionStyle = window.getComputedStyle(sectionElement)
+      const sectionTop = sectionRect.top - parseFloat(sectionStyle.marginTop || 0)
+      const headingHeight = outerHeight(sectionElement.querySelector('[data-measure-heading]'))
+      let group = null
+      section.blocks.forEach((_, blockIndex) => {
+        const block = sectionElement.querySelector(`[data-block-index="${blockIndex}"]`)
+        if (!block) return
+        const rect = block.getBoundingClientRect()
+        const isFirst = blockIndex === 0
+        const isLast = blockIndex === section.blocks.length - 1
+        const top = isFirst ? sectionTop : rect.top - parseFloat(window.getComputedStyle(block).marginTop || 0)
+        // The last block also has to fit the section's own bottom padding/border (card layouts).
+        const bottom = isLast ? Math.max(rect.bottom, sectionRect.bottom) : rect.bottom
+        if (bottom - shift > limit && page.groups.length) {
+          pages.push(page)
+          page = { groups: [] }
+          group = null
+          // On the new page this block starts at the top, under a "continued" heading when mid-section.
+          shift = top - contentTop - (isFirst ? 0 : headingHeight)
         }
-        page.groups.push(group)
-        usedHeight += sectionMargin + headingHeight
-      }
-
-      group.blockIndexes.push(blockIndex)
-      usedHeight += blockHeight
+        if (!group) {
+          group = { sectionId: section.id, blockIndexes: [], continued: !isFirst }
+          page.groups.push(group)
+        }
+        group.blockIndexes.push(blockIndex)
+        lastBottom = bottom - shift
+      })
     })
-  })
-
-  if (footerHeight) {
-    if (usedHeight + footerHeight > contentHeight && page.groups.length) pushPage()
-    page.showFooter = true
+    if (footerHeight && lastBottom + footerHeight > limit && page.groups.length) {
+      pages.push(page)
+      page = { groups: [] }
+    }
+    pages.push(page)
+    return pages
   }
 
-  if (page.groups.length || page.showFooter || !pages.length) pages.push(page)
-  return pages
+  const columnFlow = measurement.querySelector('.resume-columns-flow')
+  const columnDisplay = columnFlow ? window.getComputedStyle(columnFlow).display : ''
+  const isColumns = Boolean(columnFlow) && (columnDisplay === 'grid' || columnDisplay === 'flex' || (columnFlow.dataset.layout === 'columns' && columnDisplay === 'contents'))
+  // Two-column designs paginate each column on its own and then pair pages up.
+  const columnPages = isColumns
+    ? [...columnFlow.children].map(column => {
+      const ids = new Set([...column.querySelectorAll('[data-measure-section]')].map(section => section.dataset.measureSection))
+      return flow(sections.filter(section => ids.has(section.id)))
+    })
+    : [flow(sections)]
+  const count = Math.max(1, ...columnPages.map(pages => pages.length))
+  return Array.from({ length: count }, (_, index) => ({
+    showHeader: index === 0,
+    groups: columnPages.flatMap(pages => pages[index]?.groups || []),
+    showFooter: index === count - 1
+  }))
 }
 
-export default function ResumeTemplateLayout({ resumeData = {}, editorRef, variant, editorStyle, useGlobalTextColor = false, footerText = '', preview = false, onManualEdit, presentation, onElementSelect, blankPreview = false, onProfilePhotoClick }) {
+export default function ResumeTemplateLayout({ resumeData = {}, editorRef, variant, editorStyle, useGlobalTextColor = false, footerText = '', preview = false, readOnly = false, onManualEdit, presentation, onElementSelect, selectedElementId = null, focusSectionId = null, pageWidthOverride = null, blankPreview = false, onProfilePhotoClick }) {
   const templateResume = useMemo(() => adaptResumeForTemplate(resumeData), [resumeData])
   const templateStyle = {
     ...editorStyle,
     ...(presentation?.accentColor ? { '--template-accent-color': presentation.accentColor } : {}),
-    ...(presentation?.fontFamily ? { fontFamily: presentation.fontFamily } : {}),
+    ...(presentation?.fontFamily ? { fontFamily: findFont(presentation.fontFamily)?.family ?? presentation.fontFamily } : {}),
     ...(Number.isFinite(presentation?.sidebarWidth) ? { '--template-sidebar-width': `${Math.max(24, Math.min(presentation.sidebarWidth, 42))}%` } : {}),
     ...(Number.isFinite(presentation?.contactScale) ? { '--template-contact-text-scale': `${Math.max(.75, Math.min(presentation.contactScale, 1))}em` } : {}),
     ...(Number.isFinite(presentation?.nameScale) ? { '--template-name-text-scale': `${Math.max(.72, Math.min(presentation.nameScale, 1))}em` } : {}),
@@ -412,6 +457,8 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     } : {})
   }
   const sections = useMemo(() => buildSections(templateResume, variant, blankPreview), [templateResume, variant, blankPreview])
+  const overrides = presentation?.elementOverrides
+  const styleContext = useMemo(() => ({ overrides: overrides ?? {}, selectedId: selectedElementId, focusSectionId }), [overrides, selectedElementId, focusSectionId])
   const shellRef = useRef(null)
   const measurementRef = useRef(null)
   const [pageWidth, setPageWidth] = useState(MAX_A4_WIDTH)
@@ -427,16 +474,23 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
   if (!preview && isReactiveVariant(variant)) {
     templateStyle.fontSize = `${(parseFloat(editorStyle?.fontSize) || 13.3333) * pageWidth / MAX_A4_WIDTH}px`
   }
+  templateStyle['--page-scale'] = preview ? 1 : pageWidth / MAX_A4_WIDTH
+  // Whole-resume formatting (line height, letter spacing) from the format panel.
+  const { display: _ignoredDisplay, ...resumeWideStyle } = overrideToStyle(overrides?.resume)
+  Object.assign(templateStyle, resumeWideStyle)
 
   useEffect(() => {
-    const font = resumeFonts.find(item => item.family === presentation?.fontFamily)
-    const receiveMetaFont = variant === 'receive' ? resumeFonts.find(item => item.name === 'Roboto Mono') : null
-    Promise.all([font && loadResumeFont(font), receiveMetaFont && loadResumeFont(receiveMetaFont)].filter(Boolean))
+    Promise.all([loadFontsForPresentation(presentation), variant === 'receive' && loadResumeFont('Roboto Mono')].filter(Boolean))
       .then(() => setFontLoadRevision(revision => revision + 1))
-  }, [presentation?.fontFamily, variant])
+  }, [presentation?.fontFamily, presentation?.elementOverrides, variant]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (preview || !shellRef.current) return undefined
+    // Printing renders at exactly 794px (A4 at 96 dpi), whatever the window size.
+    if (pageWidthOverride) {
+      setPageWidth(pageWidthOverride)
+      return undefined
+    }
 
     const updatePageWidth = () => {
       const availableWidth = shellRef.current?.clientWidth || MAX_A4_WIDTH
@@ -447,7 +501,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     const observer = new ResizeObserver(updatePageWidth)
     observer.observe(shellRef.current)
     return () => observer.disconnect()
-  }, [preview])
+  }, [pageWidthOverride, preview])
 
   useLayoutEffect(() => {
     if (preview) return
@@ -455,8 +509,52 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     setPages(nextPages)
   }, [editorStyle, footerText, fontLoadRevision, pageHeight, preview, sections, useGlobalTextColor, variant, presentation])
 
+  // The element under the caret/highlight decides what the format panel edits. A highlight that ends
+  // on a gap between elements still belongs to the element where it started.
+  const describeSelection = (fallbackTarget = null) => {
+    const selection = window.getSelection()
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null
+    const container = range ? range.startContainer : null
+    const startNode = container?.nodeType === 1 ? container : container?.parentElement
+    const element = (range && editorDocumentRef.current?.contains(startNode) ? startNode?.closest('[data-resume-element-id]') : null)
+      || fallbackTarget?.closest?.('[data-resume-element-id]')
+    if (!element) return null
+    const offsets = range && !range.collapsed ? rangeOffsetsWithin(element, range) : null
+    return {
+      id: element.dataset.resumeElementId,
+      path: element.dataset.resumePath,
+      range: offsets && offsets.end > offsets.start ? offsets : null,
+      text: element.textContent?.slice(0, 200) ?? ''
+    }
+  }
+  const selectResumeElement = event => {
+    if (!onElementSelect) return
+    const next = describeSelection(event.target)
+    // Clicking empty page space (no highlight) clears the selection: the panel formats the whole resume.
+    onElementSelect(next)
+  }
+  const editorDocumentRef = useRef(null)
+  const setEditorDocument = node => {
+    editorDocumentRef.current = node
+    if (typeof editorRef === 'function') editorRef(node)
+    else if (editorRef) editorRef.current = node
+  }
+  useEffect(() => {
+    if (!onElementSelect || preview || readOnly) return undefined
+    // Keyboard selection (Shift+arrows, caret moves) updates the selection too.
+    const onSelectionChange = () => {
+      const selection = window.getSelection()
+      const anchor = selection?.anchorNode
+      if (!anchor || !editorDocumentRef.current?.contains(anchor)) return
+      const next = describeSelection()
+      if (next) onElementSelect(next)
+    }
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => document.removeEventListener('selectionchange', onSelectionChange)
+  }, [onElementSelect, preview, readOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (preview) {
-    return <SingleResume
+    return <ResumeStyleContext.Provider value={styleContext}><SingleResume
       resumeData={templateResume}
       sections={sections}
       variant={variant}
@@ -469,7 +567,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
       presentation={presentation}
       blankPreview={blankPreview}
       onProfilePhotoClick={onProfilePhotoClick}
-    />
+    /></ResumeStyleContext.Provider>
   }
 
   const commitManualEdit = event => {
@@ -478,28 +576,23 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     const anchorElement = anchor?.nodeType === Node.ELEMENT_NODE ? anchor : anchor?.parentElement
     const field = anchorElement?.closest?.('[data-resume-path]') || event.target.closest?.('[data-resume-path]')
     if (!field || !onManualEdit) return
-    onManualEdit({ path: field.dataset.resumePath, value: field.innerText })
+    onManualEdit({ path: field.dataset.resumePath, value: readMarkedText(field) })
   }
 
-  const selectResumeElement = event => {
-    const element = event.target.closest?.('[data-resume-element-id]')
-    if (!element || !onElementSelect) return
-    onElementSelect({ id: element.dataset.resumeElementId, path: element.dataset.resumePath })
-  }
 
-  return <div className="resume-document-shell" ref={shellRef}>
+  return <ResumeStyleContext.Provider value={styleContext}><div className="resume-document-shell" ref={shellRef}>
     <div className="resume-page-scroller">
       <div
-        ref={editorRef}
+        ref={setEditorDocument}
         className="resume-page-document"
-        contentEditable
-        role="textbox"
-        aria-multiline="true"
-        aria-label="Generated editable resume"
+        contentEditable={!readOnly}
+        role={readOnly ? 'document' : 'textbox'}
+        aria-multiline={readOnly ? undefined : 'true'}
+        aria-label={readOnly ? 'Resume preview' : 'Generated editable resume'}
         suppressContentEditableWarning
         spellCheck
         onBlur={commitManualEdit}
-        onClick={selectResumeElement}
+        onMouseUp={selectResumeElement}
       >
         {pages.map((page, pageIndex) => <div
           className="resume-page-frame"
@@ -509,7 +602,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
         >
           <article
             style={{ ...templateStyle, width: pageWidth, height: pageHeight }}
-            className={`generated-resume resume-a4-page template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
+            className={`generated-resume resume-a4-page template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}${pageIndex > 0 ? ' resume-page-continued' : ''}`}
           >
             {page.showHeader && <ResumeHeader resumeData={templateResume} presentation={presentation} blankPreview={blankPreview} onProfilePhotoClick={onProfilePhotoClick} />}
             <div className="generated-resume-main">
@@ -539,7 +632,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
       <ResumeHeader resumeData={templateResume} presentation={presentation} />
       <div className="generated-resume-main">
         <ResumeSectionFlow variant={variant} sections={sections} renderSection={section => <section className={`resume-section resume-section-${section.id}`} data-measure-section={section.id} key={section.id}>
-          <h2 data-measure-heading>{section.title}</h2>
+          <h2 data-measure-heading><StyledElement elementId={`section.${section.id}.heading`}>{section.title}</StyledElement></h2>
           {section.blocks.map((block, blockIndex) => <div className="resume-page-block" data-block-index={blockIndex} key={block.id}>
             <RenderBlock block={block} />
           </div>)}
@@ -547,5 +640,5 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
       </div>
       {footerText && <footer className="generated-resume-footer" data-page-footer>{footerText}</footer>}
     </article>
-  </div>
+  </div></ResumeStyleContext.Provider>
 }

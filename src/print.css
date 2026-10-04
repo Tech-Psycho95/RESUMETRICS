@@ -1,0 +1,19 @@
+/* PDF export: the browser prints only .print-root, an A4-sized (794px) copy of the resume that
+   MainPage renders while the print dialog is open. Text stays selectable and every format-panel
+   change is kept, because it is the same template components with the same overrides. */
+.print-root { position: fixed; top: 0; left: -100000px; width: 794px; pointer-events: none; }
+
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { width: 210mm; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body > *:not(.print-root) { display: none !important; }
+  .print-root { position: static; left: auto; width: 210mm; }
+  .print-root, .print-root * { visibility: visible !important; }
+  .print-root .resume-document-shell, .print-root .resume-page-scroller { max-height: none !important; overflow: visible !important; padding: 0 !important; background: transparent !important; }
+  .print-root .resume-page-document { display: block !important; zoom: 1 !important; }
+  .print-root .resume-page-frame { width: 210mm !important; height: 297mm !important; overflow: hidden; break-after: page; page-break-after: always; }
+  .print-root .resume-page-frame:last-child { break-after: auto; page-break-after: auto; }
+  .print-root .generated-resume.resume-a4-page { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-root [data-selected], .print-root .is-form-focus { outline: none !important; background: transparent !important; }
+  .print-root .generated-resume-photo-upload { display: none !important; }
+}
