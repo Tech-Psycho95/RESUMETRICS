@@ -38,7 +38,13 @@ function sanitizeRepository(repository) {
     private: Boolean(repository.private),
     default_branch: repository.default_branch ?? null,
     language: repository.language ?? null,
-    updated_at: repository.updated_at ?? null
+    updated_at: repository.updated_at ?? null,
+    pushed_at: repository.pushed_at ?? repository.updated_at ?? null,
+    stargazers_count: repository.stargazers_count ?? 0,
+    fork: Boolean(repository.fork),
+    archived: Boolean(repository.archived),
+    topics: Array.isArray(repository.topics) ? repository.topics.slice(0, 20) : [],
+    size: repository.size ?? 0
   }
 }
 
@@ -115,6 +121,19 @@ export async function getInstallationClient(installationId) {
 export async function getUserRepositoriesWithClient(octokit) {
   const { data } = await octokit.request('GET /installation/repositories', { per_page: 100 })
   return data.repositories.map(sanitizeRepository)
+}
+
+// Every repository the installation can see (GitHub pages these 100 at a time).
+export async function getAllInstallationRepositoriesWithClient(octokit, { maxPages = 10 } = {}) {
+  const repositories = []
+  let total = 0
+  for (let page = 1; page <= maxPages; page += 1) {
+    const { data } = await octokit.request('GET /installation/repositories', { per_page: 100, page })
+    total = data.total_count ?? total
+    repositories.push(...data.repositories.map(sanitizeRepository))
+    if (data.repositories.length < 100 || repositories.length >= total) break
+  }
+  return { repositories, total: Math.max(total, repositories.length) }
 }
 
 export async function getUserRepositories(installationId) {

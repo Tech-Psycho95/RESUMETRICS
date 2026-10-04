@@ -1,0 +1,51 @@
+/* Job match — simplest layout: results scroll above a chat-style composer. */
+.job-match { position: relative; display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.job-match.is-dragging::after { content: 'Drop the job description'; position: absolute; inset: 8px; z-index: 5; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 14px; color: var(--accent-ink); background: rgba(255, 255, 255, .92); font-weight: 650; }
+.job-match-scroll { display: grid; flex: 1 1 auto; align-content: start; gap: 14px; min-height: 0; padding: 18px 16px; overflow-y: auto; overscroll-behavior: contain; }
+.jd-intro { margin: 0; color: var(--studio-muted); font-size: 13.5px; line-height: 1.5; }
+.jd-error { margin: 0; color: #9a3412; font-size: 12.5px; }
+.jd-result { display: grid; justify-items: center; gap: 6px; padding: 4px 0 2px; text-align: center; }
+.jd-title { color: var(--studio-ink); font-size: 14px; }
+.jd-missing { margin: 0; color: var(--studio-muted); font-size: 12.5px; line-height: 1.45; }
+.jd-fixes { display: grid; gap: 0; margin: 0; padding: 0; border-top: 1px solid var(--studio-line); list-style: none; }
+.jd-fixes li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 11px 2px; border-bottom: 1px solid var(--studio-line); }
+.jd-fixes li > div { display: grid; gap: 2px; }
+.jd-fixes b { color: var(--studio-ink); font-size: 13px; font-weight: 600; }
+.jd-fixes span { color: var(--studio-muted); font-size: 12px; line-height: 1.4; }
+.jd-fixes li.is-done b { color: var(--studio-muted); text-decoration: line-through; text-decoration-color: rgba(100, 112, 138, .5); }
+.jd-fixes small { grid-column: 1 / -1; }
+.jd-file { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 0 12px 6px; padding: 2px 4px 2px 10px; border-radius: 8px; color: var(--studio-ink); background: rgba(var(--accent-rgb), .07); font-size: 12px; }
+.jd-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jd-attach { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; margin-left: -6px; padding: 0; border: 0; border-radius: 8px; color: var(--studio-muted); background: transparent; cursor: pointer; }
+.jd-attach:hover:not(:disabled) { color: var(--accent-ink); background: var(--accent-softer); }
+.jd-attach svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Score ring (shared) */
+.score-ring { position: relative; display: grid; place-items: center; }
+.score-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.score-ring-track { fill: none; stroke: #eef0f5; }
+.score-ring-value { fill: none; stroke-linecap: round; }
+.score-ring-label { position: relative; display: grid; justify-items: center; line-height: 1; }
+.score-ring-label b { font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.score-ring-label b small { margin-left: 1px; font-size: .5em; font-weight: 650; }
+.score-ring-label > small { margin-top: 4px; color: var(--studio-muted); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.jd-category-bar { height: 8px; overflow: hidden; border-radius: 999px; background: #eef0f5; }
+.jd-category-bar span { display: block; height: 100%; border-radius: inherit; transition: width .6s cubic-bezier(.22, .8, .24, 1); }
+
+[data-resolved-theme="dark"] .score-ring-track { stroke: #253049; }
+[data-resolved-theme="dark"] .jd-category-bar { background: #253049; }
+@media (prefers-reduced-motion: reduce) { .jd-category-bar span { transition: none; } }
+.jd-line { margin: 0; color: var(--studio-muted); font-size: 12.5px; line-height: 1.45; }
+.jd-line b { color: var(--studio-ink); font-weight: 600; }
+.jd-roles { display: grid; gap: 4px; width: 100%; margin: 4px 0 0; padding: 0; list-style: none; font-size: 12.5px; text-align: left; }
+.jd-roles li { display: flex; justify-content: space-between; gap: 10px; color: var(--studio-ink); }
+.jd-roles span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jd-roles em { flex: 0 0 auto; font-style: normal; color: var(--studio-muted); }
+.jd-roles li.is-strong em { color: #15803d; }
+.jd-roles li.is-low em { color: #b45309; }
+.jd-group { display: grid; gap: 6px; }
+.jd-group h4 { margin: 0; color: var(--studio-ink); font-size: 12.5px; font-weight: 700; }
+.jd-adds { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.jd-adds li { display: grid; gap: 2px; padding-left: 12px; border-left: 2px solid rgba(var(--accent-rgb), .35); }
+.jd-adds b { color: var(--studio-ink); font-size: 13px; font-weight: 600; }
+.jd-adds span { color: var(--studio-muted); font-size: 12px; line-height: 1.4; }

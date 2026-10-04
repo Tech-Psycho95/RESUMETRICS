@@ -32,8 +32,16 @@ export const env = Object.freeze({
   ai: Object.freeze({
     apiKey: process.env.RESUMETRICS_AI_API_KEY?.trim() ?? '',
     provider: process.env.RESUMETRICS_AI_PROVIDER?.trim().toLowerCase() ?? 'groq',
-    defaultModel: process.env.RESUMETRICS_AI_DEFAULT_MODEL?.trim() ?? ''
-  })
+    defaultModel: process.env.RESUMETRICS_AI_DEFAULT_MODEL?.trim() ?? '',
+    // Optional per-task models; each falls back to the default model.
+    models: Object.freeze({
+      nimbus: process.env.RESUMETRICS_AI_MODEL_NIMBUS?.trim() ?? '',
+      jd: process.env.RESUMETRICS_AI_MODEL_JD?.trim() ?? '',
+      linkedin: process.env.RESUMETRICS_AI_MODEL_LINKEDIN?.trim() ?? '',
+      github: process.env.RESUMETRICS_AI_MODEL_GITHUB?.trim() ?? ''
+    })
+  }),
+  githubScanCap: Math.max(1, Math.min(100, Number.parseInt(process.env.RESUMETRICS_GITHUB_SCAN_CAP ?? '25', 10) || 25))
 })
 
 export class GitHubConfigurationError extends Error {

@@ -4,6 +4,8 @@ import { env } from './config/env.js'
 import aiRoutes from './routes/ai.routes.js'
 import githubRoutes from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
+import nimbusRoutes from './routes/nimbus.routes.js'
+import jdRoutes from './routes/jd.routes.js'
 import { initializeFirebaseAdmin } from './services/firebaseAdmin.js'
 
 const app = express()
@@ -42,6 +44,8 @@ app.use(express.json({ limit: '2mb' }))
 app.use('/api/ai', aiRoutes)
 app.use('/api/github', githubRoutes)
 app.use('/api/resume', resumeRoutes)
+app.use('/api/nimbus', nimbusRoutes)
+app.use('/api/jd', jdRoutes)
 
 try {
   initializeFirebaseAdmin()

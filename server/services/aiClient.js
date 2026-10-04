@@ -7,7 +7,8 @@ function createProviderClient() {
   // Provider selection is kept here so route handlers stay provider-agnostic.
   // The SDK retries rate limits (honouring retry-after), timeouts and server errors itself.
   if (env.ai.provider === 'groq') {
-    return new Groq({ apiKey: env.ai.apiKey, maxRetries: 4, timeout: 45_000 })
+    // Interactive features can't make people wait through long retry chains: one retry, 30s per call.
+    return new Groq({ apiKey: env.ai.apiKey, maxRetries: 1, timeout: 30_000 })
   }
 
   // validateAIConfiguration currently prevents this path, but it keeps the
@@ -34,16 +35,19 @@ export async function generateAIResponse({
   jsonSchema,
   seed,
   maxCompletionTokens,
-  reasoningEffort
+  reasoningEffort,
+  model,
+  messages
 }) {
-  if (typeof userPrompt !== 'string' || !userPrompt.trim()) {
+  if (!messages && (typeof userPrompt !== 'string' || !userPrompt.trim())) {
     throw new TypeError('A non-empty user prompt is required.')
   }
 
   const client = createProviderClient()
+  const selectedModel = model || env.ai.defaultModel
   const request = {
-    model: env.ai.defaultModel,
-    messages: [
+    model: selectedModel,
+    messages: messages ?? [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt.trim() }
     ],
@@ -52,7 +56,7 @@ export async function generateAIResponse({
   }
   if (Number.isInteger(seed)) request.seed = seed
   if (Number.isInteger(maxCompletionTokens)) request.max_completion_tokens = maxCompletionTokens
-  if (reasoningEffort && isReasoningModel(env.ai.defaultModel)) request.reasoning_effort = reasoningEffort
+  if (reasoningEffort && isReasoningModel(selectedModel)) request.reasoning_effort = reasoningEffort
 
   const completion = await client.chat.completions.create(request)
 
