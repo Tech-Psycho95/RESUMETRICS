@@ -7,18 +7,21 @@ export function EvidenceDock({ onCompare, canCompare, connected }) {
   </div>
 }
 
-/** Left container: NIMBUS or Job match (one at a time), GitHub evidence at the bottom. */
-export default function AiRail({ tab, onTabChange, score, nimbus, jobMatch, evidence }) {
+/** Dock row linking to the Job tailoring page, with the last match score. */
+export function TailorDock({ score, onOpen }) {
+  return <div className="rail-evidence rail-tailor">
+    <svg className="rail-evidence-logo" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="1.6" /><circle cx="10" cy="10" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="m13 7 4-4M17 3h-2.6M17 3v2.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+    <span><b>Tailor to a job</b><small>{Number.isFinite(score) ? `Last match ${score}%` : 'Match against a job description'}</small></span>
+    <button type="button" className="btn btn-secondary btn-sm" onClick={onOpen}>Open</button>
+  </div>
+}
+
+/** Left container: NIMBUS, with links to Job tailoring and GitHub evidence at the bottom. */
+export default function AiRail({ nimbus, docks }) {
   return <div className="ai-rail">
-    <div className={`rail-tabs is-${tab}`} role="tablist" aria-label="AI tools">
-      <button type="button" role="tab" id="ai-tab-nimbus" aria-controls="ai-panel-nimbus" aria-selected={tab === 'nimbus'} onClick={() => onTabChange('nimbus')}>NIMBUS</button>
-      <button type="button" role="tab" id="ai-tab-job" aria-controls="ai-panel-job" aria-selected={tab === 'job'} onClick={() => onTabChange('job')}>Job match{Number.isFinite(score) && <span className="rail-tab-score">{score}%</span>}</button>
-      <span className="rail-tabs-indicator" aria-hidden="true" />
-    </div>
     <div className="ai-rail-body">
-      <div id="ai-panel-nimbus" className="ai-rail-panel is-nimbus" role="tabpanel" aria-labelledby="ai-tab-nimbus" hidden={tab !== 'nimbus'}>{nimbus}</div>
-      <div id="ai-panel-job" className="ai-rail-panel is-job" role="tabpanel" aria-labelledby="ai-tab-job" hidden={tab !== 'job'}>{jobMatch}</div>
+      <div className="ai-rail-panel is-nimbus" role="region" aria-label="NIMBUS">{nimbus}</div>
     </div>
-    {evidence}
+    {docks}
   </div>
 }

@@ -22,7 +22,8 @@ export const sectionInfo = {
   skills: { title: 'Skills', hint: `At least ${SKILLS_MIN} skills`, required: true },
   languages: { title: 'Languages', hint: 'Languages you speak', required: false },
   certifications: { title: 'Certifications', hint: 'Courses and certificates', required: false },
-  achievements: { title: 'Achievements', hint: 'Awards and recognition', required: false }
+  achievements: { title: 'Achievements', hint: 'Awards and recognition', required: false },
+  customSections: { title: 'Additional sections', hint: 'Volunteering, licences, publications, interests…', required: false }
 }
 
 /** The sections the form shows, in the order the template prints them, with personal information first. */
@@ -90,7 +91,15 @@ export function sectionChecks(sectionId, data = {}, { supportsPhoto = false, has
   ]
   if (sectionId === 'skills') {
     const skills = Object.values(data.skills ?? {}).flat().map(text).filter(Boolean)
-    return [check('skills', `At least ${SKILLS_MIN} skills`, skills, { required: true, validate: value => value.length >= SKILLS_MIN, message: `Add at least ${SKILLS_MIN} skills (${skills.length} so far)` })]
+    const result = check('skills', `At least ${SKILLS_MIN} skills`, skills, { required: true, validate: value => value.length >= SKILLS_MIN, message: `Add at least ${SKILLS_MIN} skills (${skills.length} so far)` })
+    return [result.filled ? result : { ...result, message: `Add at least ${SKILLS_MIN} skills, in any group` }]
+  }
+  if (sectionId === 'customSections') {
+    // A section counts once anything is typed into it; then it needs both a title and some text.
+    return list(data.customSections).map((item, index) => ({ item, index })).filter(({ item }) => text(item?.title) || text(item?.content)).flatMap(({ item, index }) => [
+      check(`customSections.${index}.title`, `Section ${index + 1} · Title`, item?.title, { required: true }),
+      check(`customSections.${index}.content`, `Section ${index + 1} · Text`, item?.content, { required: true })
+    ])
   }
   if (['languages', 'certifications', 'achievements'].includes(sectionId)) {
     return filledList(data[sectionId]).length ? [check(sectionId, sectionInfo[sectionId].title, filledList(data[sectionId]))] : []

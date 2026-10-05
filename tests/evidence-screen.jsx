@@ -5,9 +5,17 @@ import '../src/styles.css'
 import '../src/layout-overrides.css'
 import '../src/editor-studio.css'
 import '../src/job-match.css'
+import '../src/resume-flow.css'
+import '../src/job-tailoring.css'
 import '../src/evidence.css'
 import '../src/buttons.css'
-import EvidenceScreen from '../src/components/evidence/EvidenceScreen.jsx'
+import EvidenceWorkspace from '../src/components/evidence/EvidenceWorkspace.jsx'
+import { getResumeTemplate, resolveResumePresentation } from '../src/config/resumeTemplates.js'
+import { templatePreviewResumeData } from '../src/data/templatePreviewData.js'
+
+// ?state=connect | ready | scanning | done (default: done, replayed quickly).
+const state = new URLSearchParams(window.location.search).get('state') || 'done'
+const template = getResumeTemplate('elegant-resume')
 
 const languagesPool = [['TypeScript', 'CSS', 'HTML'], ['Python', 'Jupyter Notebook'], ['JavaScript', 'CSS'], ['Go'], ['Java'], ['TypeScript', 'Shell']]
 const repos = Array.from({ length: 25 }, (_, index) => {
@@ -30,40 +38,30 @@ const resumeData = {
     { company: 'Initech', role: 'Data Analyst', startDate: '2023', endDate: '2023' }
   ]
 }
-const linkedinProfile = { savedAt: Date.now(), uploadedFileName: 'Profile.pdf', resumeData: {
-  skills: { other: ['TypeScript', 'React.js', 'SQL', 'Figma'] },
-  experience: [
-    { company: 'Northwind', role: 'Software Engineering Intern', startDate: 'Jun 2024', endDate: 'Nov 2024' },
-    { company: 'Contoso Ltd', role: 'Front-end Engineer', startDate: 'Jan 2025', endDate: 'Present' }
-  ]
-} }
-const SourceIcon = ({ name }) => <span style={{ fontWeight: 700 }}>{name[0]}</span>
-
 function EvidenceCheck() {
-  const [sources, setSources] = useState({ github: true, linkedin: true })
-  const [scan, setScan] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [exit, setExit] = useState('')
+  const [scan, setScan] = React.useState(null)
   const timer = useRef(0)
-  const runScan = () => {
+  const runScan = (speed = 120) => {
     window.clearInterval(timer.current)
     let done = 0
-    setScan({ status: 'scanning', done: 0, total: 25, accessible: 61, cap: 25, percent: 0, repos: [], resumeSkills, errors: [] })
+    setScan({ status: 'scanning', done: 0, total: 25, accessible: 61, cap: 25, percent: 0, repos: [], resumeSkills, errors: [], startedAt: Date.now() })
     timer.current = window.setInterval(() => {
       done += 1
       const repo = repos[done - 1]
       setScan(current => ({ ...current, done, percent: Math.round(done / 25 * 100), current: repo.name, repos: [...current.repos, repo] }))
-      if (done === 25) {
+      if (done === (state === 'scanning' ? 14 : 25)) {
         window.clearInterval(timer.current)
-        setScan(current => ({ ...current, status: 'done', current: null, summary: 'Scanned your 25 most recent of 61 repositories. Most code is TypeScript and Python.' }))
+        if (state !== 'scanning') setScan(current => ({ ...current, status: 'done', current: null }))
       }
-    }, 120)
+    }, speed)
   }
+  React.useEffect(() => { if (state === 'done' || state === 'scanning') runScan(state === 'done' ? 10 : 40) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   window.__evidence = { runScan, cancel: () => { window.clearInterval(timer.current); setScan(current => ({ ...current, status: 'cancelled' })) } }
-  return <div className="app-shell editor-shell studio-shell"><main><div className="studio">
-    <header className="studio-topbar editor-toolbar"><div className="studio-topbar-start"><b>Fixture · Evidence</b>{exit && <span data-testid="exit"> — {exit}</span>}</div></header>
-    <EvidenceScreen github={{ connected: true, connecting: false, onConnect: () => {}, scan, onScan: runScan, onCancel: window.__evidence.cancel }}
-      onAddEvidence={() => setExit('add evidence → editor')} onContinue={() => setExit('continue → editor')} />
+  const Template = template.component
+  const canvas = <div className="studio-canvas"><Template resumeData={{ ...templatePreviewResumeData, skills: resumeData.skills }} presentation={resolveResumePresentation(template, {})} readOnly /></div>
+  return <div className="app-shell editor-shell studio-shell"><main><div className="studio tailor-page">
+    <EvidenceWorkspace github={{ connected: state !== 'connect', connecting: false, login: 'johndoe', onConnect: () => {}, scan, onScan: () => runScan(), onCancel: window.__evidence.cancel }}
+      resumeCanvas={canvas} resumeName="John Doe resume" templateName={template.name} onBack={() => {}} onOpenEditor={() => {}} />
   </div></main></div>
 }
 

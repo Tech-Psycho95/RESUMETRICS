@@ -14,31 +14,30 @@
   font-weight: 400 700;
   font-display: swap;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) {
   --overleaf-accent: var(--template-accent-color, #00367b);
   padding: 5.5%; color: #292d32; background: white; line-height: 1.4;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-header {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-header {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65em 1.4em;
   border: 0; padding: 0 0 1.1em;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-identity { grid-column: 1; grid-row: 1; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-header h1 { font-size: 2.3em; color: var(--overleaf-accent); line-height: 1.1; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-header p { font-size: 1.03em; color: inherit; font-weight: 400; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-contact { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: .3em 1em; text-align: left; font-size: .85em; color: inherit; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-photo { grid-column: 2; grid-row: 1 / span 2; width: 5.8em !important; height: 5.8em !important; max-width: 100%; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-photo-upload { grid-column: 2; grid-row: 1 / span 2; justify-self: end; align-self: start; display: grid; place-items: center; width: 5.8em !important; height: 5.8em !important; max-width: 100%; padding: 0; border: 2px dashed #aab4c3; background: #f3f5f8; color: #667287; cursor: pointer; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-photo-upload span { font-size: 2.5em; font-weight: 350; line-height: 1; }
-.generated-resume.template-simple-hipster .generated-resume-photo-upload { border-color: #d3dfdf; background: #edf2f2; color: #397b69; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-section { margin-top: 1.05em; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-section h2 { font-size: 1.08em; color: var(--overleaf-accent); letter-spacing: .035em; margin: 0 0 .45em; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry { margin: 0 0 .5em; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-heading { font-size: 1em; color: inherit; gap: .65em; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-heading span { font-size: .88em; color: inherit; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-title span { font-size: 1em; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry p { font-size: .95em !important; color: inherit; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) ul { padding-left: 1.3em; }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-continuation { margin-top: -.3em; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-identity { grid-column: 1; grid-row: 1; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-header h1 { font-size: 2.3em; color: var(--overleaf-accent); line-height: 1.1; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-header p { font-size: 1.03em; color: inherit; font-weight: 400; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-contact { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: .3em 1em; text-align: left; font-size: .85em; color: inherit; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-photo { grid-column: 2; grid-row: 1 / span 2; width: 5.8em !important; height: 5.8em !important; max-width: 100%; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-photo-upload { grid-column: 2; grid-row: 1 / span 2; justify-self: end; align-self: start; display: grid; place-items: center; width: 5.8em !important; height: 5.8em !important; max-width: 100%; padding: 0; border: 2px dashed #aab4c3; background: #f3f5f8; color: #667287; cursor: pointer; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-photo-upload span { font-size: 2.5em; font-weight: 350; line-height: 1; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-section { margin-top: 1.05em; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-section h2 { font-size: 1.08em; color: var(--overleaf-accent); letter-spacing: .035em; margin: 0 0 .45em; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry { margin: 0 0 .5em; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-heading { font-size: 1em; color: inherit; gap: .65em; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-heading span { font-size: .88em; color: inherit; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-title span { font-size: 1em; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry p { font-size: .95em !important; color: inherit; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) ul { padding-left: 1.3em; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-continuation { margin-top: -.3em; }
 
 /* Giannetti: restrained navy rules, serif body and centered personal details. */
 .generated-resume.template-navy-professional .generated-resume-header { text-align: center; }
@@ -47,12 +46,6 @@
 .generated-resume.template-navy-professional .resume-entry-subtitle { font-style: italic; }
 
 /* Simple Hipster: full-width dark header, pale left rail and green labels. */
-.generated-resume.template-simple-hipster { --overleaf-accent: var(--template-accent-color, #397b69); }
-.generated-resume.template-simple-hipster .generated-resume-header { background: #283c43; color: white; padding: 1.4em; }
-.generated-resume.template-simple-hipster .generated-resume-header h1 { color: white; font-weight: 400; }
-.generated-resume.template-simple-hipster .resume-section h2 { display: block; width: auto; padding: 0 0 .28em; border-bottom: 1px solid #d6e3dc; background: transparent; color: #285d50 !important; text-transform: none; }
-.generated-resume.template-simple-hipster .resume-section:not(:last-child) { border-bottom: 1px solid #dbe7e1; padding-bottom: .65em; }
-.generated-resume.template-simple-hipster .resume-entry { border-left: 2px solid #adc2b9; padding-left: .8em; }
 
 /* CurVe: swash-like rubric rule, date labels and small diamond markers. */
 .generated-resume.template-curve-academic { --overleaf-accent: var(--template-accent-color, #647e37); }
@@ -74,15 +67,15 @@
 
 /* Use the full A4 sheet without adding filler: share the available vertical
    room between real resume sections and stretch both sidebar columns. */
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) {
   display: flex;
   flex-direction: column;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-header,
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .generated-resume-footer {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-header,
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .generated-resume-footer {
   flex: 0 0 auto;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) > .generated-resume-main {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) > .generated-resume-main {
   display: flex;
   flex: 1 0 0;
   flex-direction: column;
@@ -92,83 +85,81 @@
 /* Continuation pages hold whatever overflowed: keep sections together at the top instead of spreading them. */
 .generated-resume.resume-page-continued > .generated-resume-main,
 .generated-resume.resume-page-continued .resume-column { justify-content: flex-start; }
-.generated-resume:is(.template-simple-hipster, .template-receive) .resume-columns-flow {
+.generated-resume:is(.template-receive) .resume-columns-flow {
   flex: 1 0 0;
   align-items: stretch;
 }
-.generated-resume:is(.template-simple-hipster, .template-receive) .resume-column {
+.generated-resume:is(.template-receive) .resume-column {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
-.generated-resume:is(.template-simple-hipster, .template-receive) .resume-sidebar-column {
+.generated-resume:is(.template-receive) .resume-sidebar-column {
   min-height: 100%;
 }
 
 /* ATS-safe one-column document flow shared by the two source examples that
    originally used sidebars. Branding stays in headings and rules only. */
-.generated-resume:is(.template-simple-hipster, .template-receive) .generated-resume-main,
-.generated-resume:is(.template-simple-hipster, .template-receive) .resume-columns-flow {
+.generated-resume:is(.template-receive) .generated-resume-main,
+.generated-resume:is(.template-receive) .resume-columns-flow {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
-.generated-resume:is(.template-simple-hipster, .template-receive) .resume-section,
-.generated-resume:is(.template-simple-hipster, .template-receive) .resume-column {
+.generated-resume:is(.template-receive) .resume-section,
+.generated-resume:is(.template-receive) .resume-column {
   display: block;
   padding-left: 0;
   padding-right: 0;
   background: transparent;
   border-radius: 0;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-heading {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-heading {
   display: flex;
   flex-flow: row wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: .15em .8em;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-title {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-title {
   flex: 1 1 14em;
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-period,
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-entry-meta {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-period,
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-entry-meta {
   flex: 0 1 auto;
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
   text-align: left;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-project-technologies {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-project-technologies {
   display: block;
   margin: .12em 0 .22em;
   line-height: 1.3;
   color: #596475;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-project-technologies > span:first-child {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-project-technologies > span:first-child {
   display: inline;
   font-weight: 700;
   white-space: normal;
 }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-project-technologies [data-resume-path] {
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-project-technologies [data-resume-path] {
   display: inline;
   white-space: normal;
 }
 .generated-resume.template-receive .resume-entry-period,
 .generated-resume.template-receive .resume-project-technologies [data-resume-path] { font-family: 'Roboto Mono', monospace; font-size: .88em; }
 .generated-resume.template-navy-professional { --overleaf-accent: #294a69; }
-.generated-resume.template-simple-hipster { --overleaf-accent: #397b69; }
 .generated-resume.template-curve-academic { --overleaf-accent: #62774a; }
 .generated-resume.template-receive { --overleaf-accent: #a45c35; }
-.generated-resume.template-simple-hipster .resume-section h2,
 .generated-resume.template-curve-academic .resume-section h2,
 .generated-resume.template-receive .resume-section h2 { color: var(--overleaf-accent); }
-.generated-resume:is(.template-navy-professional, .template-simple-hipster, .template-curve-academic, .template-receive) .resume-section h2 { color: var(--overleaf-accent) !important; }
+.generated-resume:is(.template-navy-professional, .template-curve-academic, .template-receive) .resume-section h2 { color: var(--overleaf-accent) !important; }
 .generated-resume .resume-skill-groups p { margin: .1em 0; }
 .generated-resume .resume-skill-groups strong { color: #394559; }
 
 @media print {
-  .generated-resume:is(.template-simple-hipster, .template-receive) { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .generated-resume:is(.template-receive) { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }

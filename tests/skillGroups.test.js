@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict'
+import { formGroupLabel, newGroupKey, normalizeSkillGroups, renameSkillGroup, sanitizeGroupName, skillGroupLabel } from '../shared/skillGroups.js'
+
+assert.equal(skillGroupLabel('softSkills'), 'Soft Skills')
+assert.equal(skillGroupLabel('Patient care'), 'Patient care')
+assert.equal(formGroupLabel('other'), 'Key skills')
+assert.equal(sanitizeGroupName('  Clinical.skills   now '), 'Clinical skills now')
+assert.equal(newGroupKey('', {}).error, 'Type a name for the group.')
+assert.deepEqual(newGroupKey('Patient care', { other: [] }), { key: 'Patient care' })
+assert.ok(newGroupKey('key skills', { other: [] }).error, 'duplicate of a built-in label is rejected')
+assert.deepEqual(newGroupKey('Programming languages', {}), { key: 'languages' })
+const renamed = renameSkillGroup({ other: ['a'], 'Patient care': ['b'], tools: [] }, 'Patient care', 'Bedside care')
+assert.deepEqual(Object.keys(renamed.skills), ['other', 'Bedside care', 'tools'])
+assert.deepEqual(renamed.skills['Bedside care'], ['b'])
+assert.ok(renameSkillGroup({ other: [], tools: [] }, 'tools', 'Key skills').error)
+const normal = normalizeSkillGroups({ tools: ['Excel', ' '], 'Patient care': ['Triage'], 'bad.key': ['x'], '': ['y'] })
+assert.deepEqual(normal.tools, ['Excel'])
+assert.deepEqual(normal['Patient care'], ['Triage'])
+assert.deepEqual(normal['bad key'], ['x'])
+assert.equal(Object.keys(normal).length, 8)
+console.log('skillGroups tests passed')

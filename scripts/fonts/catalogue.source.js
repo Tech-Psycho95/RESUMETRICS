@@ -24,6 +24,7 @@ export const fontSources = [
   sans('Montserrat', ['modern', 'geometric', 'bold']),
   sans('DM Sans', ['modern', 'geometric', 'friendly']),
   sans('Alegreya Sans', ['humanist', 'editorial', 'friendly']),
+  sans('Libertinus Sans', ['humanist', 'academic', 'classic']),
   sans('Noto Sans', ['professional', 'neutral']),
   sans('Raleway', ['elegant', 'modern']),
   sans('Poppins', ['modern', 'geometric', 'friendly']),
