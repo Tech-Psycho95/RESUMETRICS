@@ -29,4 +29,13 @@ assert.equal(evidenceStatus(4.9, true, false), 'weak')
 assert.deepEqual(skillsFromManifest('package.json', JSON.stringify({ dependencies: { react: '18', express: '4' }, devDependencies: { jest: '29' } })).sort(), ['Express.js', 'Jest', 'Node.js', 'React'])
 assert.deepEqual(skillsFromManifest('requirements.txt', 'Django==4.2\nnumpy>=1.2\n# comment\npsycopg2-binary').sort(), ['Django', 'NumPy', 'PostgreSQL'])
 assert.deepEqual(skillsFromManifest('docker-compose.yml', 'services:\n  db:\n    image: postgres:16').sort(), ['Docker', 'PostgreSQL'])
+// Overall code-evidence score.
+{
+  const { evidenceScore } = await import('../shared/githubEvidenceMath.js')
+  const result = evidenceScore([{ status: 'strong' }, { status: 'moderate' }, { status: 'weak' }, { status: 'none' }])
+  assert.equal(result.score, 50)
+  assert.equal(result.backed, 2)
+  assert.deepEqual(result.counts, { strong: 1, moderate: 1, weak: 1, mentioned: 0, none: 1 })
+  assert.equal(evidenceScore([]).score, 0)
+}
 console.log('githubEvidence: all checks passed')

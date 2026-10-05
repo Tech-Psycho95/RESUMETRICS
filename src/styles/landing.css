@@ -172,3 +172,22 @@
   .landing-reveal, .v-bubble { opacity: 1; transform: none; filter: none; transition: none; }
   .v-task span, .cine-mouse i { animation: none; }
 }
+
+/* Template deck: the finished resume in four other templates, fanned out behind it. */
+.cine-tilt { position: relative; z-index: 1; }
+.cine-deck { position: absolute; inset: 0; }
+.cine-deck-card { position: absolute; inset: 0; opacity: min(calc(var(--t) * 3), 1); transform: translateX(calc(var(--slot) * var(--t) * 62%)) translateY(calc(var(--t) * var(--lift) * 3%)) rotate(calc(var(--t) * var(--tilt))) scale(calc(1 - var(--t) * .06)); }
+.cine-deck-card .cine-paper { box-shadow: 0 24px 50px rgba(30,25,80,.14); }
+.cine-deck-card .cine-done, .cine-deck-card .cine-sheen { display: none; }
+.tpl-serif { --accent: #9a3b2a; font-family: Georgia, 'Times New Roman', serif; }
+.tpl-serif .cv-head { text-align: center; }
+.tpl-band { --accent: #0f766e; }
+.tpl-band .cv-head { margin: -6.5cqh -6cqh 1cqh; padding: 5cqh 6cqh 3cqh; color: #fff; background: #0f3d3a; }
+.tpl-band .cv-head .cv-role, .tpl-band .cv-head .cv-contact { color: #bfe9e3; }
+.tpl-rail { --accent: #c2410c; border-left: 3cqh solid #c2410c; }
+.tpl-mono { --accent: #1d4ed8; font-family: 'JetBrains Mono', Consolas, monospace; letter-spacing: -.02em; }
+@media (max-width: 720px) { .cine-deck-card { transform: translateX(calc(var(--slot) * var(--t) * 30%)) rotate(calc(var(--t) * var(--tilt) * 1.4)) scale(calc(1 - var(--t) * .06)); } }
+
+/* NIMBUS wordmark reused from the editor (nimbus-chat.css), sized to the heading. */
+.landing-nimbus { display: inline; margin: 0; font-size: .82em; letter-spacing: .04em; }
+.v-chat-mark { margin: 0 0 12px; font-size: 18px; }

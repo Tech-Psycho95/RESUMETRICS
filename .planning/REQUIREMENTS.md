@@ -117,3 +117,18 @@ Each requirement is testable. Phases in `ROADMAP.md` map to these IDs.
 - **LND-06** CTAs go to `/login`.
 - **LND-07** Reduced motion shows a static, complete layout.
 - **LND-08** No horizontal scroll at 375px; animate only transform/opacity/clip-path.
+
+## Templates (TPL), PLAN-027
+- **TPL-01…08** Six LaTeX clones (Minimal Academic, Libre CV, Simple Hipster rebuilt, Single-page Keywords, Elegant Resume, Developer CV): faithful font/structure/visuals, editable, paginated, CSS-only icons, no invented data, existing templates unchanged, form order follows the template. See PLAN-027.
+
+## Inclusive form (INC / A11Y), PLAN-028
+- **INC-01** People name their own skill groups (add, rename, remove); custom names print on the resume.
+- **INC-02** Neutral starter groups (Key skills, Tools & software, Soft skills); technical groups are optional.
+- **INC-03** Profession-neutral labels and placeholders across the form.
+- **INC-04** Additional free-text sections (volunteering, licences, publications…).
+- **INC-05** Custom groups survive server normalisation and AI edits.
+- **INC-06** One shared skill-group label helper for the form, templates and editor.
+- **A11Y-01…07** Labels, live announcements, focus to errors, focus rings, 24px targets, 4.5:1 contrast, keyboard-only use. See PLAN-028.
+
+## Job tailoring (TLR), PLAN-029
+- **TLR-01…06** `/workspace/tailor`: Job match half plus live resume half, changes highlighted, Job match tab removed from the editor, shared state, responsive. See PLAN-029.

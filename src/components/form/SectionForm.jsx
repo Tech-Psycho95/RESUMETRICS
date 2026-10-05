@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getTemplateSectionPlan } from '../templates/ResumeTemplateLayout.jsx'
 import { blockingSections, formSectionsFor, isBlankEntry, percentColour, sectionProgress, SUMMARY_MIN } from '../../form/sectionProgress.js'
-import { BulletListField, EntryCard, MonthYearField, TagField, TextField } from './FormFields.jsx'
+import { BulletListField, CustomSectionsEditor, EntryCard, focusFirstMissing, MonthYearField, SkillGroupsEditor, TagField, TextField } from './FormFields.jsx'
 import LanguagePicker from './LanguagePicker.jsx'
 import { templateSectionNotes } from './templateSectionNotes.js'
 
 const list = value => Array.isArray(value) ? value : []
-const skillLabels = { languages: 'Programming languages', frameworks: 'Frameworks and libraries', tools: 'Tools', databases: 'Databases', softSkills: 'Soft skills', other: 'Other skills' }
 const emptyEntry = {
   experience: () => ({ role: '', company: '', location: '', startDate: '', endDate: '', bullets: [''] }),
   education: () => ({ degree: '', institution: '', location: '', startDate: '', endDate: '', details: [] }),
@@ -36,7 +35,8 @@ const icons = {
   skills: <path d="M10 2.5 12 7l5 .5-3.7 3.3 1 4.9L10 13.3l-4.3 2.4 1-4.9L3 7.5 8 7l2-4.5Z" />,
   languages: <path d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm-7-7h14M10 3c2 2 2.8 4.4 2.8 7S12 15 10 17c-2-2-2.8-4.4-2.8-7S8 5 10 3Z" />,
   certifications: <path d="M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-2.5 0-1 5.5L10 16l3.5 1.5-1-5.5" />,
-  achievements: <path d="M6 3h8v4a4 4 0 0 1-8 0V3Zm0 1H3.5c0 2.5 1 4 2.8 4.2M14 4h2.5c0 2.5-1 4-2.8 4.2M10 11v3m-3 3h6l-.6-3H7.6L7 17Z" />
+  achievements: <path d="M6 3h8v4a4 4 0 0 1-8 0V3Zm0 1H3.5c0 2.5 1 4 2.8 4.2M14 4h2.5c0 2.5-1 4-2.8 4.2M10 11v3m-3 3h6l-.6-3H7.6L7 17Z" />,
+  customSections: <path d="M4 4h12v12H4V4Zm6 3v6M7 10h6" />
 }
 
 function SectionIcon({ id }) {
@@ -46,7 +46,7 @@ function SectionIcon({ id }) {
 function StatusBadge({ complete, progress }) {
   if (complete) return <span className="form-status is-complete" title="Section complete"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10.5 3.2 3L15 6.5" /></svg><span className="visually-hidden">Complete</span></span>
   if (progress.empty && !progress.required) return <span className="form-status is-optional">Optional</span>
-  return <span className="form-status is-percent" style={{ '--status-colour': percentColour(progress.percent) }}>{progress.percent}%</span>
+  return <span className="form-status is-percent" style={{ '--status-colour': percentColour(progress.percent) }}>{progress.percent}%<span className="visually-hidden"> complete</span></span>
 }
 
 /**
@@ -83,7 +83,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
     if (!active) return
     detailRef.current?.scrollTo({ top: 0 })
     if (!showMissing) return
-    requestAnimationFrame(() => detailRef.current?.querySelector('.is-missing, .has-missing')?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
+    setTimeout(() => focusFirstMissing(detailRef.current), 60)
   }, [active?.id, showMissing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const tryContinue = () => {
@@ -132,7 +132,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
       return <>
         <div className="form-grid">
           <TextField label="Full name" path="fullName" value={resumeData.fullName} onChange={value => update('fullName', value)} required error={errors.fullName} autoFocus />
-          <TextField label="Professional headline" path="headline" value={resumeData.headline} onChange={value => update('headline', value)} optional placeholder="e.g. Frontend Developer" />
+          <TextField label="Professional headline" path="headline" value={resumeData.headline} onChange={value => update('headline', value)} optional placeholder="e.g. Registered Nurse, Sales Manager, Teacher" />
           <TextField label="Email" path="email" type="email" value={resumeData.email} onChange={value => update('email', value)} required error={errors.email} placeholder="you@example.com" />
           <TextField label="Phone" path="phone" type="tel" value={resumeData.phone} onChange={value => update('phone', value)} required error={errors.phone} placeholder="+91 98765 43210" />
           <TextField label="Location" path="location" value={resumeData.location} onChange={value => update('location', value)} optional placeholder="City, Country" />
@@ -165,38 +165,36 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
     }
     if (id === 'experience') return renderEntries('experience', (item, index, at) => <>
       <div className="form-grid">
-        <TextField label="Job title" path={at('role')} value={item.role} onChange={value => update(at('role'), value)} required error={errors[at('role')]} />
-        <TextField label="Company" path={at('company')} value={item.company} onChange={value => update(at('company'), value)} required error={errors[at('company')]} />
+        <TextField label="Job title or role" path={at('role')} value={item.role} onChange={value => update(at('role'), value)} required error={errors[at('role')]} />
+        <TextField label="Company or organisation" path={at('company')} value={item.company} onChange={value => update(at('company'), value)} required error={errors[at('company')]} />
         <MonthYearField label="Start date" path={at('startDate')} value={item.startDate} onChange={value => update(at('startDate'), value)} required error={errors[at('startDate')]} allowNoMonth={false} />
         <MonthYearField label="End date" path={at('endDate')} value={item.endDate} onChange={value => update(at('endDate'), value)} required error={errors[at('endDate')]} allowNoMonth={false}
           current onCurrentChange={checked => update(at('endDate'), checked ? 'Present' : '')} currentLabel="I currently work here" />
         <TextField label="Location" path={at('location')} value={item.location} onChange={value => update(at('location'), value)} optional />
       </div>
-      <BulletListField label="Achievements" path={at('bullets')} items={list(item.bullets)} onChange={value => update(at('bullets'), value)} required error={errors[at('bullets')]} placeholder="Start with a verb: Built, Led, Reduced…" addLabel="Add achievement" />
+      <BulletListField label="Achievements" path={at('bullets')} items={list(item.bullets)} onChange={value => update(at('bullets'), value)} required error={errors[at('bullets')]} placeholder="Start with a verb: Led, Cared for, Taught, Sold, Built…" addLabel="Add achievement" />
     </>, (item, index) => [item.role || `Position ${index + 1}`, [item.company, [item.startDate, item.endDate].filter(Boolean).join(' – ')].filter(Boolean).join(' · ')], 'Add experience')
     if (id === 'education') return renderEntries('education', (item, index, at) => <>
       <div className="form-grid">
-        <TextField label="Degree or qualification" path={at('degree')} value={item.degree} onChange={value => update(at('degree'), value)} required error={errors[at('degree')]} placeholder="e.g. B.Tech, Computer Science" />
+        <TextField label="Degree or qualification" path={at('degree')} value={item.degree} onChange={value => update(at('degree'), value)} required error={errors[at('degree')]} placeholder="e.g. B.Sc Nursing, Diploma in Hospitality" />
         <TextField label="School or institution" path={at('institution')} value={item.institution} onChange={value => update(at('institution'), value)} required error={errors[at('institution')]} />
         <MonthYearField label="Start" path={at('startDate')} value={item.startDate} onChange={value => update(at('startDate'), value)} optional />
         <MonthYearField label="End (or expected)" path={at('endDate')} value={item.endDate} onChange={value => update(at('endDate'), value)} required error={errors[at('endDate')]}
           current onCurrentChange={checked => update(at('endDate'), checked ? 'Present' : '')} currentLabel="I'm currently studying here" />
         <TextField label="Location" path={at('location')} value={item.location} onChange={value => update(at('location'), value)} optional />
       </div>
-      <BulletListField label="GPA, coursework or honours" path={at('details')} items={list(item.details)} onChange={value => update(at('details'), value)} optional placeholder="e.g. CGPA 8.6/10" addLabel="Add detail" />
+      <BulletListField label="GPA, coursework or honours" path={at('details')} items={list(item.details)} onChange={value => update(at('details'), value)} optional placeholder="e.g. First-class honours, CGPA 8.6/10" addLabel="Add detail" />
     </>, (item, index) => [item.degree || `Education ${index + 1}`, [item.institution, item.endDate].filter(Boolean).join(' · ')], 'Add education')
     if (id === 'projects') return renderEntries('projects', (item, index, at) => <>
       <TextField label="Project name" path={at('name')} value={item.name} onChange={value => update(at('name'), value)} required error={errors[at('name')]} />
-      <TextField label="Description" path={at('description')} multiline value={item.description} onChange={value => update(at('description'), value)} required error={errors[at('description')]} hint="What it is and what it achieved, in one or two sentences." />
-      <TagField label="Technologies" path={at('techStack')} values={list(item.techStack)} onChange={value => update(at('techStack'), value)} optional placeholder="Type and press Enter" />
+      <TextField label="Description" path={at('description')} multiline value={item.description} onChange={value => update(at('description'), value)} required error={errors[at('description')]} hint="Work you are proud of (a campaign, research, event, design or build): what it was and what it achieved." />
+      <TagField label="Tools, skills or methods used" path={at('techStack')} values={list(item.techStack)} onChange={value => update(at('techStack'), value)} optional placeholder="Type and press Enter" />
       <BulletListField label="Contributions or results" path={at('bullets')} items={list(item.bullets)} onChange={value => update(at('bullets'), value)} optional addLabel="Add result" />
     </>, (item, index) => [item.name || `Project ${index + 1}`, list(item.techStack).slice(0, 3).join(', ')], 'Add project')
-    if (id === 'skills') return <>
-      {errors.skills && <p className="form-error form-section-error" data-field-path="skills">{errors.skills}</p>}
-      {Object.entries(skillLabels).map(([category, label]) => <TagField key={category} label={label} path={`skills.${category}`} values={list(resumeData.skills?.[category])} onChange={value => update(`skills.${category}`, value)} placeholder="Type a skill and press Enter" />)}
-    </>
+    if (id === 'skills') return <SkillGroupsEditor skills={resumeData.skills ?? {}} onChange={value => onChange({ ...resumeData, skills: value })} error={errors.skills} />
+    if (id === 'customSections') return <CustomSectionsEditor sections={resumeData.customSections} onChange={value => onChange({ ...resumeData, customSections: value })} errors={errors} />
     if (id === 'languages') return <LanguagePicker value={list(resumeData.languages).filter(Boolean)} onChange={value => update('languages', value)} />
-    if (id === 'certifications' || id === 'achievements') return <BulletListField label={id === 'certifications' ? 'Certification' : 'Achievement'} path={id} items={list(resumeData[id])} onChange={value => update(id, value)} optional addLabel={id === 'certifications' ? 'Add certification' : 'Add achievement'} placeholder={id === 'certifications' ? 'e.g. AWS Cloud Practitioner (2025)' : 'e.g. Winner, Smart India Hackathon 2024'} />
+    if (id === 'certifications' || id === 'achievements') return <BulletListField label={id === 'certifications' ? 'Certification' : 'Achievement'} path={id} items={list(resumeData[id])} onChange={value => update(id, value)} optional addLabel={id === 'certifications' ? 'Add certification' : 'Add achievement'} placeholder={id === 'certifications' ? 'e.g. CPR and First Aid (2025)' : 'e.g. Employee of the Month, March 2025'} />
     return null
   }
 
@@ -204,6 +202,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
     const complete = progress.valid && !progress.empty
     const skip = progress.empty && !progress.required
     return <div className="section-form is-detail">
+      <p id="form-live-region" className="visually-hidden" aria-live="polite" />
       <header className="form-detail-header">
         <button type="button" className="form-back" onClick={() => onActiveSectionChange(null)} aria-label="Back to all sections">←</button>
         <SectionIcon id={active.id} />
@@ -237,6 +236,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
   const overall = Math.round(required.reduce((sum, section) => sum + (section.progress.valid ? 100 : section.progress.percent), 0) / Math.max(required.length, 1))
 
   return <div className="section-form is-list">
+    <p id="form-live-region" className="visually-hidden" aria-live="polite" />
     <header className="form-list-header">
       <h2>Fill in your resume</h2>
       <p>Open a section with <b>+</b>. The preview updates as you type.</p>

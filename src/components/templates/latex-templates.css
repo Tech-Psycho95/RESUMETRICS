@@ -1,0 +1,333 @@
+/*
+ * LaTeX template clones (PLAN-027). Each block recreates one supplied sample on the shared markup:
+ *   article.generated-resume.template-latex.template-<id>
+ *     > header.generated-resume-header (identity h1/p, address.generated-contact, photo)
+ *     > .generated-resume-main > [lead sections] [.resume-columns-flow > .resume-sidebar-column + .resume-main-column]
+ * Sizes are em of the class's body size (latexTemplateFeatures.base), so the page scales as a whole.
+ * Icons come from latex-icons.css and are decorative pseudo-elements, never part of the text.
+ */
+
+/* ---------- Shared reset ---------- */
+.generated-resume.template-latex {
+  --lx-accent: var(--template-accent-color, #111);
+  --lx-ink: #1a1a1a;
+  position: relative;
+  box-sizing: border-box;
+  padding: 3.4em 3.6em;
+  color: var(--lx-ink);
+  background: #fff;
+  line-height: 1.32;
+  font-synthesis: weight style small-caps;
+}
+.generated-resume.template-latex .generated-resume-header { display: block; margin: 0; padding: 0; border: 0; background: none; color: inherit; text-align: left; }
+.generated-resume.template-latex .generated-resume-identity { display: block; }
+.generated-resume.template-latex .generated-resume-header h1 { margin: 0; color: inherit; font-size: 2em; font-weight: 700; letter-spacing: 0; line-height: 1.1; text-transform: none; text-wrap: wrap; }
+.generated-resume.template-latex .generated-resume-header p { margin: 0; color: inherit; font-size: 1em; font-weight: 400; }
+.generated-resume.template-latex .generated-contact { display: block; justify-items: initial; margin: 0; color: inherit; font-size: 1em; font-style: normal; line-height: 1.4; text-align: inherit; }
+.generated-resume.template-latex .generated-contact > * { display: block; }
+.generated-resume.template-latex a.generated-contact-link { color: inherit !important; text-decoration: none !important; }
+.generated-resume.template-latex .generated-resume-main { display: block; margin: 0; padding: 0; }
+.generated-resume.template-latex .resume-section { margin: 1.2em 0 0; padding: 0; border: 0; background: none; }
+.generated-resume.template-latex .resume-section h2 { margin: 0 0 .5em; padding: 0; border: 0; background: none; color: inherit; font-size: 1.2em; font-weight: 700; letter-spacing: 0; line-height: 1.25; text-align: left; text-transform: none; }
+.generated-resume.template-latex .resume-section h2::before, .generated-resume.template-latex .resume-section h2::after { content: none; }
+.generated-resume.template-latex .resume-entry { margin: 0; padding: 0; border: 0; background: none; color: inherit; }
+.generated-resume.template-latex .resume-page-block + .resume-page-block > .resume-entry:not(.resume-entry-continuation) { margin-top: var(--lx-entry-gap, .7em); }
+.generated-resume.template-latex .resume-entry-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1em; margin: 0; color: inherit; font-size: 1em; }
+.generated-resume.template-latex .resume-entry-heading span, .generated-resume.template-latex .resume-entry-title span { color: inherit; font-size: 1em; }
+.generated-resume.template-latex .resume-entry-title { flex: 0 1 auto; font-weight: 700; }
+.generated-resume.template-latex :is(.resume-entry-title, .resume-entry-role, .resume-entry-location, .resume-entry-org, .resume-entry-subtitle) { color: inherit !important; }
+.generated-resume.template-latex .resume-entry li, .generated-resume.template-latex .resume-section li { margin: 0; }
+.generated-resume.template-latex .resume-entry-period, .generated-resume.template-latex .resume-entry-meta { max-width: none; color: inherit; font-size: 1em; line-height: inherit; text-align: right; white-space: nowrap; }
+.generated-resume.template-latex .resume-entry-meta { text-align: left; white-space: normal; }
+.generated-resume.template-latex .resume-entry-subtitle { margin: 0; color: inherit; font-size: 1em !important; }
+.generated-resume.template-latex .resume-project-description { margin: 0; color: inherit !important; font-size: 1em !important; line-height: inherit; }
+.generated-resume.template-latex :where(.resume-entry p) { margin: 0; }
+.generated-resume.template-latex ul { margin: .25em 0 0; padding-left: 1.2em; }
+.generated-resume.template-latex li { margin: 0; }
+.generated-resume.template-latex .resume-entry-continuation { margin: 0; }
+.generated-resume.template-latex .resume-entry-continuation ul { margin-top: 0; }
+.generated-resume.template-latex .resume-skills, .generated-resume.template-latex .resume-skill-groups p { margin: 0; color: inherit; }
+.generated-resume.template-latex .resume-skill-groups { display: grid; gap: .25em; }
+.generated-resume.template-latex .resume-skill-groups strong { color: inherit; }
+.generated-resume.template-latex .resume-placeholder { margin: 0; color: #888; }
+.generated-resume.template-latex .resume-columns-flow { display: grid !important; gap: 2em; align-items: start; }
+.generated-resume.template-latex .resume-column > .resume-section:first-child, .generated-resume.template-latex .generated-resume-main > .resume-section:first-child { margin-top: 0; }
+.generated-resume.template-latex .resume-continuation-label { font-size: .7em; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.generated-resume.template-latex .generated-resume-photo, .generated-resume.template-latex .generated-resume-photo-upload { display: none; }
+/* Icon helper: an element sets --icon; its ::before draws it in the current colour. */
+.generated-resume.template-latex .lx-icon::before { content: ''; display: inline-block; width: 1em; height: 1em; background: currentColor; -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; }
+.generated-resume.template-latex .skill-chip-sep { font-size: 0; }
+
+/* ---------- 1. Minimal Academic ---------- */
+.generated-resume.template-minimal-academic {
+  --ma-label: 10.2em;
+  --ma-gap: 2.5em;
+  --ma-slate: var(--template-accent-color, #6b7d8f);
+  --ma-grey: #7b8594;
+  padding: 5.4em 5.1em 4em 5.25em;
+  color: var(--ma-grey);
+  line-height: 1.12;
+}
+.generated-resume.template-minimal-academic .generated-resume-header { padding-left: calc(var(--ma-label) + var(--ma-gap)); }
+.generated-resume.template-minimal-academic .generated-resume-identity::before,
+.generated-resume.template-minimal-academic .generated-resume-identity::after { content: ''; display: block; width: 2px; height: 2.8em; background: #222; }
+.generated-resume.template-minimal-academic .generated-resume-header h1 { margin: .75em 0 .7em; color: #333; font-weight: 400; line-height: 1.2; }
+.generated-resume.template-minimal-academic .name-first { display: block; color: var(--ma-slate); font-size: 2.05em; font-weight: 500; letter-spacing: .34em; text-transform: uppercase; line-height: 1.05; }
+.generated-resume.template-minimal-academic .name-rest { display: block; color: #333; font-size: 1.42em; font-weight: 400; letter-spacing: .09em; text-transform: uppercase; }
+.generated-resume.template-minimal-academic .generated-resume-header p { margin: -.4em 0 .8em; color: var(--ma-grey); font-size: 1.05em; letter-spacing: .04em; }
+.generated-resume.template-minimal-academic .resume-section { display: grid; grid-template-columns: var(--ma-label) minmax(0, 1fr); column-gap: var(--ma-gap); margin-top: 1.55em; }
+.generated-resume.template-minimal-academic .resume-section::before { content: ''; grid-column: 2; grid-row: 1; align-self: center; border-top: 2px solid #2b2b2b; }
+.generated-resume.template-minimal-academic .resume-section h2 { grid-column: 1; grid-row: 1; margin: 0; color: #222; font-size: 1.13em; font-weight: 700; letter-spacing: .085em; text-align: right; text-transform: uppercase; white-space: nowrap; }
+.generated-resume.template-minimal-academic .resume-section > .resume-page-block { grid-column: 2; }
+.generated-resume.template-minimal-academic .resume-section > h2 + .resume-page-block { margin-top: 1.25em; }
+.generated-resume.template-minimal-academic .generated-resume-main > .resume-section:first-child { margin-top: 1.4em; }
+.generated-resume.template-minimal-academic .generated-contact-section { text-align: left; }
+.generated-resume.template-minimal-academic .generated-contact-section > * { display: grid; grid-template-columns: 8em minmax(0, 1fr); justify-items: start; margin: 0 0 1.25em; text-align: left; color: var(--ma-grey); font-size: 1.05em; }
+.generated-resume.template-minimal-academic .generated-contact-section > *:last-child { margin-bottom: .2em; }
+.generated-resume.template-minimal-academic .generated-contact-section > *::before { color: #222; font-weight: 700; }
+.generated-resume.template-minimal-academic .generated-contact-section > [data-resume-path="email"]::before { content: 'E-mail'; }
+.generated-resume.template-minimal-academic .generated-contact-section > [data-resume-path="phone"]::before { content: 'Phone Nr'; }
+.generated-resume.template-minimal-academic .generated-contact-section > [data-resume-path="location"]::before { content: 'Address'; }
+.generated-resume.template-minimal-academic .generated-contact-section > [data-resume-path^="links"]::before,
+.generated-resume.template-minimal-academic .generated-contact-section > a::before { content: 'Website'; }
+.generated-resume.template-minimal-academic .generated-contact-section > a[href*="linkedin"]::before { content: 'LinkedIn'; }
+.generated-resume.template-minimal-academic .generated-contact-section > a[href*="github"]::before { content: 'GitHub'; }
+.generated-resume.template-minimal-academic .resume-section-summary p, .generated-resume.template-minimal-academic .resume-skills, .generated-resume.template-minimal-academic .resume-skill-groups p, .generated-resume.template-minimal-academic .resume-section > .resume-page-block > p { font-size: 1.05em; line-height: 1.08; }
+.generated-resume.template-minimal-academic { --lx-entry-gap: 1.35em; }
+.generated-resume.template-minimal-academic .resume-entry-heading { padding-right: .55em; }
+.generated-resume.template-minimal-academic .resume-entry-title { color: #222; font-size: 1.05em; text-transform: uppercase; }
+.generated-resume.template-minimal-academic .resume-entry-period { color: var(--ma-slate); font-size: 1.05em; font-weight: 700; }
+.generated-resume.template-minimal-academic .resume-entry-subtitle { margin-top: .35em; font-size: 1.05em !important; font-style: italic; }
+.generated-resume.template-minimal-academic .resume-entry-org { color: var(--ma-slate); font-weight: 700; }
+.generated-resume.template-minimal-academic .resume-entry ul, .generated-resume.template-minimal-academic .resume-section ul { margin-top: .85em; padding-left: 1em; list-style: none; }
+.generated-resume.template-minimal-academic li { position: relative; margin: 0 0 .1em; font-size: 1.05em; line-height: 1.12; }
+.generated-resume.template-minimal-academic li::before { content: '•'; position: absolute; left: -.95em; color: #9aa3ae; }
+.generated-resume.template-minimal-academic .resume-skill-groups strong { color: #222; }
+.generated-resume.template-minimal-academic .resume-project-technologies { margin-top: .3em; color: var(--ma-slate); font-style: italic; }
+.generated-resume.template-minimal-academic .resume-project-description { margin-top: .5em; font-size: 1.05em !important; }
+
+/* ---------- 2. Libre CV ---------- */
+.generated-resume.template-libre-cv {
+  --lb-left: 61.75%;
+  --lb-gap: 5%;
+  padding: 5.6em 4.125em 4em;
+  color: #000;
+  line-height: 1.22;
+}
+.generated-resume.template-libre-cv .generated-resume-header { display: grid; grid-template-columns: var(--lb-left) minmax(0, 1fr); column-gap: var(--lb-gap); align-items: start; margin-bottom: 1.6em; }
+.generated-resume.template-libre-cv .generated-resume-identity { text-align: center; }
+.generated-resume.template-libre-cv .generated-resume-header h1 { font-size: 2.07em; font-weight: 400; line-height: 1.15; }
+.generated-resume.template-libre-cv .generated-resume-header p { margin-top: .4em; font-size: 1.2em; line-height: 1.25; white-space: pre-line; }
+.generated-resume.template-libre-cv .generated-contact { padding-top: .75em; text-align: left; }
+.generated-resume.template-libre-cv .generated-contact > * { display: flex; align-items: center; justify-content: flex-start; gap: .85em; margin: 0 0 .05em; font-size: .95em; }
+.generated-resume.template-libre-cv .generated-contact > *::before { content: ''; flex: 0 0 .85em; height: .85em; background: currentColor; -webkit-mask: var(--icon, var(--i-link)) center / contain no-repeat; mask: var(--icon, var(--i-link)) center / contain no-repeat; }
+.generated-resume.template-libre-cv .generated-contact > [data-resume-path="email"] { --icon: var(--i-mail); }
+.generated-resume.template-libre-cv .generated-contact > [data-resume-path="phone"] { --icon: var(--i-phone); }
+.generated-resume.template-libre-cv .generated-contact > [data-resume-path="location"] { --icon: var(--i-pin); }
+.generated-resume.template-libre-cv .generated-contact > a[href*="linkedin"] { --icon: var(--i-linkedin); }
+.generated-resume.template-libre-cv .generated-contact > a[href*="github"] { --icon: var(--i-github); }
+.generated-resume.template-libre-cv .resume-columns-flow { grid-template-columns: var(--lb-left) minmax(0, 1fr); column-gap: var(--lb-gap); }
+.generated-resume.template-libre-cv .resume-sidebar-column { grid-column: 2; grid-row: 1; }
+.generated-resume.template-libre-cv .resume-main-column { grid-column: 1; grid-row: 1; }
+.generated-resume.template-libre-cv .resume-section { margin-top: 1.9em; }
+.generated-resume.template-libre-cv .resume-section h2 { margin: 0 0 .55em; padding-bottom: .12em; border-bottom: .03em solid #000; font-size: 1.44em; font-weight: 400; font-variant: small-caps; letter-spacing: .03em; text-transform: lowercase; }
+.generated-resume.template-libre-cv { --lx-entry-gap: 1.05em; }
+.generated-resume.template-libre-cv .resume-entry-heading { gap: .8em; }
+.generated-resume.template-libre-cv .resume-entry-role, .generated-resume.template-libre-cv .resume-entry-location { white-space: nowrap; }
+.generated-resume.template-libre-cv .resume-entry-role { white-space: normal; }
+.generated-resume.template-libre-cv .resume-entry ul, .generated-resume.template-libre-cv .resume-section ul { margin-top: .4em; padding-left: .85em; list-style: none; }
+.generated-resume.template-libre-cv li { position: relative; }
+.generated-resume.template-libre-cv li::before { content: '•'; position: absolute; left: -.8em; }
+.generated-resume.template-libre-cv .resume-project-technologies { font-style: italic; }
+.generated-resume.template-libre-cv .resume-sidebar-column .resume-skill-groups { gap: .9em; }
+.generated-resume.template-libre-cv .resume-sidebar-column .resume-skill-groups p { display: grid; grid-template-columns: 4.6em minmax(0, 1fr); column-gap: .8em; }
+.generated-resume.template-libre-cv .resume-sidebar-column .resume-skill-groups strong { padding-top: .12em; font-size: .8em; font-weight: 400; font-variant: small-caps; letter-spacing: .04em; text-align: right; text-transform: lowercase; overflow-wrap: anywhere; }
+.generated-resume.template-libre-cv .skill-sep { display: none; }
+.generated-resume.template-libre-cv .resume-sidebar-column ul { padding-left: 0; }
+.generated-resume.template-libre-cv .resume-sidebar-column li::before { content: none; }
+.generated-resume.template-libre-cv .resume-sidebar-column .resume-single-item-list li { margin-bottom: .45em; }
+
+/* ---------- 3. Simple Hipster ---------- */
+.generated-resume.template-simple-hipster {
+  --sh-side: 27.5%;
+  --sh-band: 11.1em;
+  --sh-photo: 10.8em;
+  --sh-label: var(--template-accent-color, #30a8d8);
+  padding: 0 0 2.4em;
+  color: #222;
+  background: linear-gradient(90deg, #e6e6e6 var(--sh-side), #fff var(--sh-side));
+  line-height: 1.32;
+}
+.generated-resume.template-simple-hipster .generated-resume-header { display: grid; place-content: center; height: var(--sh-band); padding: 0 3.2em; background: #3d3d3d; color: #fff; text-align: center; }
+.generated-resume.template-simple-hipster .generated-resume-header h1 { color: #fff; font-size: 2.95em; font-weight: 300; line-height: 1.1; }
+.generated-resume.template-simple-hipster .name-rest { font-weight: 700; }
+.generated-resume.template-simple-hipster .generated-resume-header p { margin-top: .45em; color: #fff; font-size: 1.05em; }
+.generated-resume.template-simple-hipster .generated-resume-photo,
+.generated-resume.template-simple-hipster .generated-resume-photo-upload { position: absolute; top: calc(var(--sh-band) + 2.5em); left: calc(var(--sh-side) / 2); display: block; width: var(--sh-photo) !important; height: var(--sh-photo) !important; max-width: none; margin: 0; border-radius: 50% !important; transform: translateX(-50%); object-fit: cover; }
+.generated-resume.template-simple-hipster .generated-resume-photo-upload { display: grid; place-items: center; border: 2px dashed #9aa3ab; background: #f4f4f4; color: #6b747c; }
+.generated-resume.template-simple-hipster .resume-columns-flow { grid-template-columns: var(--sh-side) minmax(0, 1fr); gap: 0; }
+.generated-resume.template-simple-hipster .resume-sidebar-column { padding: 2.2em 2.35em 0 3.2em; font-size: .9em; line-height: 1.3; text-align: right; }
+.generated-resume.template-simple-hipster:has(.generated-resume-photo, .generated-resume-photo-upload):not(.resume-page-continued) .resume-sidebar-column { padding-top: calc(var(--sh-photo) / .9 + 4.4em); }
+.generated-resume.template-simple-hipster .resume-main-column { padding: 2.1em 3.2em 0 2.45em; }
+.generated-resume.template-simple-hipster.resume-page-continued { padding-top: 2.4em; }
+.generated-resume.template-simple-hipster .resume-sidebar-column .resume-section { margin-top: 1.7em; }
+.generated-resume.template-simple-hipster .resume-sidebar-column .resume-section h2 { margin: 0 0 .5em; font-size: .95em; font-weight: 600; text-align: right; }
+.generated-resume.template-simple-hipster .resume-sidebar-column .resume-section h2 > span { display: inline-block; padding: .1em .35em; background: var(--sh-label); color: #fff; }
+.generated-resume.template-simple-hipster .resume-sidebar-column .resume-section-contact { margin-top: 3.4em; }
+.generated-resume.template-simple-hipster .resume-section-contact h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.generated-resume.template-simple-hipster .generated-contact-section > * { display: flex; align-items: center; justify-content: flex-end; gap: .55em; margin: 0 0 .55em; font-family: 'Courier Prime', 'Courier New', monospace; font-size: 1.05em; text-align: left; overflow-wrap: anywhere; }
+.generated-resume.template-simple-hipster .generated-contact-section > *::before { content: ''; flex: 0 0 1.55em; order: -1; height: 1.55em; border-radius: 50%; background: var(--icon, var(--iw-link)) center / 58% no-repeat, var(--sh-label); }
+.generated-resume.template-simple-hipster .generated-contact-section > [data-resume-path="email"] { --icon: var(--iw-at); }
+.generated-resume.template-simple-hipster .generated-contact-section > [data-resume-path="phone"] { --icon: var(--iw-phone); }
+.generated-resume.template-simple-hipster .generated-contact-section > [data-resume-path="location"] { --icon: var(--iw-pin); }
+.generated-resume.template-simple-hipster .generated-contact-section > a[href*="linkedin"] { --icon: var(--iw-linkedin); }
+.generated-resume.template-simple-hipster .generated-contact-section > a[href*="github"] { --icon: var(--iw-github); }
+.generated-resume.template-simple-hipster .resume-main-column .resume-section { margin-top: 2.2em; }
+.generated-resume.template-simple-hipster .resume-main-column .resume-section h2 { margin: 0 0 .7em; padding-bottom: .15em; border-bottom: 1px solid #111; font-size: 1.55em; font-weight: 400; font-variant: small-caps; letter-spacing: .01em; }
+.generated-resume.template-simple-hipster .resume-entry-hipster { display: grid; grid-template-columns: 6.3em minmax(0, 1fr); margin: 0; }
+.generated-resume.template-simple-hipster { --lx-entry-gap: 0; }
+.generated-resume.template-simple-hipster .resume-entry-hipster > .resume-entry-period { padding: 0 .6em 0 0; font-size: 1em; text-align: right; white-space: normal; }
+.generated-resume.template-simple-hipster .resume-page-block + .resume-page-block > .resume-entry-hipster > * { padding-top: 1.6em; }
+.generated-resume.template-simple-hipster .resume-entry-body { padding: 0 0 .2em .65em; border-left: 1px solid #222; }
+.generated-resume.template-simple-hipster .resume-section-education .resume-entry-body, .generated-resume.template-simple-hipster .resume-entry-project .resume-entry-body { border-left: 0; }
+.generated-resume.template-simple-hipster .resume-section-education .resume-page-block + .resume-page-block > .resume-entry-hipster > *, .generated-resume.template-simple-hipster .resume-section-projects .resume-page-block + .resume-page-block > .resume-entry-hipster > * { padding-top: 1em; }
+.generated-resume.template-simple-hipster .resume-entry-title { display: block; }
+.generated-resume.template-simple-hipster .resume-entry-hipster .resume-entry-subtitle { font-size: .95em !important; }
+.generated-resume.template-simple-hipster .resume-entry-org { font-variant: small-caps; }
+.generated-resume.template-simple-hipster .resume-entry-location::after { content: ''; display: inline-block; width: .85em; height: .85em; margin-left: .3em; vertical-align: -.05em; background: #e2583e; -webkit-mask: var(--i-pin) center / contain no-repeat; mask: var(--i-pin) center / contain no-repeat; }
+.generated-resume.template-simple-hipster .resume-entry-body ul, .generated-resume.template-simple-hipster .resume-project-description { margin-top: .2em; color: #555 !important; font-size: .9em !important; line-height: 1.38; }
+.generated-resume.template-simple-hipster .resume-entry-body ul { padding-left: 1em; }
+.generated-resume.template-simple-hipster .resume-entry-continuation { margin: 0; padding: 0 0 .2em calc(6.3em + .65em); }
+.generated-resume.template-simple-hipster .resume-entry-continuation ul { margin: 0; padding-left: 1em; color: #555; font-size: .9em; }
+.generated-resume.template-simple-hipster .resume-section-experience .resume-entry-continuation { background: linear-gradient(#222, #222) 6.3em 0 / 1px 100% no-repeat; }
+.generated-resume.template-simple-hipster .resume-main-column .resume-skill-groups { gap: .6em; }
+.generated-resume.template-simple-hipster .resume-main-column .resume-skill-groups strong { display: block; margin-bottom: .3em; font-weight: 600; }
+.generated-resume.template-simple-hipster .skill-sep { display: none; }
+.generated-resume.template-simple-hipster .skill-chip { display: inline-block; margin: 0 .35em .35em 0; padding: .12em .4em; background: #b8b8b8; color: #222; font-weight: 700; }
+.generated-resume.template-simple-hipster .resume-main-column .resume-single-item-list { padding-left: 0; list-style: none; }
+.generated-resume.template-simple-hipster .resume-sidebar-column .resume-skills, .generated-resume.template-simple-hipster .resume-sidebar-column p { text-align: right; }
+
+/* ---------- 4. Single-page Keywords ---------- */
+.generated-resume.template-keywords-cv {
+  --kw-blue: var(--template-accent-color, #4b9fd5);
+  padding: 2.6em 1.95em 2.4em;
+  color: #1b1b1b;
+  line-height: 1.42;
+}
+.generated-resume.template-keywords-cv .generated-resume-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; margin: -1.6em 0 1em; }
+.generated-resume.template-keywords-cv .generated-resume-header .generated-contact { padding-top: 2.3em; }
+.generated-resume.template-keywords-cv .generated-resume-identity { padding: 1.7em 0 0 1.4em; }
+.generated-resume.template-keywords-cv .generated-resume-header h1 { font-size: 5em; font-weight: 400; line-height: .78; }
+.generated-resume.template-keywords-cv .name-first { display: block; margin-left: .68em; color: #111; font-weight: 700; letter-spacing: -.01em; }
+.generated-resume.template-keywords-cv .name-rest { display: block; margin-top: -.12em; color: transparent; font-weight: 400; letter-spacing: -.02em; -webkit-text-stroke: .018em #111; }
+.generated-resume.template-keywords-cv .generated-resume-header p { margin: .2em 0 0 7.4em; font-size: .95em; }
+.generated-resume.template-keywords-cv .generated-contact { font-size: 1.02em; line-height: 1.55; text-align: right; }
+.generated-resume.template-keywords-cv .generated-contact > * { font-weight: 700; }
+.generated-resume.template-keywords-cv .generated-contact > *::before { margin-right: .35em; color: #333; font-weight: 300; }
+.generated-resume.template-keywords-cv .generated-contact > [data-resume-path="email"]::before { content: 'Email'; }
+.generated-resume.template-keywords-cv .generated-contact > [data-resume-path="phone"]::before { content: 'Phone'; }
+.generated-resume.template-keywords-cv .generated-contact > [data-resume-path="location"]::before { content: 'Location'; }
+.generated-resume.template-keywords-cv .generated-contact > a::before { content: 'Website'; }
+.generated-resume.template-keywords-cv .generated-contact > a[href*="linkedin"]::before { content: 'LinkedIn'; }
+.generated-resume.template-keywords-cv .generated-contact > a[href*="github"]::before { content: 'Github'; }
+.generated-resume.template-keywords-cv .resume-columns-flow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 2.3em; margin-top: 1.3em; }
+.generated-resume.template-keywords-cv .resume-main-column { grid-column: 1; grid-row: 1; }
+.generated-resume.template-keywords-cv .resume-sidebar-column { grid-column: 2; grid-row: 1; }
+.generated-resume.template-keywords-cv .resume-section { margin-top: 1.35em; }
+.generated-resume.template-keywords-cv .resume-section h2 { display: flex; align-items: center; gap: .65em; margin: 0 0 .55em; color: var(--kw-blue); font-size: 1.5em; font-weight: 700; text-transform: uppercase; }
+.generated-resume.template-keywords-cv .resume-section h2::before { content: ''; flex: 0 0 1.3em; height: 1.3em; margin-left: .15em; border-radius: 50%; background: var(--icon, var(--iw-ball)) center / 52% no-repeat, #111; }
+.generated-resume.template-keywords-cv .resume-section-summary { --icon: var(--iw-file); }
+.generated-resume.template-keywords-cv .resume-section-experience { --icon: var(--iw-pencil); }
+.generated-resume.template-keywords-cv .resume-section-projects { --icon: var(--iw-brush); }
+.generated-resume.template-keywords-cv .resume-section-education { --icon: var(--iw-cap); }
+.generated-resume.template-keywords-cv .resume-section-skills { --icon: var(--iw-list); }
+.generated-resume.template-keywords-cv .resume-section-achievements { --icon: var(--iw-star); }
+.generated-resume.template-keywords-cv .resume-section-certifications { --icon: var(--iw-award); }
+.generated-resume.template-keywords-cv .resume-section-languages { --icon: var(--iw-globe); }
+.generated-resume.template-keywords-cv { --lx-entry-gap: .95em; }
+.generated-resume.template-keywords-cv .resume-entry-keywords .resume-entry-title { font-size: 1.16em; }
+.generated-resume.template-keywords-cv .resume-entry-subtitle { margin: .35em 0 .1em .9em; font-size: .94em !important; font-weight: 700; }
+.generated-resume.template-keywords-cv .resume-entry-project .resume-entry-title { font-size: 1.16em; }
+.generated-resume.template-keywords-cv .resume-project-technologies { margin: .2em 0 .1em .9em; }
+.generated-resume.template-keywords-cv .resume-project-technologies [data-resume-path] { display: inline-block !important; padding: 0 .35em; border-radius: .25em; background: #d6eaf8; }
+.generated-resume.template-keywords-cv .resume-entry ul, .generated-resume.template-keywords-cv .resume-section ul { margin-top: .2em; padding-left: 1.2em; }
+.generated-resume.template-keywords-cv .resume-entry ul { margin-left: .9em; padding-left: 0; list-style: none; text-align: justify; }
+.generated-resume.template-keywords-cv .resume-project-description { margin-left: .9em; text-align: justify; }
+.generated-resume.template-keywords-cv .resume-entry-continuation ul { margin-left: .9em; padding-left: 0; list-style: none; }
+.generated-resume.template-keywords-cv .resume-section-summary p { text-align: justify; }
+.generated-resume.template-keywords-cv .resume-skill-groups { gap: .35em; }
+
+/* ---------- 5. Elegant Resume ---------- */
+.generated-resume.template-elegant-resume {
+  --el-blue: var(--template-accent-color, #4a7bd6);
+  padding: 3.4em 3.4em 3em;
+  color: #222;
+  line-height: 1.35;
+}
+.generated-resume.template-elegant-resume .generated-resume-header { margin-bottom: 1.9em; text-align: center; }
+.generated-resume.template-elegant-resume .generated-resume-header h1 { font-size: 1.65em; font-weight: 700; letter-spacing: .21em; text-transform: uppercase; }
+.generated-resume.template-elegant-resume .generated-resume-header p { margin-top: .3em; color: var(--el-blue); font-size: 1.02em; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+.generated-resume.template-elegant-resume .generated-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: .3em 2.1em; margin-top: 1.25em; font-size: .86em; font-weight: 700; }
+.generated-resume.template-elegant-resume .generated-contact > * { display: inline-flex; align-items: center; gap: .55em; }
+.generated-resume.template-elegant-resume .generated-contact > *::before { content: ''; flex: 0 0 1em; height: 1em; background: var(--el-blue); -webkit-mask: var(--icon, var(--i-link)) center / contain no-repeat; mask: var(--icon, var(--i-link)) center / contain no-repeat; }
+.generated-resume.template-elegant-resume .generated-contact > [data-resume-path="email"] { --icon: var(--i-mail); }
+.generated-resume.template-elegant-resume .generated-contact > [data-resume-path="phone"] { --icon: var(--i-phone); }
+.generated-resume.template-elegant-resume .generated-contact > [data-resume-path="location"] { --icon: var(--i-pin); }
+.generated-resume.template-elegant-resume .generated-contact > a[href*="linkedin"] { --icon: var(--i-linkedin); }
+.generated-resume.template-elegant-resume .generated-contact > a[href*="github"] { --icon: var(--i-github); }
+.generated-resume.template-elegant-resume .resume-section { margin-top: 1.75em; }
+.generated-resume.template-elegant-resume .resume-section h2 { margin: 0 0 1.2em; padding-bottom: .55em; border-bottom: .16em solid var(--el-blue); color: var(--el-blue); font-size: .88em; letter-spacing: .3em; text-transform: uppercase; }
+.generated-resume.template-elegant-resume ul { margin-top: .5em; padding-left: 1.35em; list-style: none; }
+.generated-resume.template-elegant-resume li { position: relative; margin-bottom: .4em; }
+.generated-resume.template-elegant-resume li::before { content: ''; position: absolute; top: .5em; left: -1.05em; width: .38em; height: .38em; border-radius: 50%; background: var(--el-blue); }
+.generated-resume.template-elegant-resume .resume-page-block + .resume-page-block > .resume-entry-elegant { margin-top: .4em; padding-top: 1.35em; border-top: .13em dashed var(--el-blue); }
+.generated-resume.template-elegant-resume .resume-entry-elegant .resume-entry-heading:first-child strong { font-size: .88em; letter-spacing: .17em; text-transform: uppercase; }
+.generated-resume.template-elegant-resume .resume-entry-role { text-align: right; }
+.generated-resume.template-elegant-resume .resume-entry-second { margin-top: .4em; }
+.generated-resume.template-elegant-resume .resume-entry-location::before, .generated-resume.template-elegant-resume .resume-entry-elegant .resume-entry-period::before { content: ''; display: inline-block; width: .95em; height: .95em; margin-right: .6em; vertical-align: -.1em; background: var(--el-blue); -webkit-mask: var(--i-pin) center / contain no-repeat; mask: var(--i-pin) center / contain no-repeat; }
+.generated-resume.template-elegant-resume .resume-entry-elegant .resume-entry-period::before { -webkit-mask-image: var(--i-calendar); mask-image: var(--i-calendar); }
+.generated-resume.template-elegant-resume .resume-entry-elegant ul { margin-top: .9em; }
+.generated-resume.template-elegant-resume .resume-project-technologies { margin-top: .3em; }
+.generated-resume.template-elegant-resume .resume-project-description { margin-top: .4em; }
+.generated-resume.template-elegant-resume .resume-skill-groups { gap: .4em; }
+
+/* ---------- 6. Developer CV ---------- */
+.generated-resume.template-developer-cv {
+  padding: 4.9em 5em 3.4em;
+  color: #111;
+  line-height: 1.3;
+}
+.generated-resume.template-developer-cv .generated-resume-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 2em; align-items: start; margin-bottom: 2.4em; }
+.generated-resume.template-developer-cv .generated-resume-header h1 { font-size: 1.78em; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+.generated-resume.template-developer-cv .generated-resume-header p { margin-top: .45em; color: #333; font-size: 1.24em; }
+.generated-resume.template-developer-cv .generated-contact { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3, auto); grid-auto-columns: auto; gap: .95em 2.5em; padding-top: .3em; font-size: .98em; line-height: 1.1; }
+.generated-resume.template-developer-cv .generated-contact > * { display: flex; align-items: center; gap: .75em; }
+.generated-resume.template-developer-cv .generated-contact > *::before { content: ''; flex: 0 0 .95em; height: .95em; background: #111; -webkit-mask: var(--icon, var(--i-globe)) center / contain no-repeat; mask: var(--icon, var(--i-globe)) center / contain no-repeat; }
+.generated-resume.template-developer-cv .generated-contact > [data-resume-path="email"] { --icon: var(--i-mail); }
+.generated-resume.template-developer-cv .generated-contact > [data-resume-path="phone"] { --icon: var(--i-phone); }
+.generated-resume.template-developer-cv .generated-contact > [data-resume-path="location"] { --icon: var(--i-pin); }
+.generated-resume.template-developer-cv .generated-contact > a[href*="linkedin"] { --icon: var(--i-linkedin); }
+.generated-resume.template-developer-cv .generated-contact > a[href*="github"] { --icon: var(--i-github); }
+.generated-resume.template-developer-cv .generated-resume-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 3.8em; align-items: start; }
+.generated-resume.template-developer-cv .generated-resume-main > .resume-section { grid-column: 1 / -1; margin-top: 1.55em; }
+.generated-resume.template-developer-cv .generated-resume-main > .resume-section-summary { grid-column: 1; margin-top: 0; }
+.generated-resume.template-developer-cv .generated-resume-main > .resume-section-skills { grid-column: 2; }
+.generated-resume.template-developer-cv .generated-resume-main > .resume-section-summary + .resume-section-skills { margin-top: 0; }
+.generated-resume.template-developer-cv .resume-section h2 { display: flex; align-items: center; gap: .9em; margin: 0 0 .75em; font-size: .92em; font-weight: 700; text-transform: uppercase; }
+.generated-resume.template-developer-cv .resume-section h2::after { content: ''; flex: 1 1 auto; height: 0; border-top: 1px solid #222; }
+.generated-resume.template-developer-cv .resume-section-summary p { text-align: justify; }
+.generated-resume.template-developer-cv .resume-skill-groups { gap: .9em; }
+.generated-resume.template-developer-cv .resume-skill-groups p { display: grid; grid-template-columns: 22% minmax(0, 1fr); column-gap: 5%; }
+.generated-resume.template-developer-cv { --lx-entry-gap: 1.05em; }
+.generated-resume.template-developer-cv .resume-entry-developer { display: grid; grid-template-columns: 8.4em minmax(0, 1fr) auto; column-gap: 1.1em; }
+.generated-resume.template-developer-cv .resume-entry-developer > .resume-entry-period { font-size: .9em; text-align: left; white-space: normal; }
+.generated-resume.template-developer-cv .resume-entry-developer .resume-entry-title { display: block; }
+.generated-resume.template-developer-cv .resume-entry-developer > .resume-entry-org { max-width: 11em; font-size: .78em; font-weight: 700; text-align: right; }
+.generated-resume.template-developer-cv .resume-entry-developer > .resume-entry-org .resume-project-links { margin: 0; }
+.generated-resume.template-developer-cv .resume-entry-developer > .resume-entry-org .generated-contact-link { display: block; color: inherit !important; text-decoration: none !important; }
+.generated-resume.template-developer-cv .resume-entry-developer ul { margin: .1em 0 0; padding-left: 0; list-style: none; }
+.generated-resume.template-developer-cv .resume-entry-developer li::before, .generated-resume.template-developer-cv .resume-entry-continuation li::before { content: '• '; }
+.generated-resume.template-developer-cv .resume-entry-continuation { padding-left: calc(8.4em + 1.1em); }
+.generated-resume.template-developer-cv .resume-entry-continuation ul { padding-left: 0; list-style: none; }
+.generated-resume.template-developer-cv .resume-section-languages .resume-page-block, .generated-resume.template-developer-cv .resume-section-certifications .resume-page-block, .generated-resume.template-developer-cv .resume-section-achievements .resume-page-block { padding-left: calc(8.4em + 1.1em); }
+.generated-resume.template-developer-cv .resume-single-item-list { padding-left: 0; list-style: none; }

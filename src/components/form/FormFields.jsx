@@ -1,9 +1,28 @@
 import { useRef, useState } from 'react'
+import { formGroupLabel, isBuiltInSkillGroup, newGroupKey, renameSkillGroup } from '../../../shared/skillGroups.js'
 
 const fieldId = path => `form-${String(path).replace(/[^a-z0-9]+/gi, '-')}`
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const thisYear = new Date().getFullYear()
 const YEARS = Array.from({ length: thisYear + 6 - 1970 + 1 }, (_, index) => thisYear + 6 - index)
+
+/** Polite screen-reader message through the form's live region (rendered once by SectionForm). */
+export function announce(message) {
+  const region = typeof document !== 'undefined' && document.getElementById('form-live-region')
+  if (!region) return
+  region.textContent = ''
+  setTimeout(() => { region.textContent = message }, 60)
+}
+
+/** "Show me": move focus to the first missing field so keyboard and screen-reader users land on it. */
+export function focusFirstMissing(container) {
+  const field = container?.querySelector('.is-missing, .has-missing, .form-section-error')
+  if (!field) return
+  field.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  // A section-level message (e.g. too few skills) sends focus to the first input after it.
+  const target = field.matches('.form-section-error') ? field.parentElement?.querySelector('input, textarea, select') : field.querySelector('input, textarea, select, button')
+  target?.focus({ preventScroll: true })
+}
 
 function Label({ children, required, optional }) {
   return <span className="form-label">{children}{required && <span className="form-required" aria-hidden="true"> *</span>}{optional && <span className="form-optional"> (optional)</span>}</span>
@@ -105,31 +124,142 @@ export function BulletListField({ label, path, items, onChange, required, option
   </fieldset>
 }
 
-/** Type a value and press Enter or comma to add it as a chip. */
-export function TagField({ label, path, values, onChange, required, optional, error, placeholder, hint }) {
+/** Type a value and press Enter or comma to add it as a chip. Adds and removals are announced. */
+export function TagField({ label, path, values, onChange, required, optional, error, placeholder, hint = 'Press Enter or type a comma after each one.', actions }) {
   const id = fieldId(path)
   const [draft, setDraft] = useState('')
   const add = raw => {
     const parts = raw.split(',').map(item => item.trim()).filter(Boolean)
     if (!parts.length) return
     const known = new Set(values.map(item => item.toLowerCase()))
-    onChange([...values, ...parts.filter(item => !known.has(item.toLowerCase()))])
+    const added = parts.filter(item => !known.has(item.toLowerCase()))
+    onChange([...values, ...added])
     setDraft('')
+    if (added.length) announce(`Added ${added.join(', ')} to ${label}`)
+  }
+  const remove = value => {
+    onChange(values.filter(item => item !== value))
+    announce(`Removed ${value} from ${label}`)
   }
   return <div className={`form-field form-tags${error ? ' is-missing' : ''}`} data-field-path={path}>
-    <label htmlFor={id}><Label required={required} optional={optional}>{label}</Label></label>
+    <span className="form-tags-head"><label htmlFor={id}><Label required={required} optional={optional}>{label}</Label></label>{actions}</span>
     <div className="form-tags-box">
-      {values.map(value => <span className="form-tag" key={value}>{value}<button type="button" onClick={() => onChange(values.filter(item => item !== value))} aria-label={`Remove ${value}`}>×</button></span>)}
-      <input id={id} value={draft} placeholder={values.length ? '' : placeholder} aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
+      {values.map(value => <span className="form-tag" key={value}>{value}<button type="button" onClick={() => remove(value)} aria-label={`Remove ${value} from ${label}`}>×</button></span>)}
+      <input id={id} value={draft} placeholder={values.length ? '' : placeholder} aria-invalid={error ? 'true' : undefined} aria-describedby={[error && `${id}-error`, `${id}-hint`].filter(Boolean).join(' ')}
         onChange={event => event.target.value.includes(',') ? add(event.target.value) : setDraft(event.target.value)}
         onKeyDown={event => {
           if (event.key === 'Enter') { event.preventDefault(); add(draft) }
-          if (event.key === 'Backspace' && !draft && values.length) onChange(values.slice(0, -1))
+          if (event.key === 'Backspace' && !draft && values.length) remove(values.at(-1))
         }}
         onBlur={() => add(draft)} />
     </div>
-    {hint && !error && <small className="form-hint" id={`${id}-hint`}>{hint}</small>}
+    <small className="form-hint" id={`${id}-hint`}>{hint}</small>
     <ErrorText id={`${id}-error`} error={error} />
+  </div>
+}
+
+// Groups anyone can start with; technical ones are offered as suggestions instead.
+const STARTER_GROUPS = ['other', 'tools', 'softSkills']
+const GROUP_SUGGESTIONS = ['Clinical skills', 'Teaching', 'Sales & negotiation', 'Customer service', 'Design tools', 'Trades & equipment', 'Research methods', 'Programming languages', 'Frameworks & libraries', 'Databases']
+
+/**
+ * Skills as named groups the person controls: starter groups, any group they add (custom names
+ * print on the resume as typed), rename and remove. Data stays resumeData.skills = { group: [skill] }.
+ */
+export function SkillGroupsEditor({ skills = {}, onChange, error }) {
+  const [revealed, setRevealed] = useState(() => new Set())
+  const [dismissed, setDismissed] = useState(() => new Set())
+  const [draft, setDraft] = useState('')
+  const [message, setMessage] = useState('')
+  const [renaming, setRenaming] = useState(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const list = key => Array.isArray(skills[key]) ? skills[key] : []
+  const visible = Object.keys({ ...Object.fromEntries(STARTER_GROUPS.map(key => [key, []])), ...skills }).filter(key =>
+    list(key).length > 0 || !isBuiltInSkillGroup(key) || revealed.has(key) || (STARTER_GROUPS.includes(key) && !dismissed.has(key)))
+  const label = key => formGroupLabel(key)
+  const visibleGroups = () => Object.fromEntries(visible.map(item => [item, list(item)]))
+
+  const addGroup = name => {
+    const { key, error: problem } = newGroupKey(name, visibleGroups())
+    if (problem) { setMessage(problem); return }
+    setMessage('')
+    setDraft('')
+    if (isBuiltInSkillGroup(key)) {
+      setRevealed(current => new Set(current).add(key))
+      setDismissed(current => { const next = new Set(current); next.delete(key); return next })
+    } else onChange({ ...skills, [key]: [] })
+    announce(`Added the skill group ${label(key)}`)
+    requestAnimationFrame(() => document.getElementById(fieldId(`skills.${key}`))?.focus())
+  }
+  const removeGroup = key => {
+    if (isBuiltInSkillGroup(key)) {
+      onChange({ ...skills, [key]: [] })
+      setRevealed(current => { const next = new Set(current); next.delete(key); return next })
+      setDismissed(current => new Set(current).add(key))
+    } else onChange(Object.fromEntries(Object.entries(skills).filter(([name]) => name !== key)))
+    announce(`Removed the skill group ${label(key)}`)
+  }
+  const saveRename = key => {
+    const name = renameDraft.trim()
+    if (!name || name === label(key)) { setRenaming(null); return }
+    // Starter groups that are still empty may not be in the data yet, so rename from what is shown.
+    const result = renameSkillGroup({ ...visibleGroups(), ...skills }, key, name)
+    if (result.error) { setMessage(result.error); return }
+    setMessage('')
+    setRenaming(null)
+    if (isBuiltInSkillGroup(key)) setDismissed(current => new Set(current).add(key))
+    onChange(result.skills)
+    announce(`Renamed ${label(key)} to ${name}`)
+  }
+
+  return <div className="form-skill-groups">
+    {error && <p className="form-error form-section-error" data-field-path="skills" role="alert">{error}</p>}
+    {visible.map(key => renaming === key
+      ? <div className="form-field form-skill-rename" key={key}>
+        <label htmlFor="form-skill-rename"><Label>Rename “{label(key)}”</Label></label>
+        <div className="form-inline-row">
+          <input id="form-skill-rename" autoFocus value={renameDraft} maxLength={40} onChange={event => setRenameDraft(event.target.value)}
+            onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); saveRename(key) } if (event.key === 'Escape') setRenaming(null) }} />
+          <button type="button" className="secondary-button" onClick={() => saveRename(key)}>Save</button>
+          <button type="button" className="form-text-button" onClick={() => setRenaming(null)}>Cancel</button>
+        </div>
+      </div>
+      : <TagField key={key} label={label(key)} path={`skills.${key}`} values={list(key)} onChange={value => onChange({ ...skills, [key]: value })} placeholder="Type a skill and press Enter"
+        actions={<span className="form-group-actions">
+          <button type="button" className="form-text-button" onClick={() => { setRenaming(key); setRenameDraft(label(key)) }} aria-label={`Rename the ${label(key)} group`}>Rename</button>
+          <button type="button" className="form-text-button" onClick={() => removeGroup(key)} aria-label={`Remove the ${label(key)} group${list(key).length ? ` and its ${list(key).length} skills` : ''}`}>Remove</button>
+        </span>} />)}
+    <fieldset className="form-field form-add-group">
+      <legend><Label optional>Add a skill group</Label></legend>
+      <div className="form-inline-row">
+        <input id="form-new-skill-group" value={draft} maxLength={40} placeholder="e.g. Patient care, Culinary skills" aria-label="New skill group name" aria-describedby="form-new-skill-group-hint"
+          onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addGroup(draft) } }} />
+        <button type="button" className="secondary-button" onClick={() => addGroup(draft)}>Add group</button>
+      </div>
+      <small className="form-hint" id="form-new-skill-group-hint">Name it after your field. It prints on your resume exactly as you type it.</small>
+      {message && <small className="form-error" role="alert">{message}</small>}
+      <div className="form-group-suggestions" role="group" aria-label="Suggested skill groups">
+        {GROUP_SUGGESTIONS.filter(name => !visible.some(key => label(key).toLowerCase() === name.toLowerCase())).map(name =>
+          <button type="button" className="form-suggestion" key={name} onClick={() => addGroup(name)}>+ {name}</button>)}
+      </div>
+    </fieldset>
+  </div>
+}
+
+/** Free-text sections with a title (Volunteering, Licences, Publications…), printed by every template. */
+export function CustomSectionsEditor({ sections = [], onChange, errors = {} }) {
+  const rows = Array.isArray(sections) ? sections : []
+  const update = (index, field, value) => onChange(rows.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row))
+  return <div className="form-custom-sections">
+    {rows.map((row, index) => <section className={`form-entry is-open${errors[`customSections.${index}.title`] || errors[`customSections.${index}.content`] ? ' has-missing' : ''}`} key={index} aria-label={row.title || `Section ${index + 1}`}>
+      <div className="form-entry-body">
+        <TextField label="Section title" path={`customSections.${index}.title`} value={row.title} onChange={value => update(index, 'title', value)} required error={errors[`customSections.${index}.title`]} placeholder="e.g. Volunteering" />
+        <TextField label="Text" path={`customSections.${index}.content`} multiline value={row.content} onChange={value => update(index, 'content', value)} required error={errors[`customSections.${index}.content`]} hint="Write it as it should appear on the resume." />
+        <button type="button" className="form-text-button" onClick={() => { onChange(rows.filter((_, rowIndex) => rowIndex !== index)); announce(`Removed ${row.title || `section ${index + 1}`}`) }}>Remove this section</button>
+      </div>
+    </section>)}
+    <button type="button" className="form-add-entry" onClick={() => { onChange([...rows, { title: '', content: '' }]); announce('Added a new section') }}>+ Add a section</button>
+    <p className="form-hint">Ideas: Volunteering, Licences, Publications, Portfolio, Interests, References.</p>
   </div>
 }
 

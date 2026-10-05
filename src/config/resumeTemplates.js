@@ -1,5 +1,5 @@
 import NavyProfessionalTemplate from '../components/templates/NavyProfessionalTemplate.jsx'
-import SimpleHipsterTemplate from '../components/templates/SimpleHipsterTemplate.jsx'
+import { DeveloperCvTemplate, ElegantResumeTemplate, KeywordsCvTemplate, LibreCvTemplate, MinimalAcademicTemplate, SimpleHipsterTemplate } from '../components/templates/LatexTemplates.jsx'
 import CurveAcademicTemplate from '../components/templates/CurveAcademicTemplate.jsx'
 import ReceiveTemplate from '../components/templates/ReceiveTemplate.jsx'
 import {
@@ -15,7 +15,12 @@ const supportedFeatures = Object.freeze([
 // One-line pitch shown in the template preview window; unique for every template.
 const templateSummaries = {
   'navy-professional': 'Formal and education-first with navy headings — a safe choice for graduates and public-sector roles.',
-  'simple-hipster': 'A dark name band over one clean column, suited to modern tech and product roles.',
+  'simple-hipster': 'A dark name band, a grey sidebar with your photo and a dated timeline, cloned from simplehipstercv.',
+  'minimal-academic': 'Spaced-out name, section labels in the margin and quiet grey text, for academic and research CVs.',
+  'libre-cv': 'Centred name, small-caps ruled headings and a slim right column, set in Libertinus Sans.',
+  'keywords-cv': 'Outlined name, icon headings and two dense columns that fit a full career on one page.',
+  'elegant-resume': 'Tracked capitals, blue rules and icon details, built for long professional histories.',
+  'developer-cv': 'Dates in the margin, a side-by-side summary and skills, and a compact entry list.',
   'curve-academic': 'Academic CV styling with ruled sections and clear dates for research and teaching posts.',
   receive: 'An engineering CV with a profile header and warm copper accents for technical specialists.',
   azurill: 'A centred header and a timeline of roles beside a skills sidebar — bright and visual.',
@@ -53,9 +58,20 @@ const reactive = (id, name, component, { description, layout, tags, accentColor,
   defaultTheme: { accentColor, fontFamily, photo: portrait(photoShape) }
 })
 
+// LaTeX clones (PLAN-027): colours and type families follow each supplied sample; accents stay editable.
+const latex = (id, name, component, { description, layout, tags, accentColor, fontFamily, source, supportsPhoto = false, photo }) => defineTemplate({
+  id, name, description, component, layout, tags, collection: 'latex', source, supportsPhoto,
+  defaultTheme: { accentColor, fontFamily, ...(photo ? { photo } : {}) }
+})
+
 export const resumeTemplates = [
   defineTemplate({ id: 'navy-professional', name: 'Navy Professional', description: 'Formal navy headings, centered identity, and an education-first single column.', source: 'Christian Maria Giannetti — supplied resume.cls example', component: NavyProfessionalTemplate, layout: 'single-column', tags: ['Formal', 'Education first'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#294a69', fontFamily: 'Roboto, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
-  defineTemplate({ id: 'simple-hipster', name: 'Simple Hipster', description: 'Dark identity band, clear headings, and a readable experience timeline.', source: 'LaTeX Ninja — supplied simplehipstercv example', component: SimpleHipsterTemplate, layout: 'single-column', tags: ['Identity band', 'Timeline'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#397b69', fontFamily: 'Montserrat, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
+  latex('minimal-academic', 'Minimal Academic', MinimalAcademicTemplate, { accentColor: '#6b7d8f', fontFamily: 'Nunito Sans, sans-serif', layout: 'single-column', tags: ['Academic', 'Margin labels', 'Minimal'], description: 'Spaced name, uppercase section labels in a left margin column and grey body text.', source: 'Minimal Academic CV (Overleaf), supplied source' }),
+  latex('libre-cv', 'Libre CV', LibreCvTemplate, { accentColor: '#111111', fontFamily: 'Libertinus Sans, sans-serif', layout: 'two-column', tags: ['Two-column', 'Small caps', 'Classic'], description: 'paracol two-column CV with small-caps ruled sections and an identity card.', source: 'Libre CV (Overleaf), supplied source' }),
+  latex('simple-hipster', 'Simple Hipster', SimpleHipsterTemplate, { accentColor: '#30a8d8', fontFamily: 'Raleway, sans-serif', layout: 'two-column', tags: ['Two-column', 'Photo', 'Timeline'], description: 'Dark header band, grey photo sidebar with tag labels and a dated timeline.', source: 'LaTeX Ninja, simplehipstercv (lighthipster), supplied source', supportsPhoto: true, photo: { source: samplePortrait, width: 120, height: 120, shape: 'circle', objectFit: 'cover' } }),
+  latex('keywords-cv', 'Single-page Keywords', KeywordsCvTemplate, { accentColor: '#4b9fd5', fontFamily: 'Raleway, sans-serif', layout: 'two-column', tags: ['Two-column', 'Icons', 'One page'], description: 'Outlined surname, icon section headings and two columns under a full-width summary.', source: 'Sample single page resume with keywords (my_cv class), supplied source' }),
+  latex('elegant-resume', 'Elegant Resume', ElegantResumeTemplate, { accentColor: '#4a7bd6', fontFamily: 'Lato, sans-serif', layout: 'single-column', tags: ['Single-column', 'Icons', 'Senior'], description: 'Centred tracked capitals, blue rules, icon contact line and dashed dividers.', source: 'Harikrishnan B. Kurup, cvhari class, supplied source' }),
+  latex('developer-cv', 'Developer CV', DeveloperCvTemplate, { accentColor: '#111111', fontFamily: 'Raleway, sans-serif', layout: 'single-column', tags: ['Compact', 'Dated entries', 'Icons'], description: 'Icon contact grid, summary beside skills and an entry list with dates in the margin.', source: 'Developer CV v2 (LaTeXTemplates.com, MIT), supplied source' }),
   defineTemplate({ id: 'curve-academic', name: 'CurVe Academic', description: 'Academic typography, section rules, and clearly dated entries.', source: 'LianTze Lim — supplied CurVe example (2024)', component: CurveAcademicTemplate, layout: 'single-column', tags: ['Academic', 'Section rules'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#62774a', fontFamily: 'Roboto Slab, serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
   defineTemplate({ id: 'receive', name: 'ReCeiVe', description: 'Engineering CV with a profile header, clear dates, and soft copper accents.', source: 'Ged Lex — supplied ReCeiVe 1.12.0 example', component: ReceiveTemplate, layout: 'single-column', tags: ['Engineering', 'Profile header'], collection: 'classic', supportsPhoto: true, defaultTheme: { accentColor: '#a45c35', fontFamily: 'Roboto, sans-serif', photo: { source: samplePortrait, width: 72, height: 72, shape: 'circle', objectFit: 'cover' } } }),
 

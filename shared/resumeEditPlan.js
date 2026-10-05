@@ -111,7 +111,8 @@ function normalizeOperation(value, resumeData) {
   }
 
   if (operation.type === 'append_skills' || operation.type === 'replace_skills') {
-    if (!skillCategories.has(operation.category)) throw new ResumeEditPlanError('The edit plan used an unsupported skill category.')
+    // Built-in groups, or a group the person already named on their resume.
+    if (!skillCategories.has(operation.category) && !Object.hasOwn(resumeData?.skills ?? {}, operation.category)) throw new ResumeEditPlanError('The edit plan used an unsupported skill category.')
     return { type: operation.type, category: operation.category, values: cleanTextList(operation.values, 'values', { maxItems: 30, maxLength: 100 }) }
   }
 

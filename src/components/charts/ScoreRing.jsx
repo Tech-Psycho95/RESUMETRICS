@@ -7,9 +7,9 @@ const prefersReducedMotion = () => typeof window !== 'undefined' && window.match
 
 /**
  * Animated score ring: fills from the previous value to `score`, its colour following the value, while the
- * number counts up. `size` in px. Pass a changing `runId` to replay the fill from 0.
+ * number counts up. `size` in px. Pass a changing `runId` to replay the fill from 0. `colourFor(value)` overrides the palette.
  */
-export default function ScoreRing({ score, size = 132, stroke = 12, label = 'Match', runId, duration = 1200 }) {
+export default function ScoreRing({ score, size = 132, stroke = 12, label = 'Match', runId, duration = 1200, colourFor = scoreColour }) {
   const [shown, setShown] = useState(prefersReducedMotion() ? score : 0)
   const fromRef = useRef(0)
   const frameRef = useRef(0)
@@ -17,11 +17,12 @@ export default function ScoreRing({ score, size = 132, stroke = 12, label = 'Mat
   useEffect(() => { fromRef.current = 0 }, [runId])
   useEffect(() => {
     const target = Math.max(0, Math.min(100, Number(score) || 0))
-    if (prefersReducedMotion()) { setShown(target); fromRef.current = target; return undefined }
+    if (prefersReducedMotion() || duration <= 0) { setShown(target); fromRef.current = target; return undefined }
     const from = fromRef.current
     const started = performance.now()
     const step = now => {
-      const progress = Math.min(1, (now - started) / duration)
+      // A frame timestamp can be slightly earlier than `started`; never let progress go below 0.
+      const progress = Math.max(0, Math.min(1, (now - started) / duration))
       const eased = 1 - (1 - progress) ** 3
       const value = from + (target - from) * eased
       setShown(value)
@@ -37,7 +38,7 @@ export default function ScoreRing({ score, size = 132, stroke = 12, label = 'Mat
 
   const radius = (size - stroke) / 2
   const circumference = 2 * Math.PI * radius
-  const colour = scoreColour(shown)
+  const colour = colourFor(shown)
   return <div className="score-ring" style={{ width: size, height: size }} role="img" aria-label={`${label}: ${Math.round(score)} out of 100`}>
     <svg viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
       <circle className="score-ring-track" cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} />

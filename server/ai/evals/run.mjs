@@ -15,7 +15,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const { env } = await import('../../config/env.js')
 const { planNimbusTurn } = await import('../../nimbus/nimbusEngine.js')
 const { parseJobDescription, suggestFixes } = await import('../../jd/jdEngine.js')
-const { scoreResumeAgainstJd } = await import('../../../shared/jdScoring.js')
+const { extractJdKeywords, scoreKeywords } = await import('../../../shared/jdKeywords.js')
 const { findInventedFacts, sourceTextOf } = await import('../../../shared/factGuard.js')
 const { resume, elements, style, jobs } = await import('./fixtures.js')
 const { nimbusCases, jdParseCases, jdFixCases } = await import('./cases.js')
@@ -93,8 +93,8 @@ async function evalJdFixes() {
   const rows = []
   for (const testCase of jdFixCases) {
     const jd = await parseJobDescription(jobs[testCase.job])
-    const score = scoreResumeAgainstJd(resume, jd, { pages: 1 })
-    const run = await timed(onAttempt => suggestFixes({ resumeData: resume, jd, score, onAttempt }))
+    const keywords = scoreKeywords(resume, extractJdKeywords(jd, jobs[testCase.job])).rows
+    const run = await timed(onAttempt => suggestFixes({ resumeData: resume, jd, keywords, onAttempt }))
     const failures = []
     const result = run.value
     if (!result) failures.push(`error: ${run.error}`)

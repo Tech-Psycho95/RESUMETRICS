@@ -1,7 +1,7 @@
 # State
 
 **Updated:** 2026-10-05
-**Milestone:** M2.2 — Cinematic landing page (PLAN-026 done)
+**Milestone:** M2.3: Templates, inclusive form, job tailoring (PLAN-027…029 done; signed-in check of /workspace/tailor pending)
 **Position:** M2 (PLAN-008…017) and M2.1 simplicity pass (PLAN-020…025) executed; see phase SUMMARY files. Remaining: user-run AI evals, signed-in walkthrough, commit. Next milestone: M3 ATS scoring.
 
 ## Done
@@ -46,3 +46,8 @@
 - Protected routes need Google sign-in, so `MainPage` was not run end to end by automation. Fixtures: `tests/editor-studio.html` and `tests/scratch-builder.html` (serve with `npm run dev`).
 - Web search was blocked in the planning session; GSD conventions here come from prior knowledge. GSD's own commands are not installed (see `SKILLS.md`).
 - `graft` index not rebuilt (CLI fails on this Windows setup per the handoff).
+
+## M2.3 decisions (user, 2026-10-05)
+- D28: Clone six supplied LaTeX résumés on the shared renderer (PLAN-027); Simple Hipster is rebuilt in place (same id).
+- D29: Skills are user-defined groups for every profession; the form targets WCAG 2.2 AA (PLAN-028).
+- D30: Job match moves to its own Job tailoring page with the live resume beside it; the editor rail becomes NIMBUS-only (PLAN-029).
