@@ -89,6 +89,9 @@
   justify-content: space-between;
   min-height: 0;
 }
+/* Continuation pages hold whatever overflowed: keep sections together at the top instead of spreading them. */
+.generated-resume.resume-page-continued > .generated-resume-main,
+.generated-resume.resume-page-continued .resume-column { justify-content: flex-start; }
 .generated-resume:is(.template-simple-hipster, .template-receive) .resume-columns-flow {
   flex: 1 0 0;
   align-items: stretch;

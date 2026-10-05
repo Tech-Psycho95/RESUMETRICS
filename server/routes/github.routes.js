@@ -3,7 +3,8 @@ import { env, GitHubConfigurationError } from '../config/env.js'
 import { requireFirebaseUser, FirebaseServerConfigurationError } from '../services/firebaseAdmin.js'
 import { getGitHubAuthorizationIdentity, getGitHubInstallationUrl, getGitHubUserForAuthorizationCode, getInstallationProfile, getUserRepositories } from '../services/githubApp.js'
 import { getGitHubConnection, removeGitHubConnection, saveGitHubConnection } from '../services/githubConnectionStore.js'
-import { analyzeResumeWithGitHubEvidence } from '../services/githubEvidence.js'
+import { scanGitHubEvidence } from '../github/githubScan.js'
+import { startNdjson } from '../ai/ndjson.js'
 import { consumeGitHubConnectionState, createGitHubConnectionState, getGitHubConnectionState, githubConnectionStateTtlMs } from '../services/githubState.js'
 
 const router = Router()
@@ -237,25 +238,30 @@ router.get('/repos', requireFirebaseUser, async (request, response) => {
   }
 })
 
-router.post('/evidence-analysis', requireFirebaseUser, async (request, response) => {
+// Streamed evidence scan of the most recently pushed repositories (live progress for the evidence screen).
+router.post('/evidence-scan', requireFirebaseUser, async (request, response) => {
   const { resumeData } = request.body ?? {}
   if (!resumeData || typeof resumeData !== 'object' || Array.isArray(resumeData)) {
-    return response.status(400).json({ ok: false, error: 'A structured resume is required before GitHub evidence can be analysed.' })
+    return response.status(400).json({ ok: false, error: 'A structured resume is required before GitHub evidence can be scanned.' })
   }
-
+  let connection
   try {
-    const connection = await getGitHubConnection(request.firebaseUser.uid)
-    if (!connection.connected) return response.status(409).json({ ok: false, error: 'Connect GitHub before starting evidence analysis.' })
-    const analysis = await analyzeResumeWithGitHubEvidence({
-      installationId: connection.githubInstallationId,
-      resumeData
-    })
-    return response.json({ ok: true, analysis })
+    connection = await getGitHubConnection(request.firebaseUser.uid)
   } catch (error) {
-    console.error('GitHub evidence analysis failed:', error?.status ?? error?.message)
-    if (isConfigurationError(error)) return response.status(503).json({ ok: false, error: publicConfigurationMessage() })
-    if (error instanceof TypeError) return response.status(400).json({ ok: false, error: error.message })
-    return response.status(502).json({ ok: false, error: 'Could not analyse GitHub evidence. Check the app repository permissions and try again.' })
+    const message = isConfigurationError(error) ? publicConfigurationMessage() : isFirestoreUnavailable(error) ? publicPersistenceMessage() : 'Could not check the GitHub connection.'
+    return response.status(503).json({ ok: false, error: message })
+  }
+  if (!connection.connected) return response.status(409).json({ ok: false, error: 'Connect GitHub before scanning repositories.' })
+  const stream = startNdjson(request, response)
+  try {
+    for await (const event of scanGitHubEvidence({ installationId: connection.githubInstallationId, resumeData, signal: stream.signal })) {
+      if (stream.closed) return
+      stream.send(event)
+    }
+    stream.end({ type: 'done' })
+  } catch (error) {
+    console.error('GitHub evidence scan failed:', error?.status ?? error?.message)
+    stream.end({ type: 'error', message: isConfigurationError(error) ? publicConfigurationMessage() : 'Could not scan GitHub. Check the app’s repository permissions and try again.' })
   }
 })
 

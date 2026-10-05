@@ -1,0 +1,71 @@
+/* Left rail: tabs on top, the active tool fills the middle (scrolls inside), GitHub evidence row at the bottom. */
+.editor-pane-left { overflow: hidden; }
+.editor-shell-grid.is-narrow .editor-pane-left { height: 100%; overflow: hidden; }
+.ai-rail { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.ai-rail-body { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; padding: 0; }
+.ai-rail-panel { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.ai-rail-panel[hidden] { display: none; }
+
+.rail-tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; flex: 0 0 auto; border-bottom: 1px solid var(--studio-line); background: var(--studio-surface); }
+.rail-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0; border: 0; color: var(--studio-muted); background: none; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: color .15s ease; }
+.rail-tabs button[aria-selected="true"], .rail-tabs button:hover { color: var(--studio-ink); }
+.rail-tabs button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(var(--accent-rgb), .35); }
+.rail-tab-score { color: var(--accent-ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+.rail-tabs-indicator { position: absolute; bottom: -1px; left: 0; width: 50%; height: 2px; border-radius: 2px; background: var(--accent); transition: transform .22s cubic-bezier(.22, .8, .24, 1); }
+.rail-tabs.is-job .rail-tabs-indicator { transform: translateX(100%); }
+.rail-evidence { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--studio-line); background: var(--studio-surface); }
+.rail-evidence span { display: grid; line-height: 1.25; }
+.rail-evidence b { color: var(--studio-ink); font-size: 13px; }
+.rail-evidence small { color: var(--studio-muted); font-size: 11.5px; }
+
+/* NIMBUS */
+.nimbus { position: relative; display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.nimbus-wordmark {
+  flex: 0 0 auto; margin: 16px 0 0; text-align: center;
+  font-family: 'Rammetto One', 'Arial Black', sans-serif; font-size: 22px; font-weight: 400; letter-spacing: .06em; line-height: 1.1;
+  background: linear-gradient(180deg, #6d5dfc 0%, #3b82f6 16%, #06b6d4 32%, #22c55e 48%, #eab308 64%, #f97316 80%, #ec4899 92%, #6d5dfc 100%);
+  background-size: 100% 300%;
+  color: transparent; -webkit-background-clip: text; background-clip: text;
+  animation: nimbus-rainbow 5s ease-in-out infinite alternate;
+}
+@keyframes nimbus-rainbow { from { background-position: 50% 0%; } to { background-position: 50% 100%; } }
+.nimbus-cloud { display: grid; flex: 0 0 auto; width: 104px; aspect-ratio: 1; margin: 2px auto 0; place-items: center; }
+.nimbus-cloud .bloub-ai-icon { width: 100%; height: 100%; }
+.nimbus-thread { display: flex; flex: 1 1 auto; flex-direction: column; gap: 12px; min-height: 0; padding: 8px 16px 12px; overflow-y: auto; overscroll-behavior: contain; }
+.nimbus-msg { margin: 0; color: var(--studio-ink); font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nimbus-msg.is-user { align-self: flex-end; max-width: 88%; padding: 8px 12px; border: 1px solid rgba(var(--accent-rgb), .16); border-radius: 14px; background: rgba(var(--accent-rgb), .08); backdrop-filter: blur(6px); }
+.nimbus-msg.is-nimbus { align-self: flex-start; max-width: 96%; }
+.nimbus-msg.is-warning { color: #9a5b0b; }
+
+/* The task being executed: small, translucent, with a shine running through the letters. */
+.ai-task, .nimbus-task {
+  flex: 0 0 auto; margin: 0 16px 6px; overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap;
+  background: linear-gradient(90deg, rgba(100, 112, 138, .45) 0%, rgba(100, 112, 138, .45) 40%, rgba(var(--accent-rgb), .95) 50%, rgba(100, 112, 138, .45) 60%, rgba(100, 112, 138, .45) 100%);
+  background-size: 250% 100%;
+  color: transparent; -webkit-background-clip: text; background-clip: text;
+  animation: ai-task-shine 1.6s linear infinite;
+}
+@keyframes ai-task-shine { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+
+.nimbus-input { display: flex; flex: 0 0 auto; align-items: flex-end; gap: 8px; margin: 0 12px 12px; padding: 6px 6px 6px 12px; border: 1px solid #dde1ea; border-radius: 16px; background: #fff; box-shadow: 0 2px 8px rgba(23, 32, 51, .05); transition: border-color .15s ease, box-shadow .15s ease; }
+.nimbus-input:focus-within { border-color: var(--accent-border); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .12); }
+.nimbus-input textarea { flex: 1 1 auto; min-height: 24px; max-height: 150px; padding: 6px 0; border: 0; outline: none; color: var(--studio-ink); background: transparent; font: inherit; font-size: 13.5px; line-height: 1.45; resize: none; }
+.nimbus-input textarea::placeholder { color: #9aa3b5; }
+.nimbus-send { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; padding: 0; border: 0; border-radius: 10px; color: #fff; background: var(--accent); cursor: pointer; transition: background-color .15s ease; }
+.nimbus-send:hover:not(:disabled) { background: var(--accent-strong); }
+.nimbus-send svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nimbus-send:disabled { opacity: .35; cursor: default; }
+.nimbus-send.is-stop span { width: 10px; height: 10px; border-radius: 2px; background: #fff; }
+
+[data-resolved-theme="dark"] .nimbus-input { border-color: #36415c; background: #121a2b; }
+[data-resolved-theme="dark"] .nimbus-msg.is-user { border-color: rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .06); }
+[data-resolved-theme="dark"] .nimbus-msg.is-warning { color: #fbbf24; }
+@media (prefers-reduced-motion: reduce) {
+  .nimbus-wordmark, .ai-task, .nimbus-task { animation: none; }
+  .rail-tabs-indicator { transition: none; }
+}
+.nimbus-input textarea { overflow-y: hidden; }
+.nimbus-input textarea.is-scrolling { overflow-y: auto; }
+.nimbus-input textarea::placeholder { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-evidence-logo { width: 22px; height: 22px; flex: 0 0 auto; fill: var(--studio-ink); }
+.rail-evidence span { margin-right: auto; }

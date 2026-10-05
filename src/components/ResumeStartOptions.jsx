@@ -53,7 +53,11 @@ function UploadIllustration() {
   </svg>
 }
 
-export default function ResumeStartOptions({ onImport, onFile, onCreate, selectedFile = null, onRead }) {
+export function LinkedInMark({ size = 24 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#0a66c2" /><path fill="#fff" d="M7.1 9.6h-2.6V19h2.6V9.6Zm.2-2.9a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0ZM19.5 13.4c0-2.6-1.4-3.9-3.3-3.9-1.5 0-2.2.8-2.6 1.4V9.6H11V19h2.6v-4.7c0-1.2.2-2.4 1.8-2.4 1.5 0 1.5 1.4 1.5 2.5V19h2.6v-5.6Z" /></svg>
+}
+
+export default function ResumeStartOptions({ onImport, onFile, onCreate, onImportLinkedIn, selectedFile = null, onRead }) {
   const [dragging, setDragging] = useState(false)
   const [dropError, setDropError] = useState('')
 
@@ -74,7 +78,7 @@ export default function ResumeStartOptions({ onImport, onFile, onCreate, selecte
   }
 
   return <section className="resume-start-options" aria-label="Start a resume">
-    <div className="resume-start-intro"><h2>Choose how you want to begin.</h2><p>Import your existing resume, or start from a clean professional template.</p></div>
+    <div className="resume-start-intro"><h2>Choose how you want to begin.</h2></div>
     <div className="resume-start-grid">
       <article className="resume-start-card import-start-card">
         <div className="start-card-heading"><h3>Upload your resume</h3><span>Recommended</span></div>
@@ -104,22 +108,20 @@ export default function ResumeStartOptions({ onImport, onFile, onCreate, selecte
           <button className="secondary-button" type="button" onClick={onImport}>Change file</button>
           <button className="primary-button" type="button" onClick={onRead}>Read document</button>
         </div>}
-        {!selectedFile && <ul className="upload-points">
-          <li>Your experience, education, skills and projects are extracted for you.</li>
-          <li>Only details found in your file are used. Nothing is made up.</li>
-        </ul>}
       </article>
 
       <article className="resume-start-card scratch-start-card">
         <span className="start-card-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 17.5V20h2.5L18.8 7.7l-2.5-2.5L4 17.5Z" /><path d="m14.8 6.2 2.5 2.5M13 20h7" /></svg></span>
         <h3>Start from scratch</h3>
-        <p>Pick a professional template and fill it in section by section, with NIMBUS ready to help with wording.</p>
-        <ul className="scratch-points">
-          <li>Professional templates with live previews</li>
-          <li>Edit any section directly on the page</li>
-          <li>Export to PDF, DOCX or TXT</li>
-        </ul>
-        <button className="secondary-button" type="button" onClick={onCreate}>Start building</button>
+        <p>Pick a template and fill it in section by section.</p>
+        <button className="btn btn-secondary" type="button" onClick={onCreate}>Start building</button>
+      </article>
+
+      <article className="resume-start-card scratch-start-card linkedin-start-card">
+        <span className="start-card-icon is-linkedin"><LinkedInMark size={26} /></span>
+        <h3>Import from LinkedIn</h3>
+        <p>On LinkedIn open your profile, choose <b>Resources → Save to PDF</b>, then upload that file here.</p>
+        <button className="btn btn-secondary" type="button" onClick={onImportLinkedIn}>Choose LinkedIn PDF</button>
       </article>
     </div>
   </section>

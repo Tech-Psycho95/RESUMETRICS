@@ -9,7 +9,10 @@
     "dev:server": "node --watch server/index.js",
     "dev:all": "concurrently -n client,server -c cyan,magenta \"npm run dev\" \"npm run dev:server\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node tests/railSizing.test.js && node tests/sectionProgress.test.js && node tests/inlineMarks.test.js && node tests/factGuard.test.js && node tests/nimbusPlan.test.js && node tests/applyNimbusOperations.test.js && node tests/jdScoring.test.js && node tests/githubEvidence.test.js && node tests/githubScan.test.js",
+    "ai:eval": "node server/ai/evals/run.mjs",
+    "fonts:fetch": "node scripts/fonts/fetch-fonts.mjs"
   },
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.19.14",
@@ -23,6 +26,7 @@
     "firebase-admin": "^14.4.0",
     "groq-sdk": "^1.6.0",
     "jspdf": "^4.2.1",
+    "lenis": "^1.3.26",
     "mammoth": "^1.12.2",
     "octokit": "^5.0.5",
     "pdfjs-dist": "^6.3.289",

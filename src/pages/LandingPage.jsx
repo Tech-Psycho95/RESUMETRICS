@@ -1,15 +1,16 @@
 import { useEffect } from 'react'
-import HeroSection from '../components/landing/HeroSection.jsx'
-import ProblemSection from '../components/landing/ProblemSection.jsx'
-import SolutionSection from '../components/landing/SolutionSection.jsx'
-import HowItWorksSection from '../components/landing/HowItWorksSection.jsx'
-import FeatureGrid from '../components/landing/FeatureGrid.jsx'
-import ProductPreview from '../components/landing/ProductPreview.jsx'
+import { useNavigate } from 'react-router-dom'
+import logo from '../assets/resumetrics-logo.png'
+import CinematicHero from '../components/landing/CinematicHero.jsx'
+import FeatureShowcase from '../components/landing/FeatureShowcase.jsx'
 import FinalCTA from '../components/landing/FinalCTA.jsx'
+import useLenis from '../components/landing/useLenis.js'
 import '../styles/landing.css'
-import '../styles/landing-wordmark.css'
 
 export default function LandingPage() {
+  const navigate = useNavigate()
+  useLenis()
+
   useEffect(() => {
     const previousTitle = document.title
     document.title = 'Resumetrics — Build smarter resumes with AI'
@@ -17,13 +18,14 @@ export default function LandingPage() {
   }, [])
 
   return <div className="landing-page">
-    <HeroSection />
-    <ProblemSection />
-    <SolutionSection />
-    <HowItWorksSection />
-    <FeatureGrid />
-    <ProductPreview />
+    <header className="landing-nav">
+      <a href="#top" className="landing-brand" aria-label="Resumetrics home"><img src={logo} alt="Resumetrics" /></a>
+      <nav className="landing-links" aria-label="Landing page navigation"><a href="#features">Features</a></nav>
+      <button className="landing-nav-cta" type="button" onClick={() => navigate('/login')}>Sign in</button>
+    </header>
+    <CinematicHero />
+    <FeatureShowcase />
     <FinalCTA />
-    <footer className="landing-footer"><span>Resumetrics</span><span>Evidence-led resumes, made editable.</span></footer>
+    <footer className="landing-footer"><img src={logo} alt="Resumetrics" /><span>Resumes built from your real work.</span></footer>
   </div>
 }
