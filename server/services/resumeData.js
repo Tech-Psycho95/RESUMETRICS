@@ -1,3 +1,4 @@
+import { normalizeSkillGroups } from '../../shared/skillGroups.js'
 const skillCategories = ['languages', 'frameworks', 'tools', 'databases', 'softSkills', 'other']
 
 // Human (spoken) languages. Programming languages belong in skills.languages; these belong in resumeData.languages.
@@ -217,7 +218,8 @@ export function normalizeResumeData(value) {
       ? source.links.map(link => typeof link === 'string' ? { label: '', url: link } : asObject(link)).map(link => ({ label: asString(link.label), url: asString(link.url) })).filter(link => link.label || link.url)
       : [],
     summary: asString(source.summary),
-    skills: Object.fromEntries(skillCategories.map(category => [category, asStringList(skills[category])])),
+    // Built-in groups always exist; groups the person named themselves are kept (shared/skillGroups.js).
+    skills: normalizeSkillGroups(skills, asStringList),
     experience: Array.isArray(source.experience)
       ? source.experience.map(asObject).map(item => ({
         role: asString(item.role),

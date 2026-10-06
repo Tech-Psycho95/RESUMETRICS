@@ -1,12 +1,13 @@
 import { useRef } from 'react'
 import LandingIcon from './LandingIcon.jsx'
+import { LinkedInMark } from '../ResumeStartOptions.jsx'
 import ScrollReveal from './ScrollReveal.jsx'
 import useScrollProgress from './useScrollProgress.js'
 
 const features = [
   { id: 'start', tag: 'Start', title: 'Begin any way you like', text: 'Start from a blank page, upload an existing resume, or import your LinkedIn profile PDF. Your details are pulled out and dropped into a template.', Visual: StartVisual },
   { id: 'editor', tag: 'Editor', title: 'A studio for your resume', text: 'Highlight a few words to bold or colour them, pick from 100+ fonts and a full colour catalogue, and undo anything. Every edit shows on the page instantly.', Visual: EditorVisual },
-  { id: 'nimbus', tag: 'NIMBUS AI', title: 'Ask NIMBUS to rewrite it', text: 'Chat to deepen a summary, sharpen bullets or add an education entry. NIMBUS edits content only and is checked so it never invents facts.', Visual: NimbusVisual },
+  { id: 'nimbus', tag: 'AI assistant', title: <>Ask <span className="nimbus-wordmark landing-nimbus">NIMBUS</span> to rewrite it</>, text: 'Chat to deepen a summary, sharpen bullets or add an education entry. NIMBUS edits content only and is checked so it never invents facts.', Visual: NimbusVisual },
   { id: 'match', tag: 'Job match', title: 'Match it to the job', text: 'Paste a job description to get a match score, the skills you are missing, and fixes you can apply with one click on Execute.', Visual: MatchVisual },
   { id: 'github', tag: 'Evidence', title: 'Back it up with GitHub', text: 'Scan your 25 most recent repositories to see your languages by share of code and which resume skills your work actually proves.', Visual: GithubVisual },
   { id: 'export', tag: 'Export', title: 'Export exactly what you see', text: 'Download a crisp PDF with selectable text that matches the editor down to the last font and colour.', Visual: ExportVisual }
@@ -42,7 +43,7 @@ function FeatureCard({ feature, index }) {
 
 function StartVisual() {
   return <div className="v-start">
-    {[['edit', 'Start from scratch'], ['upload', 'Upload resume'], ['switch', 'Import from LinkedIn']].map(([icon, label], i) => <div className="v-tile" style={{ '--i': i }} key={label}><LandingIcon name={icon} size={20} /><span>{label}</span></div>)}
+    {[[<LandingIcon name="edit" size={20} />, 'Start from scratch'], [<LandingIcon name="upload" size={20} />, 'Upload resume'], [<LinkedInMark size={22} />, 'Import from LinkedIn']].map(([icon, label]) => <div className="v-tile" key={label}>{icon}<span>{label}</span></div>)}
   </div>
 }
 
@@ -56,6 +57,7 @@ function EditorVisual() {
 
 function NimbusVisual() {
   return <div className="v-chat">
+    <p className="nimbus-wordmark v-chat-mark">NIMBUS</p>
     <p className="v-bubble user">Make my summary more specific</p>
     <p className="v-bubble bot">Done. I added your 38% load-time win and team lead role, using only facts from your resume.</p>
     <p className="v-task"><span>Rewriting summary…</span></p>

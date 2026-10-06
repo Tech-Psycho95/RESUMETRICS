@@ -12,8 +12,11 @@ import '../src/editor-studio.css'
 import '../src/print.css'
 import EditorShell from '../src/components/editor/EditorShell.jsx'
 import FormatPanel from '../src/components/editor/FormatPanel.jsx'
-import AiRail, { EvidenceDock } from '../src/components/editor/AiRail.jsx'
-import JobMatchPanel from '../src/components/jd/JobMatchPanel.jsx'
+import AiRail, { EvidenceDock, TailorDock } from '../src/components/editor/AiRail.jsx'
+import '../src/job-tailoring.css'
+import TailorWorkspace from '../src/components/jd/TailorWorkspace.jsx'
+import { extractJd } from '../shared/jdExtract.js'
+import { extractJdKeywords, scoreKeywords } from '../shared/jdKeywords.js'
 import useJobMatch from '../src/jd/useJobMatch.js'
 import '../src/job-match.css'
 import '../src/buttons.css'
@@ -51,7 +54,8 @@ function EditorCheck() {
   const [fontFamily, setFontFamily] = useState(null)
   const [baseSize, setBaseSize] = useState(null)
   const [textColor, setTextColor] = useState(null)
-  const [tab, setTab] = useState('nimbus')
+  // ?view=tailor renders the Job tailoring page (PLAN-029) instead of the editor.
+  const view = new URLSearchParams(window.location.search).get('view')
   const [dockOpen, setDockOpen] = useState(false)
   const [description, setDescription] = useState('')
   const [input, setInput] = useState('')
@@ -92,7 +96,27 @@ function EditorCheck() {
     elementIds: () => [...new Set(elementNodes().map(node => node.dataset.resumeElementId))],
     snapshot: adapter.snapshot, restore: adapter.restore, applyOperations: adapter.applyOperations
   } })
-  window.__jd = { jobMatch, get analysis() { return jdAnalysis } }
+  window.__jd = { jobMatch, setAnalysis: setJdAnalysis, get analysis() { return jdAnalysis } }
+  // ?view=tailor&demo=keywords|results: a parsed job (no AI needed). results also scores it and injects fixes.
+  React.useEffect(() => {
+    const demo = new URLSearchParams(window.location.search).get('demo')
+    if (!demo) return
+    const jobText = 'Full Stack Engineer at Acme Cloud\nRemote, India\n\nWhat you will do\n• Build product features in React and Node.js\n• Design microservices and own observability for them\n• Run our platform on Docker and Kubernetes with CI/CD\n\nRequirements\n• Must have 2+ years with React, Node.js and PostgreSQL\n• Experience with Docker, Kubernetes and CI/CD pipelines\n• Strong communication and mentoring\nNice to have: GraphQL, AWS'
+    if (demo === 'post') { setDescription(jobText); return }
+    const jd = extractJd(jobText)
+    const keywords = extractJdKeywords(jd, jobText)
+    const resume = latestRef.current.resumeData
+    const first = resume.experience?.[0]
+    const fixes = [
+      { id: 'd1', kind: 'executable', title: 'Lead your summary with the stack this job runs on', why: 'Puts React, Node.js and Docker where recruiters look first.', operations: [{ type: 'set_field', target: 'summary', value: 'Full-stack engineer building React and Node.js products, shipped with Docker and CI/CD on AWS. ' + (resume.summary || '') }] },
+      { id: 'd2', kind: 'executable', title: 'List Docker with your tools', why: 'Docker is a key requirement and appears in your projects but not your skills.', operations: [{ type: 'append_skills', category: 'tools', values: ['Docker'] }] },
+      ...(first ? [{ id: 'd3', kind: 'executable', title: 'Move your PostgreSQL work to the top of your latest role', why: 'Surfaces PostgreSQL, which the job lists.', operations: [{ type: 'replace_bullets', section: 'experience', itemIndex: 0, values: [...first.bullets].reverse() }] }] : []),
+      { id: 'd4', kind: 'suggestion', title: 'Add Kubernetes if you have used it', why: 'Kubernetes is required and is not on your resume.' }
+    ]
+    setJdAnalysis(demo === 'results'
+      ? { runId: 1, jobText, jd, keywords, step: 'results', baseline: scoreKeywords(resume, keywords).score, fixes, fixState: {}, fixesStatus: 'ready' }
+      : { runId: 1, jobText, jd, keywords, step: 'keywords', fixes: [], fixState: {} })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const restore = useCallback(snapshot => { setResumeData(snapshot.resumeData); setPresentation(snapshot.presentation); setFontFamily(snapshot.fontFamily); setBaseSize(snapshot.baseSize); setTextColor(snapshot.textColor) }, [])
   const [previewingOption, setPreviewingOption] = useState(false)
   const history = useEditorHistory({ resumeData, presentation, fontFamily, baseSize, textColor }, restore, !previewingOption)
@@ -100,6 +124,25 @@ function EditorCheck() {
   const apply = operations => setPresentation(current => applyResumeEditingOperations({ content: {}, presentation: current }, operations).presentation)
   const resolved = resolveResumePresentation(template, { ...presentation, fontFamily })
   const editorStyle = { ...(baseSize ? { fontSize: `${baseSize}px` } : {}), ...(textColor ? { '--resume-text-color': textColor } : {}) }
+
+  const canvas = readOnly => <div className="studio-canvas"><Template resumeData={resumeData} presentation={resolved} editorStyle={editorStyle} useGlobalTextColor={Boolean(textColor)} readOnly={readOnly} onElementSelect={readOnly ? undefined : setSelection} selectedElementId={readOnly ? null : selection?.id} onManualEdit={({ path, value }) => setResumeData(current => setPath(current, path, value))} /></div>
+  // Same before/after comparison MainPage uses to flash what a fix changed.
+  const flashChanges = async action => {
+    const before = new Map([...document.querySelectorAll('.tw-resume .resume-page-document [data-resume-element-id]')].map(node => [node.dataset.resumeElementId, node.textContent]))
+    const result = await action()
+    setTimeout(() => {
+      const changed = [...document.querySelectorAll('.tw-resume .resume-page-document [data-resume-element-id]')].filter(node => before.get(node.dataset.resumeElementId) !== node.textContent)
+      changed.forEach(node => node.classList.add('is-tailor-changed'))
+      window.__lastChanged = changed.map(node => node.dataset.resumeElementId)
+      setTimeout(() => changed.forEach(node => node.classList.remove('is-tailor-changed')), 1600)
+    }, 150)
+    return result
+  }
+  if (view === 'tailor') return <div className="app-shell editor-shell studio-shell"><main><div className="studio tailor-page">
+    <TailorWorkspace analysis={jdAnalysis} resumeData={resumeData} jobMatch={jobMatch} draft={description} onDraftChange={setDescription}
+      onExecuteFix={fix => flashChanges(() => jobMatch.executeFix(fix))} onUndoFix={fix => flashChanges(() => jobMatch.undoFix(fix))} onAnswerFix={fix => setInput(`${fix.question}\n\nMy answer: `)}
+      resumeCanvas={canvas(true)} resumeName="John Doe resume" templateName={template.name} onBack={() => {}} onOpenEditor={() => { window.location.search = '' }} />
+  </div></main></div>
 
   return <div className="app-shell editor-shell studio-shell"><main><div className="studio">
     <header className="studio-topbar editor-toolbar">
@@ -111,15 +154,11 @@ function EditorCheck() {
       <div className="editor-toolbar-actions" />
     </header>
     <EditorShell
-      left={<AiRail tab={tab} onTabChange={setTab} score={jdAnalysis?.score}
+      left={<AiRail
         nimbus={<NimbusChat turns={turns} busy={nimbus.busy} phase={nimbus.phase} task={nimbus.task} available value={input} onChange={event => setInput(event.target.value)} onSend={text => { setInput(''); nimbus.run(text) }} onStop={nimbus.stop} />}
-        jobMatch={<JobMatchPanel analysis={jdAnalysis} busy={jobMatch.busy} available draft={description} onDraftChange={setDescription} attachedFile={jobMatch.file} onAttachFile={jobMatch.setFile} onClearFile={() => jobMatch.setFile(null)}
-          onAnalyse={jobMatch.run} onStop={jobMatch.stop} onExecuteFix={jobMatch.executeFix} onUndoFix={jobMatch.undoFix} onAnswerFix={fix => { setTab('nimbus'); setInput(`${fix.question}
-
-My answer: `) }} onReset={jobMatch.reset} onRetry={jobMatch.retryFixes} error={jobMatch.error} />}
-        evidence={<EvidenceDock onCompare={() => {}} canCompare connected={false} />}
+        docks={<><TailorDock score={jdAnalysis?.score} onOpen={() => { window.location.search = '?view=tailor' }} /><EvidenceDock onCompare={() => {}} canCompare connected={false} /></>}
       />}
-      centre={<div className="studio-canvas"><Template resumeData={resumeData} presentation={resolved} editorStyle={editorStyle} useGlobalTextColor={Boolean(textColor)} onElementSelect={setSelection} selectedElementId={selection?.id} onManualEdit={({ path, value }) => setResumeData(current => setPath(current, path, value))} /></div>}
+      centre={canvas(false)}
       right={<FormatPanel selection={selection} onClearSelection={() => setSelection(null)} resumeData={resumeData} onEditText={(path, value) => setResumeData(current => setPath(current, path, value))}
         onToggleMark={mark => { const value = selection.path.split('.').reduce((current, key) => current?.[key], resumeData); setResumeData(current => setPath(current, selection.path, toggleMarkInRange(value, selection.range.start, selection.range.end, mark))); setSelection({ ...selection, range: null }) }}
         overrides={presentation.elementOverrides ?? {}} onStyle={(target, changes) => apply([{ type: 'set_style', target, changes }])} onClear={target => apply([{ type: 'clear_style', target }])}

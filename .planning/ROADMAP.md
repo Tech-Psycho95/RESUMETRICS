@@ -56,3 +56,16 @@ To be planned after M2.
 | Phase | Plan | Goal | Requirements | Status |
 |---|---|---|---|---|
 | 26 | PLAN-026 | Lenis + scroll-driven resume-fill hero, logo reveal, six feature containers | LND-01…08 | Done |
+
+## M2.3: Templates, inclusive form, job tailoring (user request 2026-10-05)
+
+| Phase | Plan | Goal | Requirements | Status |
+|---|---|---|---|---|
+| 27 | PLAN-027 | Six LaTeX template clones on the shared renderer | TPL-01…08 | Done |
+| 28 | PLAN-028 | User-defined skill groups, neutral copy, additional sections, accessible form | INC-01…06, A11Y-01…07 | Done |
+| 29 | PLAN-029 | Job tailoring page: JD half and live resume half | TLR-01…06 | Done (sign-in walkthrough pending) |
+| 30 | PLAN-030 | Keyword-driven job match, fixes switch, score spotlight | JDK-01…08 | Done (signed-in check pending) |
+| 31 | PLAN-031 | Product-grade tailoring UI from the Resume Worded references, instant keywords | TUI-01…10 | Done (signed-in check pending) |
+| 32 | PLAN-032 | GitHub evidence in the same product UI | EVU-01…09 | Done (signed-in check pending) |
+
+Order: 27, then 28 (it reuses the skill label helper from 27), then 29.

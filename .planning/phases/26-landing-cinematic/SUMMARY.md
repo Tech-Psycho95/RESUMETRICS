@@ -11,3 +11,8 @@
 
 ## Verified (browser pane)
 Frames checked at p=0, 0.4 and 1, plus the feature cards. At 375px there is no horizontal scroll (scrollWidth = 375).
+
+## Follow-up (user, 2026-10-05)
+- The "Import from LinkedIn" tile now uses the LinkedIn mark (`LinkedInMark` from `ResumeStartOptions`).
+- Template deck: when the logo appears, four copies of the same resume in other templates (serif, band, rail, mono) slide out from behind the original (`ResumeSheet`, `.cine-deck`).
+- The NIMBUS card uses the editor's wordmark (Rammetto One, rainbow, `.nimbus-wordmark`) in its title and chat visual.

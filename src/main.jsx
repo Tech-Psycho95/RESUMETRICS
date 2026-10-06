@@ -23,7 +23,7 @@ import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
 import NimbusChat from './components/nimbus/NimbusChat.jsx'
 import EditorShell from './components/editor/EditorShell.jsx'
 import FormatPanel from './components/editor/FormatPanel.jsx'
-import AiRail, { EvidenceDock } from './components/editor/AiRail.jsx'
+import AiRail, { EvidenceDock, TailorDock } from './components/editor/AiRail.jsx'
 import SectionForm from './components/form/SectionForm.jsx'
 import { formSectionsFor, hasStartedForm } from './form/sectionProgress.js'
 import { describeResumeElement } from './editor/describeResumeElement.js'
@@ -47,8 +47,10 @@ import { findFont, loadFontsForPresentation, resumeFonts } from './editor/fontRe
 import { extractResumeDocument } from './utils/extractResumeDocument.js'
 import useJobMatch from './jd/useJobMatch.js'
 import { streamNdjson } from './utils/readNdjson.js'
-import JobMatchPanelV2 from './components/jd/JobMatchPanel.jsx'
-import EvidenceScreen from './components/evidence/EvidenceScreen.jsx'
+import TailorWorkspace from './components/jd/TailorWorkspace.jsx'
+import { scoreKeywords } from '../shared/jdKeywords.js'
+import EvidenceWorkspace from './components/evidence/EvidenceWorkspace.jsx'
+import './job-tailoring.css'
 import './evidence.css'
 import './buttons.css'
 import './format-panel.css'
@@ -67,7 +69,7 @@ const navSections = [
     ['Plan', null, 'crown']
   ] },
   { label: 'Career tools', items: [
-    ['Job tailoring', null, 'target'],
+    ['Job tailoring', '/workspace/tailor', 'target'],
     ['Cover letters', null, 'mail'],
     ['Evidence check', '/evaluation', 'evidence'],
     ['Job tracker', null, 'briefcase']
@@ -692,7 +694,7 @@ const helpArticles = [
   { topic: 'editing', question: 'How do I edit text on my resume?', answer: 'In the editor, click any text on the resume to edit it. The Format panel on the right changes fonts, size and colours — highlight words to make just those bold, italic or underlined.' },
   { topic: 'editing', question: 'Can I add a profile photo?', answer: 'Yes, on templates that support a photo. Upload a JPEG image from the editor, then adjust its position and size.' },
   { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS writes for you: ask it to deepen your summary, strengthen bullets, add something to a section or change a detail. It only uses facts from your resume or what you tell it. Fonts and colours are changed in the Format panel.' },
-  { topic: 'nimbus', question: 'How do I tailor my resume to a job?', steps: ['Open your resume in the editor and choose Job match on the left.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the fixes you want.'] },
+  { topic: 'nimbus', question: 'How do I tailor my resume to a job?', steps: ['Open Job tailoring from the sidebar, or press Open beside "Tailor to a job" in the editor.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the changes you want and watch them appear on your resume beside it.'] },
   { topic: 'import', question: 'How do I start from my LinkedIn profile?', steps: ['On a desktop browser, open LinkedIn and go to Me → View Profile.', 'Choose Resources (or More), then Save to PDF.', 'In Resumetrics, choose Import from LinkedIn, upload that PDF, then pick a template.'] },
   { topic: 'evidence', question: 'Why connect GitHub?', answer: 'In the editor, press Compare next to GitHub evidence. Your 25 most recently updated repositories are scanned and each resume skill is shown with its share of your code; under 5% counts as too little evidence.' },
   { topic: 'export', question: 'Which formats can I download?', answer: 'Use the Export menu in the editor to download your resume as a PDF, a Word document (DOCX) or plain text (TXT).' },
@@ -810,7 +812,7 @@ function TemplatePreviewDialog({ template, previewData = templatePreviewResumeDa
         <p>{template.summary}</p>
         <span className="template-gallery-tags">{(template.tags ?? []).filter(tag => !/^(single|two)-column$/i.test(tag)).map(tag => <i key={tag}>{tag}</i>)}</span>
         <button className="template-preview-use" type="button" onClick={onUse} autoFocus>Use this template</button>
-        <small className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Adapted from Reactive Resume' : 'Resumetrics classic'}</small>
+        <small className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Adapted from Reactive Resume' : template.collection === 'latex' ? 'LaTeX classic' : 'Resumetrics classic'}</small>
       </div>
     </div>
   </div>
@@ -858,7 +860,7 @@ function TemplateGallery({ title = 'Templates', subtitle, previewData = template
                   <b>{template.name}</b>
                   <small>{template.description}</small>
                   <span className="template-gallery-tags">{(template.tags ?? []).filter(tag => !/^(single|two)-column$/i.test(tag)).slice(0, 3).map(tag => <i key={tag}>{tag}</i>)}</span>
-                  <span className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Reactive Resume' : 'Resumetrics classic'}</span>
+                  <span className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Reactive Resume' : template.collection === 'latex' ? 'LaTeX classic' : 'Resumetrics classic'}</span>
                 </span>
               </button>
             </li>
@@ -977,11 +979,16 @@ function MainPage() {
   const isBuilderRoute = workspaceRoute === 'build'
   const isEditorRoute = workspaceRoute === 'editor'
   const isEvidenceRoute = workspaceRoute === 'evidence'
-  const isStartRoute = !isTemplatesRoute && !isBuilderRoute && !isEditorRoute && !isEvidenceRoute
+  const isTailorRoute = workspaceRoute === 'tailor'
+  const isStartRoute = !isTemplatesRoute && !isBuilderRoute && !isEditorRoute && !isEvidenceRoute && !isTailorRoute
   const hasDraft = Boolean(TemplateComponent) && Boolean(resumeData)
   const isScratchResume = !uploadedFileName
   const isEditorReady = workspaceMode === 'editor-ready' && hasDraft
   const isEditorPage = isEditorRoute && isEditorReady
+  // Job tailoring (PLAN-029): job match on one half, the live resume (read-only) on the other.
+  const isTailorPage = isTailorRoute && isEditorReady
+  // GitHub evidence (PLAN-032) shows the live resume read-only in its preview pane.
+  const isEvidencePage = isEvidenceRoute && hasDraft
   const isBuilderPage = isBuilderRoute && hasDraft && isScratchResume
   const resumeStyle = {
     fontFamily: fontFamily || selectedTemplate?.defaultTheme?.fontFamily || resumeFonts[0].family,
@@ -1023,9 +1030,9 @@ function MainPage() {
     }
     if (isBuilderPage && workspaceMode !== 'builder') setWorkspaceMode('builder')
     if (isEvidenceRoute && !hasDraft) { navigate('/workspace', { replace: true }); return }
-    if (isEditorRoute && !hasDraft) navigate('/workspace', { replace: true })
-    else if (isEditorRoute && workspaceMode !== 'editor-ready') setWorkspaceMode('editor-ready')
-  }, [hasDraft, isBuilderPage, isBuilderRoute, isEditorRoute, isEvidenceRoute, isScratchResume, location.state, navigate, resumeData, workspaceMode])
+    if ((isEditorRoute || isTailorRoute) && !hasDraft) navigate('/workspace', { replace: true })
+    else if ((isEditorRoute || isTailorRoute) && workspaceMode !== 'editor-ready') setWorkspaceMode('editor-ready')
+  }, [hasDraft, isBuilderPage, isBuilderRoute, isEditorRoute, isEvidenceRoute, isTailorRoute, isScratchResume, location.state, navigate, resumeData, workspaceMode])
 
   useEffect(() => {
     resumeDataRef.current = resumeData
@@ -1578,11 +1585,12 @@ function MainPage() {
   const answerJdFixWithNimbus = fix => {
     setAiTab('nimbus')
     setAssistantInput(`${fix.question}\n\nMy answer: `)
-    requestAnimationFrame(() => {
+    if (!isEditorRoute) navigate('/workspace/editor')
+    setTimeout(() => {
       const input = assistantInputRef.current
       input?.focus()
       input?.setSelectionRange?.(input.value.length, input.value.length)
-    })
+    }, 120)
   }
 
   const editorReady = editor => { editorRef.current = editor }
@@ -1638,7 +1646,7 @@ function MainPage() {
       elementOverrides: latest.resumePresentation.elementOverrides ?? {},
       selection: selection ? { id: selection.id, label: describeResumeElement(selection.id).label, text: selection.text ?? '', highlighted } : null,
       conversation: assistantMessages.filter(turn => turn.text).slice(-10).map(turn => ({ role: turn.role, text: turn.text })),
-      job: analysis?.jd ? { title: analysis.jd.title, score: analysis.score, mustHave: analysis.jd.mustHave, missingKeywords: analysis.keywords?.missing?.slice(0, 15) } : null
+      job: analysis?.jd ? (() => { const match = scoreKeywords(resumeDataRef.current ?? resumeData ?? {}, analysis.keywords ?? []); return { title: analysis.jd.title, score: analysis.step === 'results' ? match.score : null, mustHave: analysis.jd.mustHave, missingKeywords: match.rows.filter(row => !row.found).map(row => row.term).slice(0, 15) } })() : null
     }
   }
 
@@ -1704,7 +1712,7 @@ function MainPage() {
     analysis, setAnalysis, draft: description, setDraft: setDescription,
     adapter: {
       getResume: () => resumeDataRef.current ?? resumeData,
-      pageCount, elementIds: pageElementIds, snapshot: snapshotEditorState,
+      elementIds: pageElementIds, snapshot: snapshotEditorState,
       restore: snapshot => { restoreHistorySnapshot(snapshot); resumeDataRef.current = snapshot.resumeData },
       applyOperations: applyNimbusOps
     }
@@ -1730,7 +1738,7 @@ function MainPage() {
     />
   </Shell>
 
-  const isStepPage = isEditorPage || isBuilderPage
+  const isStepPage = isEditorPage || isBuilderPage || isTailorPage || isEvidencePage
   const supportsPhoto = Boolean(selectedTemplate?.supportsPhoto)
   const hasUploadedPhoto = Boolean(resumePresentation.photo?.uploaded)
   const photoControls = <ProfilePhotoControls photo={resumePresentation.photo} onChange={updateProfilePhoto} error="" />
@@ -1748,14 +1756,14 @@ function MainPage() {
     <input ref={linkedinUploadInputRef} className="upload-input" type="file" accept=".pdf,application/pdf" aria-label="Choose LinkedIn profile PDF" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) { resetWorkspace(); readDocument(file, 'linkedin') } }} />
     {isStepPage && supportsPhoto && <input ref={profilePhotoInputRef} className="upload-input" type="file" accept="image/jpeg,.jpg,.jpeg" aria-label="Choose JPEG profile photo" onChange={handleProfilePhotoUpload} />}
   </>
-  const resumeCanvas = isStepPage && <div className="studio-canvas" style={{ '--canvas-zoom': isEditorPage ? canvasZoom : 1 }}>
+  const resumeCanvas = isStepPage && <div className="studio-canvas" style={{ '--canvas-zoom': isEditorPage || isTailorPage ? canvasZoom : 1 }}>
     <TemplateComponent
       resumeData={resumeData}
       editorRef={editorReady}
       editorStyle={resumeStyle}
       useGlobalTextColor={useGlobalTextColor}
       footerText={footerText}
-      readOnly={isBuilderPage}
+      readOnly={isBuilderPage || isTailorPage || isEvidencePage}
       onManualEdit={isEditorPage ? handleManualResumeEdit : undefined}
       onElementSelect={isEditorPage ? selectResumeElement : undefined}
       selectedElementId={isEditorPage ? selectedResumeElement?.id ?? null : null}
@@ -1788,20 +1796,36 @@ function MainPage() {
     </div>, document.body)}
   </>
 
-  if (isEvidenceRoute && hasDraft) return <Shell immersive studio>
-    <div className="studio">
-      <header className="studio-topbar">
-        <div className="studio-topbar-start">
-          <button className="btn btn-ghost btn-icon" type="button" onClick={() => navigate('/workspace/editor')} aria-label="Back to the editor" title="Back to the editor"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5" /></svg></button>
-          <div className="studio-title-wrap"><span className="studio-title is-static">Evidence with GitHub</span><span className="studio-subtitle">{resumeName}</span></div>
-        </div>
-      </header>
+  // Text of every resume element on the tailoring canvas, to show what a fix changed.
+  const readCanvasText = () => new Map([...document.querySelectorAll('.tw-resume .resume-page-document [data-resume-element-id]')].map(node => [node.dataset.resumeElementId, node.textContent]))
+  const flashChanges = async action => {
+    const before = readCanvasText()
+    const result = await action()
+    setTimeout(() => {
+      const changed = [...document.querySelectorAll('.tw-resume .resume-page-document [data-resume-element-id]')].filter(node => before.get(node.dataset.resumeElementId) !== node.textContent)
+      changed[0]?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      changed.forEach(node => node.classList.add('is-tailor-changed'))
+      setTimeout(() => changed.forEach(node => node.classList.remove('is-tailor-changed')), 1600)
+    }, 150)
+    return result
+  }
+  if (isTailorPage) return <Shell immersive studio>
+    <div className="studio tailor-page">
       {hiddenInputs}
-      <EvidenceScreen
-        github={{ connected: githubConnection.connected, connecting: githubConnecting || githubConnection.loading, onConnect: startGitHubConnection, scan: githubScan, onScan: runGitHubScan, onCancel: () => githubScanAbortRef.current?.abort() }}
-        onAddEvidence={() => navigate('/workspace/editor')}
-        onContinue={() => navigate('/workspace/editor')}
-      />
+      <TailorWorkspace analysis={analysis} resumeData={resumeData} jobMatch={jobMatch} draft={description} onDraftChange={setDescription}
+        onExecuteFix={fix => flashChanges(() => jobMatch.executeFix(fix))} onUndoFix={fix => flashChanges(() => jobMatch.undoFix(fix))} onAnswerFix={answerJdFixWithNimbus}
+        resumeCanvas={resumeCanvas} resumeName={resumeName} templateName={selectedTemplate?.name} onBack={() => navigate('/workspace/editor')} onOpenEditor={() => navigate('/workspace/editor')} />
+    </div>
+    {dialogs}
+  </Shell>
+
+  if (isEvidencePage) return <Shell immersive studio>
+    <div className="studio tailor-page">
+      {hiddenInputs}
+      <EvidenceWorkspace
+        github={{ connected: githubConnection.connected, connecting: githubConnecting || githubConnection.loading, login: githubConnection.githubLogin, onConnect: startGitHubConnection, scan: githubScan, onScan: runGitHubScan, onCancel: () => githubScanAbortRef.current?.abort() }}
+        resumeCanvas={resumeCanvas} resumeName={resumeName} templateName={selectedTemplate?.name}
+        onBack={() => navigate('/workspace/editor')} onOpenEditor={() => navigate('/workspace/editor')} />
     </div>
     {dialogs}
   </Shell>
@@ -1898,35 +1922,12 @@ function MainPage() {
     onSend={text => { setAssistantInput(''); nimbus.run(text) }}
     onStop={nimbus.stop}
   />
-  const askNimbusAboutSkill = skill => {
-    setAiTab('nimbus')
-    setAssistantInput(`The job asks for “${skill}”. If my resume already shows real experience with it, reword the most relevant bullet so that is clear. If it does not, don't add it — tell me what evidence I would need instead.`)
-    requestAnimationFrame(() => assistantInputRef.current?.focus())
-  }
   const aiRail = <AiRail
-    tab={aiTab}
-    onTabChange={setAiTab}
-    score={analysis?.score != null && !jobMatch.busy ? analysis.score : null}
     nimbus={assistantEditor}
-    jobMatch={<JobMatchPanelV2
-      analysis={analysis}
-      busy={jobMatch.busy}
-      available={isEditorPage}
-      draft={description}
-      onDraftChange={setDescription}
-      attachedFile={jobMatch.file}
-      onAttachFile={jobMatch.setFile}
-      onClearFile={() => jobMatch.setFile(null)}
-      onAnalyse={jobMatch.run}
-      onStop={jobMatch.stop}
-      onExecuteFix={jobMatch.executeFix}
-      onUndoFix={jobMatch.undoFix}
-      onAnswerFix={answerJdFixWithNimbus}
-      onReset={jobMatch.reset}
-      onRetry={jobMatch.retryFixes}
-      error={jobMatch.error}
-    />}
-    evidence={<EvidenceDock onCompare={openEvidence} canCompare={hasDraft} connected={githubConnection.connected} />}
+    docks={<>
+      <TailorDock score={analysis?.step === 'results' && resumeData ? scoreKeywords(resumeData, analysis.keywords).score : null} onOpen={() => navigate('/workspace/tailor')} />
+      <EvidenceDock onCompare={openEvidence} canCompare={hasDraft} connected={githubConnection.connected} />
+    </>}
   />
   const formatPanel = <FormatPanel
     selection={selectedResumeElement}

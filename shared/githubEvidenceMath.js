@@ -60,3 +60,14 @@ export function skillEvidence(resumeSkills, repos, { excludeMarkup = false } = {
     return { name: skill, share: 0, repos: mentioned.map(repo => repo.name), source: mentioned.length ? 'readme' : null, status: evidenceStatus(0, false, mentioned.length > 0) }
   }).sort((a, b) => b.share - a.share || a.name.localeCompare(b.name))
 }
+
+// How much each status counts towards the overall code-evidence score (PLAN-032).
+export const EVIDENCE_WEIGHTS = { strong: 1, moderate: 0.7, weak: 0.3, mentioned: 0.1, none: 0 }
+
+/** 0–100: how well the resume's skills are backed by code, plus counts per status. */
+export function evidenceScore(skills = []) {
+  const counts = { strong: 0, moderate: 0, weak: 0, mentioned: 0, none: 0 }
+  skills.forEach(skill => { counts[skill.status] = (counts[skill.status] ?? 0) + 1 })
+  const score = skills.length ? Math.round(skills.reduce((sum, skill) => sum + (EVIDENCE_WEIGHTS[skill.status] ?? 0), 0) / skills.length * 100) : 0
+  return { score, counts, backed: counts.strong + counts.moderate, total: skills.length }
+}
