@@ -77,7 +77,7 @@ export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, ad
         }
       })
     } catch (caught) {
-      if (!controller.signal.aborted) setAnalysis(current => ({ ...current, fixesStatus: 'error', fixesError: caught instanceof TypeError ? 'The job match service is offline.' : 'Changes could not be prepared.' }))
+      if (!controller.signal.aborted) setAnalysis(current => ({ ...current, fixesStatus: 'error', fixesError: caught instanceof TypeError ? 'The job match service is offline.' : caught?.status ? caught.message : 'Changes could not be prepared.' }))
     } finally {
       abortRef.current = null
     }

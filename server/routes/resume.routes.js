@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { AIConfigurationError } from '../config/env.js'
+import { AIBusyError } from '../ai/providerBudget.js'
 import { normalizeResumeData } from '../services/resumeData.js'
 import { extractCompleteResumeDocument, extractSourceFallbackDocument, MAX_DOCUMENT_CHARACTERS, normalizeResumeDocument } from '../services/resumeExtraction.js'
 
@@ -27,6 +28,11 @@ router.post('/extract', async (request, response) => {
   } catch (error) {
     console.error('Resume extraction failed:', error)
     if (error instanceof AIConfigurationError) return configurationError(response)
+    // Busy AI: ask the person to retry rather than handing back the much weaker text-only fallback.
+    if (error instanceof AIBusyError) {
+      response.set('Retry-After', String(error.retryAfterSeconds))
+      return response.status(429).json({ ok: false, error: `${error.message} Your file wasn't changed.`, retryAfterSeconds: error.retryAfterSeconds })
+    }
     const result = extractSourceFallbackDocument(sourceDocument)
     return response.json({ ok: true, ...result })
   }

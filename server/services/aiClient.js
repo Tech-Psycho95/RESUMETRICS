@@ -1,5 +1,13 @@
 import Groq from 'groq-sdk'
 import { env, validateAIConfiguration } from '../config/env.js'
+import { AIBusyError, providerBudget } from '../ai/providerBudget.js'
+
+// Seconds from a provider 429's Retry-After header (Headers object or plain record), default 30.
+function retryAfterSeconds(error) {
+  const raw = typeof error?.headers?.get === 'function' ? error.headers.get('retry-after') : error?.headers?.['retry-after']
+  const seconds = Number(raw)
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : 30
+}
 
 function createProviderClient() {
   validateAIConfiguration()
@@ -58,7 +66,16 @@ export async function generateAIResponse({
   if (Number.isInteger(maxCompletionTokens)) request.max_completion_tokens = maxCompletionTokens
   if (reasoningEffort && isReasoningModel(selectedModel)) request.reasoning_effort = reasoningEffort
 
-  const completion = await client.chat.completions.create(request)
+  // Every model call passes the app-wide provider budget first (throws AIBusyError when it is spent).
+  const ticket = providerBudget.reserve(request.messages)
+  let completion
+  try {
+    completion = await client.chat.completions.create(request)
+  } catch (error) {
+    if (error?.status === 429) throw new AIBusyError(retryAfterSeconds(error), 'provider')
+    throw error
+  }
+  providerBudget.settle(ticket, completion.usage?.total_tokens)
 
   const result = completion.choices?.[0]?.message?.content?.trim()
   if (!result) throw new Error('The AI provider returned an empty response.')

@@ -9,6 +9,11 @@ const serverDirectory = path.resolve(configDirectory, '..')
 dotenv.config({ path: path.join(serverDirectory, '.env.local'), quiet: true })
 dotenv.config({ path: path.join(serverDirectory, '.env'), quiet: true })
 
+const positiveInt = (name, fallback) => {
+  const value = Number.parseInt(process.env[name] ?? '', 10)
+  return Number.isInteger(value) && value > 0 ? value : fallback
+}
+
 const firebaseServiceAccountPath =
   process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim() ||
   process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim() ||
@@ -41,7 +46,18 @@ export const env = Object.freeze({
       github: process.env.RESUMETRICS_AI_MODEL_GITHUB?.trim() ?? ''
     })
   }),
-  githubScanCap: Math.max(1, Math.min(100, Number.parseInt(process.env.RESUMETRICS_GITHUB_SCAN_CAP ?? '25', 10) || 25))
+  githubScanCap: Math.max(1, Math.min(100, Number.parseInt(process.env.RESUMETRICS_GITHUB_SCAN_CAP ?? '25', 10) || 25)),
+  // Rate limits (server/middleware/limits.js, server/ai/providerBudget.js). Provider defaults match the Groq free tier.
+  limits: Object.freeze({
+    ipPerMinute: positiveInt('RESUMETRICS_LIMIT_IP_PER_MINUTE', 60),
+    userAiPerMinute: positiveInt('RESUMETRICS_LIMIT_USER_AI_PER_MINUTE', 10),
+    userAiPerDay: positiveInt('RESUMETRICS_LIMIT_USER_AI_PER_DAY', 150),
+    providerRpm: positiveInt('RESUMETRICS_AI_RPM', 30),
+    providerTpm: positiveInt('RESUMETRICS_AI_TPM', 8000),
+    providerRpd: positiveInt('RESUMETRICS_AI_RPD', 1000)
+  }),
+  // Number of reverse proxies in front of the server (e.g. 1 on Cloud Run or Render), so rate limits see real client IPs.
+  trustProxy: Math.max(0, Number.parseInt(process.env.RESUMETRICS_TRUST_PROXY ?? '0', 10) || 0)
 })
 
 export class GitHubConfigurationError extends Error {
