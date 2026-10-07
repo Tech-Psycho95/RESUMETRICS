@@ -17,3 +17,13 @@
   .print-root [data-selected], .print-root .is-form-focus { outline: none !important; background: transparent !important; }
   .print-root .generated-resume-photo-upload { display: none !important; }
 }
+
+/* Cover letter (PLAN-033): the letter prints as its own A4 sheet(s), before the resume when both are exported. */
+@media print {
+  .print-root .letter-shell, .print-root .letter-scroller { padding: 0 !important; overflow: visible !important; background: transparent !important; }
+  .print-root .letter-page-document { display: block !important; zoom: 1 !important; }
+  .print-root .letter-page-frame { min-height: 297mm !important; }
+  .print-root .letter-page.generated-resume.resume-a4-page { min-height: 297mm !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-root .letter-page-break, .print-root .letter-signature-add { display: none !important; }
+  .print-root .print-letter-section { break-after: page; page-break-after: always; }
+}

@@ -1,0 +1,35 @@
+/* "Select a resume first" pop-up (PLAN-033): opens from the sidebar over the current page and blurs it. */
+.gate-backdrop { position: fixed; inset: 0; z-index: 200; display: grid; padding: 20px; place-items: center; background: rgba(19, 32, 58, .38); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: gate-fade .16s ease-out; }
+.gate-dialog { position: relative; display: grid; gap: 14px; width: min(480px, 100%); padding: 26px 26px 24px; color: #13203a; background: #fff; border: 1px solid #e0e3ec; border-radius: 18px; box-shadow: 0 24px 60px rgba(19, 32, 58, .28); animation: gate-rise .18s ease-out; }
+.gate-dialog h2 { margin: 0; padding-right: 32px; font-size: 22px; font-weight: 650; letter-spacing: -.005em; line-height: 1.2; }
+.gate-text { margin: 0; color: #5d6780; font-size: 14.5px; line-height: 1.55; }
+.gate-text b { color: #13203a; font-weight: 650; }
+.gate-close { position: absolute; top: 14px; right: 14px; }
+.gate-list { display: grid; gap: 10px; margin: 4px 0 0; padding: 0; list-style: none; }
+.gate-list li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #f7f8fc; border: 1px solid #e6e9f1; border-radius: 14px; }
+.gate-mark { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; color: #fff; font-size: 16px; font-weight: 700; background: var(--accent, #5b45e4); border-radius: 12px; }
+.gate-info { display: grid; flex: 1 1 auto; min-width: 0; line-height: 1.3; }
+.gate-info b { overflow: hidden; color: #13203a; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.gate-info small { color: #6b7489; font-size: 12.5px; }
+.gate-empty { display: grid; gap: 6px; margin-top: 4px; padding: 16px; background: #f7f8fc; border: 1px solid #e6e9f1; border-radius: 14px; }
+.gate-empty h3 { margin: 0; color: #13203a; font-size: 15.5px; }
+.gate-empty p { margin: 0 0 8px; color: #5d6780; font-size: 13.5px; line-height: 1.5; }
+.gate-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 480px) { .gate-dialog { padding: 22px 18px 18px; } .gate-list li { flex-wrap: wrap; } .gate-list .btn { width: 100%; } }
+@keyframes gate-fade { from { opacity: 0; } }
+@keyframes gate-rise { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .gate-backdrop, .gate-dialog { animation: none; } }
+
+/* The three career tools are buttons in the sidebar (they open the pop-up), styled like the links around them. */
+.app-shell .sidebar button.sidebar-link { width: 100%; font: inherit; font-size: 14.5px; font-weight: 550; text-align: left; cursor: pointer; }
+.app-shell .sidebar button.sidebar-link:hover { border-color: #eceef5; color: #172033; background: #fff; }
+.app-shell .sidebar button.sidebar-link:hover svg { color: var(--accent); }
+.app-shell .sidebar button.sidebar-link:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .3); outline-offset: 2px; }
+.app-shell .sidebar button.sidebar-link.active { border-color: transparent; color: #fff; background: linear-gradient(135deg, var(--accent-light), var(--accent-strong)); box-shadow: 0 8px 18px rgba(var(--accent-rgb), .28); }
+.app-shell .sidebar button.sidebar-link.active svg { color: #fff; }
+
+[data-resolved-theme="dark"] .gate-dialog { color: #edf1ff; background: #1a2336; border-color: #303a52; }
+[data-resolved-theme="dark"] .gate-dialog h2, [data-resolved-theme="dark"] .gate-text b, [data-resolved-theme="dark"] .gate-info b, [data-resolved-theme="dark"] .gate-empty h3 { color: #edf1ff; }
+[data-resolved-theme="dark"] .gate-text, [data-resolved-theme="dark"] .gate-empty p { color: #a8b3cb; }
+[data-resolved-theme="dark"] .gate-list li, [data-resolved-theme="dark"] .gate-empty { background: #121a2b; border-color: #303a52; }
+[data-resolved-theme="dark"] .app-shell .sidebar button.sidebar-link:hover { color: #edf1ff; background: #222c45; border-color: #36415c; }

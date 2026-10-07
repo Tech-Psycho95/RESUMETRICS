@@ -15,7 +15,7 @@ const GROUP_NAMES = { hard: 'Hard skill', keyword: 'Requirement', soft: 'Soft sk
  * Job tailoring (PLAN-031): bar, sidebar (score + fixes), workspace (job post → keywords → report)
  * and a preview pane (side by side, job post, resume, changes). `resumeCanvas` is the live template.
  */
-export default function TailorWorkspace({ analysis, resumeData, jobMatch, draft, onDraftChange, onExecuteFix, onUndoFix, onAnswerFix, resumeCanvas, resumeName, templateName, onBack, onOpenEditor }) {
+export default function TailorWorkspace({ analysis, resumeData, jobMatch, draft, onDraftChange, onExecuteFix, onUndoFix, onAnswerFix, resumeCanvas, resumeName, templateName, onBack, onOpenEditor, onWriteLetter }) {
   useEffect(() => { loadResumeFont('Figtree') }, [])
   const stage = !analysis?.jd || !Array.isArray(analysis.keywords) ? 'post' : analysis.step === 'results' ? 'report' : 'keywords'
   const [view, setView] = useState('keywords')
@@ -81,6 +81,7 @@ export default function TailorWorkspace({ analysis, resumeData, jobMatch, draft,
       <div className="tw-bar-actions">
         <button type="button" className="tw-btn tw-btn-on-dark tw-preview-toggle" onClick={() => setPreviewOpen(open => !open)} aria-expanded={previewOpen}><Icon name="resume" />{previewOpen ? 'Hide preview' : 'Preview'}</button>
         {analysis && <button type="button" className="tw-btn tw-btn-on-dark" onClick={jobMatch.reset}><Icon name="plus" />New job post</button>}
+        {onWriteLetter && analysis?.jd && <button type="button" className="tw-btn tw-btn-on-dark" onClick={onWriteLetter}><Icon name="post" />Write a cover letter</button>}
         <button type="button" className="tw-btn tw-btn-primary" onClick={onOpenEditor}><Icon name="open" />Open in editor</button>
       </div>
     </header>
