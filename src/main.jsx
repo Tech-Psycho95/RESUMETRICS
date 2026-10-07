@@ -1405,16 +1405,6 @@ function MainPage() {
         const toParagraphs = (text, breakBefore = false) => text.split(/\r?\n/).map((line, index) => new Paragraph({ pageBreakBefore: breakBefore && index === 0, children: [new TextRun(line || ' ')] }))
         const documentDocx = new Document({ sections: [{ children: [...(letterText ? toParagraphs(letterText) : []), ...toParagraphs(resumeContent, Boolean(letterText))] }] })
         downloadBlob(await Packer.toBlob(documentDocx), `${baseName}.docx`)
-      } else if (format === 'PPTX') {
-        const module = await import('pptxgenjs')
-        const PptxGenJS = module.default || module
-        const presentation = new PptxGenJS()
-        presentation.layout = 'LAYOUT_WIDE'
-        const slide = presentation.addSlide()
-        slide.background = { color: 'FFFFFF' }
-        slide.addText(resumeName, { x: 0.6, y: 0.45, w: 12.1, h: 0.4, fontSize: 24, bold: true, color: '172033' })
-        slide.addText(content, { x: 0.6, y: 1.1, w: 12.1, h: 5.8, fontSize: 11, color: '26314A', fit: 'shrink', breakLine: false })
-        await presentation.writeFile({ fileName: `${baseName}.pptx` })
       }
     } catch (error) {
       showAssistantError(`Export failed. Please try again${error?.message ? `: ${error.message}` : '.'}`)
