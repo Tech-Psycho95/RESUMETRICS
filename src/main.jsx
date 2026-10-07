@@ -47,6 +47,7 @@ import { findFont, loadFontsForPresentation, resumeFonts } from './editor/fontRe
 import { extractResumeDocument } from './utils/extractResumeDocument.js'
 import useJobMatch from './jd/useJobMatch.js'
 import { streamNdjson } from './utils/readNdjson.js'
+import { authHeaders } from './utils/authHeaders.js'
 import TailorWorkspace from './components/jd/TailorWorkspace.jsx'
 import { scoreKeywords } from '../shared/jdKeywords.js'
 import EvidenceWorkspace from './components/evidence/EvidenceWorkspace.jsx'
@@ -1493,7 +1494,7 @@ function MainPage() {
       if (!extractedDocument.rawText) throw new Error('Could not read this file. Try a text-based PDF, DOCX, or TXT file.')
       const response = await fetch('/api/resume/extract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ document: { pages: extractedDocument.pages, links: extractedDocument.links ?? [], metadata: { ...extractedDocument.metadata, ...(source === 'linkedin' ? { sourceType: 'linkedin' } : {}) } } })
       })
       const isJson = response.headers.get('content-type')?.includes('application/json')

@@ -6,7 +6,7 @@ import githubRoutes from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
 import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
-import { initializeFirebaseAdmin } from './services/firebaseAdmin.js'
+import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 
 const app = express()
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
@@ -43,15 +43,16 @@ app.use(express.json({ limit: '2mb' }))
 
 app.use('/api/ai', aiRoutes)
 app.use('/api/github', githubRoutes)
-app.use('/api/resume', resumeRoutes)
-app.use('/api/nimbus', nimbusRoutes)
-app.use('/api/jd', jdRoutes)
+// Resume import, NIMBUS and job fixes call the AI model: signed-in users only.
+app.use('/api/resume', requireUser, resumeRoutes)
+app.use('/api/nimbus', requireUser, nimbusRoutes)
+app.use('/api/jd', requireUser, jdRoutes)
 
 try {
   initializeFirebaseAdmin()
   console.log('Firebase Admin initialized for authenticated integrations.')
 } catch {
-  console.error('Firebase service account configuration is missing or invalid. GitHub endpoints will remain unavailable until it is configured.')
+  console.error('Firebase service account configuration is missing or invalid. AI and GitHub endpoints will refuse requests until it is configured.')
 }
 
 app.use((error, _request, response, _next) => {
