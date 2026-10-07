@@ -76,4 +76,5 @@ app.use((error, _request, response, _next) => {
 
 app.listen(env.port, () => {
   console.log(`Resumetrics AI server listening on http://localhost:${env.port}`)
+  if (env.ai.provider === 'mock') console.warn('AI provider is MOCK: every AI answer is canned (RESUMETRICS_AI_PROVIDER=mock). Never use this in production.')
 })

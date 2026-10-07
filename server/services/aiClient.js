@@ -2,6 +2,7 @@ import Groq from 'groq-sdk'
 import { env, validateAIConfiguration } from '../config/env.js'
 import { AIBusyError, providerBudget } from '../ai/providerBudget.js'
 import { recordAiCall, recordLimited } from '../ai/usage.js'
+import { createMockClient } from '../ai/mockProvider.js'
 
 // Seconds from a provider 429's Retry-After header (Headers object or plain record), default 30.
 function retryAfterSeconds(error) {
@@ -19,6 +20,8 @@ function createProviderClient() {
     // Interactive features can't make people wait through long retry chains: one retry, 30s per call.
     return new Groq({ apiKey: env.ai.apiKey, maxRetries: 1, timeout: 30_000 })
   }
+  // Canned, offline answers for CI and tests (server/ai/mockProvider.js).
+  if (env.ai.provider === 'mock') return createMockClient()
 
   // validateAIConfiguration currently prevents this path, but it keeps the
   // provider boundary explicit for future implementations.
@@ -72,7 +75,8 @@ export async function generateAIResponse({
   let ticket
   let completion
   try {
-    ticket = providerBudget.reserve(request.messages)
+    // The mock costs nothing, so it skips the provider budget (tests make many calls quickly); usage is still recorded.
+    if (env.ai.provider !== 'mock') ticket = providerBudget.reserve(request.messages)
     completion = await client.chat.completions.create(request)
   } catch (error) {
     const busy = error instanceof AIBusyError ? error : error?.status === 429 ? new AIBusyError(retryAfterSeconds(error), 'provider') : null

@@ -48,7 +48,7 @@ export const env = Object.freeze({
   ai: Object.freeze({
     apiKey: process.env.RESUMETRICS_AI_API_KEY?.trim() ?? '',
     provider: process.env.RESUMETRICS_AI_PROVIDER?.trim().toLowerCase() ?? 'groq',
-    defaultModel: process.env.RESUMETRICS_AI_DEFAULT_MODEL?.trim() ?? '',
+    defaultModel: process.env.RESUMETRICS_AI_DEFAULT_MODEL?.trim() || (process.env.RESUMETRICS_AI_PROVIDER?.trim().toLowerCase() === 'mock' ? 'mock' : ''),
     // Optional per-task models; each falls back to the default model.
     models: Object.freeze({
       nimbus: process.env.RESUMETRICS_AI_MODEL_NIMBUS?.trim() ?? '',
@@ -102,6 +102,9 @@ export class AIConfigurationError extends Error {
 }
 
 export function validateAIConfiguration() {
+  // The offline mock needs no key or model (server/ai/mockProvider.js).
+  if (env.ai.provider === 'mock') return
+
   if (!env.ai.apiKey) {
     throw new AIConfigurationError('RESUMETRICS_AI_API_KEY is missing. Add it to server/.env.local.')
   }
