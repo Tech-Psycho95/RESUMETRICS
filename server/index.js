@@ -8,6 +8,7 @@ import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
 import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
+import { enforceDailyTokenBudget, trackAiUsage } from './ai/usage.js'
 
 const app = express()
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
@@ -41,7 +42,8 @@ app.use(cors({
 // Behind a hosting proxy, rate limits must see the client's address, not the proxy's (RESUMETRICS_TRUST_PROXY hops).
 app.set('trust proxy', env.trustProxy)
 
-// Order on AI routes: per-IP limit → sign-in → per-user limits → JSON body (so refused requests are never parsed).
+// Order on AI routes: per-IP limit → sign-in → per-user limits and daily token allowance → JSON body (so refused
+// requests are never parsed) → usage tracking (last: body parsing can lose the async context it relies on).
 const ipLimiter = createIpLimiter({ perMinute: env.limits.ipPerMinute })
 const userAiLimits = createUserAiLimits({ perMinute: env.limits.userAiPerMinute, perDay: env.limits.userAiPerDay })
 // Resume source pages are extracted in the browser and sent with page metadata; the route chunks long text
@@ -53,9 +55,9 @@ app.use('/api', ipLimiter)
 app.use('/api/ai', aiRoutes)
 app.use('/api/github', smallJson, githubRoutes)
 // Resume import, NIMBUS and job fixes call the AI model: signed-in users only, within their limits.
-app.use('/api/resume', requireUser, userAiLimits, documentJson, resumeRoutes)
-app.use('/api/nimbus', requireUser, userAiLimits, smallJson, nimbusRoutes)
-app.use('/api/jd', requireUser, userAiLimits, smallJson, jdRoutes)
+app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, documentJson, trackAiUsage, resumeRoutes)
+app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
+app.use('/api/jd', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
 
 try {
   initializeFirebaseAdmin()

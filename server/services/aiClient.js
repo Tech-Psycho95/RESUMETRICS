@@ -1,6 +1,7 @@
 import Groq from 'groq-sdk'
 import { env, validateAIConfiguration } from '../config/env.js'
 import { AIBusyError, providerBudget } from '../ai/providerBudget.js'
+import { recordAiCall, recordLimited } from '../ai/usage.js'
 
 // Seconds from a provider 429's Retry-After header (Headers object or plain record), default 30.
 function retryAfterSeconds(error) {
@@ -66,16 +67,24 @@ export async function generateAIResponse({
   if (Number.isInteger(maxCompletionTokens)) request.max_completion_tokens = maxCompletionTokens
   if (reasoningEffort && isReasoningModel(selectedModel)) request.reasoning_effort = reasoningEffort
 
-  // Every model call passes the app-wide provider budget first (throws AIBusyError when it is spent).
-  const ticket = providerBudget.reserve(request.messages)
+  // Every model call passes the app-wide provider budget first (throws AIBusyError when it is spent),
+  // and is counted against the signed-in user of the current request (server/ai/usage.js).
+  let ticket
   let completion
   try {
+    ticket = providerBudget.reserve(request.messages)
     completion = await client.chat.completions.create(request)
   } catch (error) {
-    if (error?.status === 429) throw new AIBusyError(retryAfterSeconds(error), 'provider')
+    const busy = error instanceof AIBusyError ? error : error?.status === 429 ? new AIBusyError(retryAfterSeconds(error), 'provider') : null
+    if (busy) {
+      recordLimited().catch(() => {})
+      throw busy
+    }
     throw error
   }
   providerBudget.settle(ticket, completion.usage?.total_tokens)
+  recordAiCall({ tokensIn: completion.usage?.prompt_tokens ?? 0, tokensOut: completion.usage?.completion_tokens ?? 0 })
+    .catch(error => console.error('AI usage could not be recorded:', error?.message))
 
   const result = completion.choices?.[0]?.message?.content?.trim()
   if (!result) throw new Error('The AI provider returned an empty response.')

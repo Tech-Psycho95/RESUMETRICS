@@ -41,4 +41,11 @@ budget.reserve(message(4), 1000)
 busy(() => budget.reserve(message(4), 2000), error => error.reason === 'daily' && /today's limit/.test(error.message))
 budget.reserve(message(4), 86_400_000)                // the first call is a day old
 
+// Tokens per day, across all users (the Groq free tier's tightest limit): wait until enough old calls are a day old.
+budget = createProviderBudget({ rpm: 100, tpm: 1_000_000, rpd: 1000, tpd: 1000 })
+budget.settle(budget.reserve(message(4), 0), 600)
+budget.settle(budget.reserve(message(4), 3_600_000), 300)
+busy(() => budget.reserve(message(800), 7_200_000), error => error.reason === 'daily' && error.retryAfterSeconds === 79_200)  // 200 more needs the first call gone
+budget.reserve(message(800), 86_400_000)
+
 console.log('providerBudget: all checks passed')

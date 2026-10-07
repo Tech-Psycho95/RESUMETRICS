@@ -30,29 +30,35 @@ export class AIBusyError extends Error {
 const estimateTokens = messages => Math.ceil((messages ?? []).reduce((sum, message) => sum + String(message?.content ?? '').length, 0) / 4)
 
 /**
- * App-wide budget for one provider account, shared by every user: requests per minute, tokens per minute and
- * requests per day (rolling windows, in memory, so it resets when the server restarts). Sized to the Groq free tier
- * by default. reserve() before each model call, settle() with the real total tokens afterwards.
+ * App-wide budget for one provider account, shared by every user: requests and tokens per minute and per day
+ * (rolling windows, in memory, so it resets when the server restarts). Sized to the Groq free tier by default.
+ * reserve() before each model call, settle() with the real total tokens afterwards.
  */
-export function createProviderBudget({ rpm, tpm, rpd }) {
+export function createProviderBudget({ rpm, tpm, rpd, tpd = Infinity }) {
   const calls = []   // { at, tokens } for the last 24 hours, oldest first
+
+  // Seconds until enough of the oldest `window` calls expire for `estimate` more tokens to fit under `cap`.
+  const waitForTokens = (window, used, estimate, cap, span, now) => {
+    let index = 0
+    while (index < window.length && used + estimate > cap) used -= window[index++].tokens
+    return (window[index - 1].at + span - now) / 1000
+  }
 
   function reserve(messages, now = Date.now()) {
     while (calls.length && now - calls[0].at >= DAY) calls.shift()
     if (calls.length >= rpd) throw new AIBusyError((calls[0].at + DAY - now) / 1000, 'daily')
 
+    const estimate = estimateTokens(messages)
+    const dayTokens = calls.reduce((sum, call) => sum + call.tokens, 0)
+    if (calls.length && dayTokens + estimate > tpd) throw new AIBusyError(waitForTokens(calls, dayTokens, estimate, tpd, DAY, now), 'daily')
+
     const lastMinute = calls.filter(call => now - call.at < MINUTE)
     if (lastMinute.length >= rpm) throw new AIBusyError((lastMinute[0].at + MINUTE - now) / 1000, 'requests')
 
-    const estimate = estimateTokens(messages)
     let used = lastMinute.reduce((sum, call) => sum + call.tokens, 0)
     // A single request larger than the whole budget is let through when the minute is empty; the provider decides.
-    if (lastMinute.length && used + estimate > tpm) {
-      // Wait until just enough of the oldest calls leave the window (or all of them, for an oversized request).
-      let index = 0
-      while (index < lastMinute.length && used + estimate > tpm) used -= lastMinute[index++].tokens
-      throw new AIBusyError((lastMinute[index - 1].at + MINUTE - now) / 1000, 'tokens')
-    }
+    // Wait until just enough of the oldest calls leave the window (or all of them, for an oversized request).
+    if (lastMinute.length && used + estimate > tpm) throw new AIBusyError(waitForTokens(lastMinute, used, estimate, tpm, MINUTE, now), 'tokens')
 
     const ticket = { at: now, tokens: estimate }
     calls.push(ticket)
@@ -66,4 +72,4 @@ export function createProviderBudget({ rpm, tpm, rpd }) {
   return { reserve, settle }
 }
 
-export const providerBudget = createProviderBudget({ rpm: env.limits.providerRpm, tpm: env.limits.providerTpm, rpd: env.limits.providerRpd })
+export const providerBudget = createProviderBudget({ rpm: env.limits.providerRpm, tpm: env.limits.providerTpm, rpd: env.limits.providerRpd, tpd: env.limits.providerTpd })

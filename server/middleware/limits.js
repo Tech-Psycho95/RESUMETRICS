@@ -1,5 +1,6 @@
 import { rateLimit } from 'express-rate-limit'
 import { formatWait } from '../ai/providerBudget.js'
+import { recordLimited } from '../ai/usage.js'
 
 const MINUTE = 60_000
 const DAY = 86_400_000
@@ -9,6 +10,8 @@ function refuse(message) {
   return (request, response) => {
     const resetAt = request.rateLimit?.resetTime?.getTime?.() ?? Date.now() + MINUTE
     const seconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))
+    // Per-user refusals show up in that user's usage row (the IP limiter runs before sign-in, so no uid).
+    if (request.firebaseUser?.uid) recordLimited(request.firebaseUser.uid).catch(() => {})
     response.set('Retry-After', String(seconds))
     response.status(429).json({ ok: false, error: message(formatWait(seconds)), retryAfterSeconds: seconds })
   }

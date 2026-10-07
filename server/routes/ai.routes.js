@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import { env, validateAIConfiguration } from '../config/env.js'
+import { getUsage, secondsUntilNextDay, usageDay } from '../ai/usage.js'
+import { requireUser } from '../services/firebaseAdmin.js'
 
 const router = Router()
 
@@ -25,6 +27,22 @@ router.get('/health', (_request, response) => {
       message: publicConfigurationMessage()
     })
   }
+})
+
+// The signed-in person's own AI usage today and what is left of their daily allowance.
+router.get('/usage', requireUser, async (request, response) => {
+  const day = usageDay()
+  const usage = await getUsage(request.firebaseUser.uid, day)
+  const tokens = usage.tokensIn + usage.tokensOut
+  return response.json({
+    ok: true,
+    day,
+    ...usage,
+    tokens,
+    dailyTokenAllowance: env.usage.userDailyTokens,
+    remainingTokens: Math.max(0, env.usage.userDailyTokens - tokens),
+    resetsInSeconds: secondsUntilNextDay()
+  })
 })
 
 export default router

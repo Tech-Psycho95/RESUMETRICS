@@ -14,6 +14,17 @@ const positiveInt = (name, fallback) => {
   return Number.isInteger(value) && value > 0 ? value : fallback
 }
 
+const timeZoneOr = (name, fallback) => {
+  const value = process.env[name]?.trim()
+  if (!value) return fallback
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value })
+    return value
+  } catch {
+    return fallback
+  }
+}
+
 const firebaseServiceAccountPath =
   process.env.FIREBASE_SERVICE_ACCOUNT_PATH?.trim() ||
   process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim() ||
@@ -54,7 +65,13 @@ export const env = Object.freeze({
     userAiPerDay: positiveInt('RESUMETRICS_LIMIT_USER_AI_PER_DAY', 150),
     providerRpm: positiveInt('RESUMETRICS_AI_RPM', 30),
     providerTpm: positiveInt('RESUMETRICS_AI_TPM', 8000),
-    providerRpd: positiveInt('RESUMETRICS_AI_RPD', 1000)
+    providerRpd: positiveInt('RESUMETRICS_AI_RPD', 1000),
+    providerTpd: positiveInt('RESUMETRICS_AI_TPD', 200_000)
+  }),
+  // Per-user daily AI allowance (server/ai/usage.js). The day starts at midnight in this time zone.
+  usage: Object.freeze({
+    userDailyTokens: positiveInt('RESUMETRICS_USER_DAILY_TOKENS', 50_000),
+    timeZone: timeZoneOr('RESUMETRICS_USAGE_TIME_ZONE', 'Asia/Kolkata')
   }),
   // Number of reverse proxies in front of the server (e.g. 1 on Cloud Run or Render), so rate limits see real client IPs.
   trustProxy: Math.max(0, Number.parseInt(process.env.RESUMETRICS_TRUST_PROXY ?? '0', 10) || 0)
