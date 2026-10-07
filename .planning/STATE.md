@@ -1,7 +1,8 @@
 # State
 
-**Updated:** 2026-10-05
-**Milestone:** M2.3: Templates, inclusive form, job tailoring (PLAN-027…029 done; signed-in check of /workspace/tailor pending)
+**Updated:** 2026-10-06
+**Milestone:** M2.4: Cover letters (PLAN-033 executed; signed-in walkthrough and letter evals pending). M2.3 (PLAN-027…032) done, signed-in checks pending
+**Latest plan:** PLAN-033 (done, see `CURRENT.md`; next plan slot is PLAN-034).
 **Position:** M2 (PLAN-008…017) and M2.1 simplicity pass (PLAN-020…025) executed; see phase SUMMARY files. Remaining: user-run AI evals, signed-in walkthrough, commit. Next milestone: M3 ATS scoring.
 
 ## Done
@@ -51,3 +52,17 @@
 - D28: Clone six supplied LaTeX résumés on the shared renderer (PLAN-027); Simple Hipster is rebuilt in place (same id).
 - D29: Skills are user-defined groups for every profession; the form targets WCAG 2.2 AA (PLAN-028).
 - D30: Job match moves to its own Job tailoring page with the live resume beside it; the editor rail becomes NIMBUS-only (PLAN-029).
+
+## M2.4 decisions (planned 2026-10-06, user may veto before execution)
+- D31: Sidebar Job tailoring / Cover letters / Evidence check never navigate: they open a "Select a resume first" pop-up over the current page, with the page blurred (user, 2026-10-06; supersedes the first reading as a separate page). For now it asks to start or import a resume and lists the resume in this session; later it lists saved resumes (`ResumePicker` takes an array). A direct visit to a tool without a resume goes to the start page with the pop-up open.
+- D32: One cover letter per resume, following its template: 24 templates → 5 layout families using each template's real masthead (PLAN-033).
+- D33: Once added, the cover letter is page 1 of the document (editor, PDF, DOCX/TXT).
+- D34: The letter is edited in its own studio; the resume editor shows it as a page with Edit/Remove.
+- D35: Signature import removes the background to transparent and recolours the ink, so it matches any paper colour; no draw/type signature yet.
+- D36: NIMBUS edits letters content-only with letter-specific operations, prompt, fact guard and evals; asks instead of inventing company facts.
+- Note: Web research for PLAN-033 used the ResumeWay guide (no downloadable images on the page; the four user references are the visual source). `graft` CLI still fails on this machine (missing tree-sitter-kotlin native build), so the graph was read from source.
+
+## M2.4 outcome (2026-10-06)
+- PLAN-033 executed: gate, letter on all 24 templates, studio with Details/Format, signature import, NIMBUS letter engine, add-to-resume as page 1, exports. D31–D36 were applied as planned (user did not veto).
+- Graft: the global CLI was upgraded to 0.21.1 (`npm i -g @nanonets/graft@latest --ignore-scripts`). `tree-sitter-kotlin` has no Windows prebuild and no Visual Studio build tools are installed, so `dist/graph/extract.js` in the global install was patched to load Kotlin lazily (backup `extract.js.orig`; re-apply after any reinstall). `graft init --no-agents --no-global` re-wired Claude Code; it also deleted `AGENTS.md`/`GEMINI.md`/other agent files, which were restored from git. `graft build` indexes 137 files. Use `graft init` without `--no-agents` if agent files should be refreshed. Graft sends anonymous usage stats unless disabled (`graft telemetry disable`).
+- Open: signed-in walkthrough (gate, add to resume, PDF/Word/TXT export); `npm run ai:eval -- --task letter`; per-template visual review of the 13 templates not viewed individually.

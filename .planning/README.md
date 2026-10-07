@@ -8,6 +8,7 @@ living documents plus one self-contained plan per phase.
 | `PROJECT.md` | What Resumetrics is, the user flow, constraints, stack | Rarely — only when the product direction changes |
 | `REQUIREMENTS.md` | Numbered, testable requirements (`ED-xx`, `FORM-xx`, …) | When scope is added or cut |
 | `ROADMAP.md` | Milestones and phases, each phase mapped to requirements | When a phase is added, reordered or finished |
+| `CURRENT.md` | **Which plan is the latest** and what "execute latest plan" means | Every time a plan is written or finished |
 | `STATE.md` | Where we are now, decisions made, blockers, open questions | After every plan is executed or a decision is made |
 | `SKILLS.md` | The GSD workflow and project skills we use | When tooling changes |
 | `research/` | Findings about the codebase and references | Before planning a phase |
@@ -32,3 +33,6 @@ living documents plus one self-contained plan per phase.
 5. After execution, a `SUMMARY.md` is added in the same phase folder (also wrapped in
    `<!-- PLAN-xxx SUMMARY START/END -->`) and `STATE.md` is updated.
 6. New work later (edit-feature depth, ATS scoring, …) gets new milestones and new plan IDs.
+7. `CURRENT.md` always names the one **latest plan**. When the user says "execute latest plan", read
+   `CURRENT.md`, then that plan, then `STATE.md`. Writing a new plan moves the old one into the
+   history table in `CURRENT.md`; plan files themselves are never merged.
