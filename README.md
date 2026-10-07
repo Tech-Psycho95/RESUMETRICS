@@ -185,8 +185,7 @@ resumetrics/
 
 The Vite development server proxies `/api` requests to the Express server at `http://localhost:8787`.
 
-- `GET /api/ai/health` — confirms server AI configuration
-- `POST /api/ai/test` — tests the AI abstraction
+- `GET /api/ai/health` — confirms server AI configuration (to try the model itself, run `npm run ai:ping`)
 - `POST /api/resume/extract` — extracts structured data from resume text
 - `POST /api/resume/analyze` — compares resume skills against a job description
 - `POST /api/resume/rewrite-bullet` — returns an improved resume bullet

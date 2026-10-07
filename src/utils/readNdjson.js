@@ -1,11 +1,14 @@
+import { authHeaders } from './authHeaders.js'
+
 /**
  * POST and read a newline-delimited JSON stream, calling onEvent for every event (heartbeats skipped).
  * Resolves when the stream ends; rejects on HTTP or network errors. Pass an AbortSignal to stop early.
+ * Sends the signed-in person's ID token; an explicit Authorization header in `headers` wins.
  */
 export async function streamNdjson(url, { body, headers = {}, signal, onEvent }) {
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()), ...headers },
     body: JSON.stringify(body),
     signal
   })

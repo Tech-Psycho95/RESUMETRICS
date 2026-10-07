@@ -6,7 +6,9 @@ import githubRoutes from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
 import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
-import { initializeFirebaseAdmin } from './services/firebaseAdmin.js'
+import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
+import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
+import { enforceDailyTokenBudget, trackAiUsage } from './ai/usage.js'
 
 const app = express()
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
@@ -37,21 +39,31 @@ app.use(cors({
     return callback(new Error('Origin is not allowed by CORS.'))
   }
 }))
-// Resume source pages are extracted in the browser and sent with page metadata.
-// The route chunks long text for AI processing; this limit only protects transport.
-app.use(express.json({ limit: '2mb' }))
+// Behind a hosting proxy, rate limits must see the client's address, not the proxy's (RESUMETRICS_TRUST_PROXY hops).
+app.set('trust proxy', env.trustProxy)
 
+// Order on AI routes: per-IP limit → sign-in → per-user limits and daily token allowance → JSON body (so refused
+// requests are never parsed) → usage tracking (last: body parsing can lose the async context it relies on).
+const ipLimiter = createIpLimiter({ perMinute: env.limits.ipPerMinute })
+const userAiLimits = createUserAiLimits({ perMinute: env.limits.userAiPerMinute, perDay: env.limits.userAiPerDay })
+// Resume source pages are extracted in the browser and sent with page metadata; the route chunks long text
+// for AI processing, so only resume import needs the large body. Everything else stays small.
+const smallJson = express.json({ limit: '256kb' })
+const documentJson = express.json({ limit: '2mb' })
+
+app.use('/api', ipLimiter)
 app.use('/api/ai', aiRoutes)
-app.use('/api/github', githubRoutes)
-app.use('/api/resume', resumeRoutes)
-app.use('/api/nimbus', nimbusRoutes)
-app.use('/api/jd', jdRoutes)
+app.use('/api/github', smallJson, githubRoutes)
+// Resume import, NIMBUS and job fixes call the AI model: signed-in users only, within their limits.
+app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, documentJson, trackAiUsage, resumeRoutes)
+app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
+app.use('/api/jd', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
 
 try {
   initializeFirebaseAdmin()
   console.log('Firebase Admin initialized for authenticated integrations.')
 } catch {
-  console.error('Firebase service account configuration is missing or invalid. GitHub endpoints will remain unavailable until it is configured.')
+  console.error('Firebase service account configuration is missing or invalid. AI and GitHub endpoints will refuse requests until it is configured.')
 }
 
 app.use((error, _request, response, _next) => {

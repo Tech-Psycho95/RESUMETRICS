@@ -48,20 +48,36 @@ export function getConnectionStore() {
   return getFirestore(initializeFirebaseAdmin())
 }
 
-export async function requireFirebaseUser(request, response, next) {
-  const authorization = request.get('authorization') ?? ''
-  const match = authorization.match(/^Bearer\s+(.+)$/i)
-  if (!match) return response.status(401).json({ ok: false, error: 'Sign in to Resumetrics before connecting GitHub.' })
+/**
+ * Express middleware: verifies the Firebase ID token in `Authorization: Bearer …` and sets request.firebaseUser.
+ * Each route group passes its own messages so the person knows what needs signing in. `verify` is swappable for tests.
+ */
+export function createRequireUser({ signInMessage, unavailableMessage, verify = verifyFirebaseIdToken }) {
+  return async function requireUser(request, response, next) {
+    const match = (request.get('authorization') ?? '').match(/^Bearer\s+(.+)$/i)
+    if (!match) return response.status(401).json({ ok: false, error: signInMessage })
 
-  try {
-    request.firebaseUser = await verifyFirebaseIdToken(match[1])
-    return next()
-  } catch (error) {
-    if (error instanceof FirebaseServerConfigurationError) {
-      console.error('Firebase Admin configuration error:', error.message)
-      return response.status(503).json({ ok: false, error: 'GitHub connection is not configured on the server yet.' })
+    try {
+      request.firebaseUser = await verify(match[1])
+      return next()
+    } catch (error) {
+      if (error instanceof FirebaseServerConfigurationError) {
+        console.error('Firebase Admin configuration error:', error.message)
+        return response.status(503).json({ ok: false, error: unavailableMessage })
+      }
+      console.error('Firebase token verification failed:', error?.code ?? error?.message)
+      return response.status(401).json({ ok: false, error: 'Your Resumetrics session could not be verified. Please sign in again.' })
     }
-    console.error('Firebase token verification failed:', error?.code ?? error?.message)
-    return response.status(401).json({ ok: false, error: 'Your Resumetrics session could not be verified. Please sign in again.' })
   }
 }
+
+export const requireFirebaseUser = createRequireUser({
+  signInMessage: 'Sign in to Resumetrics before connecting GitHub.',
+  unavailableMessage: 'GitHub connection is not configured on the server yet.'
+})
+
+// AI routes spend the shared model quota, so only signed-in people may call them.
+export const requireUser = createRequireUser({
+  signInMessage: 'Sign in to Resumetrics to use AI features.',
+  unavailableMessage: 'Sign-in can’t be checked on the server right now. Please try again in a few minutes.'
+})

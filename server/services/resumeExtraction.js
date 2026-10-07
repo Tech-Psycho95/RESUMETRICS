@@ -347,7 +347,10 @@ export async function extractCompleteResumeDocument(sourceDocument) {
       partials.push(resumeData)
     } catch (error) {
       console.error(`Resume extraction failed for pages ${chunk.pageNumbers.join(', ')}:`, error?.status ?? '', error?.message ?? error)
-      failedChunks.push({ ...chunk, error: `The AI could not read page${chunk.pageNumbers.length === 1 ? '' : 's'} ${chunk.pageNumbers.join(', ')}.`, cause: error })
+      // When the AI budget is spent, the remaining pages would fail the same way: stop and mark them unread.
+      const remaining = error?.name === 'AIBusyError' ? chunks.slice(index) : [chunk]
+      remaining.forEach(item => failedChunks.push({ ...item, error: `The AI could not read page${item.pageNumbers.length === 1 ? '' : 's'} ${item.pageNumbers.join(', ')}.`, cause: error }))
+      if (error?.name === 'AIBusyError') break
     }
   }
 
