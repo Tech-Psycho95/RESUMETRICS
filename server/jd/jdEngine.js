@@ -83,7 +83,7 @@ export async function suggestFixes({ resumeData, jd, keywords = [], elementIds =
   const weak = keywords.filter(item => item.found && !item.prominent).map(item => item.term)
   const resume = normalizeResumeData(resumeData)
   const context = { resumeData: resume, sourceText: sourceTextOf(resume), elementIds: new Set(elementIds), fontIds, bodyFontIds, currentFontId: null }
-  const { value, fallback, error } = await runStructuredTask({
+  const { value, fallback, error, busy } = await runStructuredTask({
     group: 'jd',
     systemPrompt: FIXES_PROMPT,
     userPrompt: `JOB: ${JSON.stringify({ title: jd.title, seniority: jd.seniority, responsibilities: jd.responsibilities })}\n\nKEYWORDS: ${JSON.stringify({ missing, weak, keySkills: keywords.filter(item => item.key).map(item => item.term) })}\n\nRESUME: ${JSON.stringify(resume)}`,
@@ -119,5 +119,5 @@ export async function suggestFixes({ resumeData, jd, keywords = [], elementIds =
     fallback: () => missing.slice(0, 4).map((term, index) => ({ id: `fix-${index + 1}`, title: `Add “${term}” if you have done it`, why: `The job asks for ${term} and your resume doesn't mention it yet.`, impact: 'high', category: 'keywords', kind: 'suggestion' }))
   })
   const order = { high: 0, medium: 1, low: 2 }
-  return { fixes: value.sort((a, b) => order[a.impact] - order[b.impact]), degraded: Boolean(fallback), limited: /429|rate limit/i.test(String(error ?? '')) }
+  return { fixes: value.sort((a, b) => order[a.impact] - order[b.impact]), degraded: Boolean(fallback), limited: Boolean(busy) || /429|rate limit/i.test(String(error ?? '')) }
 }

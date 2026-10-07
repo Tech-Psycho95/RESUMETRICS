@@ -84,6 +84,7 @@ CONVERSATION (most recent last):\n${conversation || 'none'}`
 /** Plain-language message for anything that went wrong talking to the model. Never shows raw error JSON. */
 export function friendlyNimbusError(error) {
   const text = String(error?.message ?? '')
+  if (error?.name === 'AIBusyError') return error.reason === 'daily' ? `NIMBUS has reached today’s AI limit for everyone. Try again in ${error.wait}.` : `NIMBUS is busy right now. Try again in ${error.wait}.`
   if (error?.status === 429 || /rate limit|429/i.test(text)) return 'NIMBUS is getting a lot of requests right now. Please try again in a minute.'
   if (error?.name === 'AIConfigurationError') return 'NIMBUS isn’t set up on the server yet (missing AI key or model).'
   if (/timed? ?out|ETIMEDOUT|ECONNRESET|fetch failed/i.test(text)) return 'NIMBUS couldn’t reach the AI service. Please try again.'

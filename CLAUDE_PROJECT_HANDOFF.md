@@ -130,8 +130,8 @@ All endpoints are mounted under `/api` in `server/index.js`:
 | Method + path | Auth | Purpose |
 | --- | --- | --- |
 | `GET /api/ai/health` | none | Reports whether AI config is valid (provider only; no secret returned) |
-| `POST /api/ai/test` | none | Basic AI abstraction smoke endpoint, message max 2,000 chars |
-| `POST /api/resume/extract` | none | Structure resume/profile text; max document chars enforced; heuristic fallback on model failures |
+| ~~`POST /api/ai/test`~~ | removed | Replaced by `npm run ai:ping` (CLI); it let anyone send prompts on the server's key |
+| `POST /api/resume/extract` | Firebase ID token | Structure resume/profile text; max document chars enforced; heuristic fallback on model failures |
 | `POST /api/resume/analyze` | none | Deterministic skill comparison plus optional AI summary/recommendations; JD max 12,000 chars |
 | `POST /api/resume/edit` | none | Prepare a validated edit plan; instruction max 4,000 chars |
 | `GET /api/github/connect` | Firebase ID token | Create connection state and return GitHub authorization URL |

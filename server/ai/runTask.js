@@ -49,6 +49,6 @@ export async function runStructuredTask({ group, systemPrompt, userPrompt, valid
     }
   }
   console.warn(`AI task (${group}) fell back after errors: ${String(lastError?.message ?? lastError).slice(0, 300)}`)
-  if (fallback) return { value: fallback(lastError), attempts: 2, model, fallback: true, error: lastError?.message }
+  if (fallback) return { value: fallback(lastError), attempts: 2, model, fallback: true, error: lastError?.message, busy: lastError?.name === 'AIBusyError' }
   throw lastError
 }

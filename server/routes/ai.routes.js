@@ -1,14 +1,16 @@
 import { Router } from 'express'
-import { AIConfigurationError, env, validateAIConfiguration } from '../config/env.js'
-import { generateAIResponse } from '../services/aiClient.js'
+import { env, validateAIConfiguration } from '../config/env.js'
+import { getUsage, secondsUntilNextDay, usageDay } from '../ai/usage.js'
+import { requireUser } from '../services/firebaseAdmin.js'
 
 const router = Router()
-const MAX_TEST_MESSAGE_LENGTH = 2_000
 
 function publicConfigurationMessage() {
   return 'AI backend is not configured. Add the required RESUMETRICS_AI_* values to server/.env.local.'
 }
 
+// Config check only; it never calls the model. To try the model itself, run `npm run ai:ping`
+// (the old public POST /api/ai/test let anyone send prompts on our key).
 router.get('/health', (_request, response) => {
   try {
     validateAIConfiguration()
@@ -27,30 +29,20 @@ router.get('/health', (_request, response) => {
   }
 })
 
-router.post('/test', async (request, response) => {
-  const { message } = request.body ?? {}
-
-  if (typeof message !== 'string' || !message.trim()) {
-    return response.status(400).json({ ok: false, error: 'message must be a non-empty string.' })
-  }
-
-  if (message.length > MAX_TEST_MESSAGE_LENGTH) {
-    return response.status(400).json({ ok: false, error: `message must be ${MAX_TEST_MESSAGE_LENGTH} characters or fewer.` })
-  }
-
-  try {
-    const result = await generateAIResponse({ userPrompt: message })
-    return response.json({ ok: true, result })
-  } catch (error) {
-    console.error('AI test request failed:', error)
-
-    if (error instanceof AIConfigurationError) {
-      return response.status(503).json({ ok: false, error: publicConfigurationMessage() })
-    }
-
-    return response.status(502).json({ ok: false, error: 'AI service is temporarily unavailable. Please try again.' })
-  }
+// The signed-in person's own AI usage today and what is left of their daily allowance.
+router.get('/usage', requireUser, async (request, response) => {
+  const day = usageDay()
+  const usage = await getUsage(request.firebaseUser.uid, day)
+  const tokens = usage.tokensIn + usage.tokensOut
+  return response.json({
+    ok: true,
+    day,
+    ...usage,
+    tokens,
+    dailyTokenAllowance: env.usage.userDailyTokens,
+    remainingTokens: Math.max(0, env.usage.userDailyTokens - tokens),
+    resetsInSeconds: secondsUntilNextDay()
+  })
 })
 
 export default router
-
