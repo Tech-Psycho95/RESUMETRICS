@@ -59,7 +59,7 @@ function RailHandle({ side, label, rails, onDragStart, onKeyResize, onReset }) {
  * Three containers: left (AI), centre (resume), right (formatting). Each scrolls on its own.
  * The two rails resize from the edge facing the resume and are coupled, so the centre never changes width.
  */
-export default function EditorShell({ left, centre, right, leftLabel = 'AI tools', rightLabel = 'Format' }) {
+export default function EditorShell({ left, centre, right, leftLabel = 'AI tools', rightLabel = 'Format', centreLabel = 'Resume' }) {
   const gridRef = useRef(null)
   const dragRef = useRef(null)
   const frameRef = useRef(0)
@@ -116,13 +116,13 @@ export default function EditorShell({ left, centre, right, leftLabel = 'AI tools
   const onReset = () => commit({ left: RAIL_DEFAULT, right: RAIL_DEFAULT })
 
   if (narrow) {
-    const tabs = [['left', leftLabel], ['resume', 'Resume'], ['right', rightLabel]]
+    const tabs = [['left', leftLabel], ['resume', centreLabel], ['right', rightLabel]]
     return <div className="editor-shell-grid is-narrow">
       <div className="editor-shell-tabs" role="tablist" aria-label="Editor panels">
         {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={narrowTab === id} className={narrowTab === id ? 'is-active' : ''} onClick={() => setNarrowTab(id)}>{label}</button>)}
       </div>
       <section className="editor-pane editor-pane-left" hidden={narrowTab !== 'left'} aria-label={leftLabel}>{left}</section>
-      <section className="editor-pane editor-pane-centre" hidden={narrowTab !== 'resume'} aria-label="Resume">{centre}</section>
+      <section className="editor-pane editor-pane-centre" hidden={narrowTab !== 'resume'} aria-label={centreLabel}>{centre}</section>
       <section className="editor-pane editor-pane-right" hidden={narrowTab !== 'right'} aria-label={rightLabel}>{right}</section>
     </div>
   }
@@ -130,7 +130,7 @@ export default function EditorShell({ left, centre, right, leftLabel = 'AI tools
   return <div className="editor-shell-grid" ref={gridRef} style={{ '--left-rail': `${rails.left}px`, '--right-rail': `${rails.right}px` }}>
     <section className="editor-pane editor-pane-left" aria-label={leftLabel}>{left}</section>
     <RailHandle side="left" label={`Resize ${leftLabel} panel`} rails={rails} onDragStart={onDragStart} onKeyResize={onKeyResize} onReset={onReset} />
-    <section className="editor-pane editor-pane-centre" aria-label="Resume">{centre}</section>
+    <section className="editor-pane editor-pane-centre" aria-label={centreLabel}>{centre}</section>
     <RailHandle side="right" label={`Resize ${rightLabel} panel`} rails={rails} onDragStart={onDragStart} onKeyResize={onKeyResize} onReset={onReset} />
     <section className="editor-pane editor-pane-right" aria-label={rightLabel}>{right}</section>
   </div>

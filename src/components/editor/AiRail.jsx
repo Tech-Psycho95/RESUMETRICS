@@ -7,6 +7,15 @@ export function EvidenceDock({ onCompare, canCompare, connected }) {
   </div>
 }
 
+/** Dock row for the cover letter: write it, or open the one that is already part of the resume. */
+export function CoverLetterDock({ included, started, onOpen }) {
+  return <div className="rail-evidence rail-letter">
+    <svg className="rail-evidence-logo" viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="5" width="14" height="10" rx="1.6" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="m3.6 6 6.4 4.6L16.4 6" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>
+    <span><b>Cover letter</b><small>{included ? 'On page 1 of your resume' : started ? 'Draft saved' : 'Write one in this design'}</small></span>
+    <button type="button" className="btn btn-secondary btn-sm" onClick={onOpen}>{started ? 'Edit' : 'Write'}</button>
+  </div>
+}
+
 /** Dock row linking to the Job tailoring page, with the last match score. */
 export function TailorDock({ score, onOpen }) {
   return <div className="rail-evidence rail-tailor">

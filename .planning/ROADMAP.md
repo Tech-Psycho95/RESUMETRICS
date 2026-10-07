@@ -69,3 +69,12 @@ To be planned after M2.
 | 32 | PLAN-032 | GitHub evidence in the same product UI | EVU-01…09 | Done (signed-in check pending) |
 
 Order: 27, then 28 (it reuses the skill label helper from 27), then 29.
+
+
+## M2.4: Cover letters (user request 2026-10-06)
+
+| Phase | Plan | Goal | Requirements | Status |
+|---|---|---|---|---|
+| 33 | PLAN-033 | A cover letter designed for each of the 24 resumes (5 layout families on the template's own masthead), a letter studio with signature import, NIMBUS letter edits, add-to-resume as page 1, and the "Select a resume first" gate for Job tailoring / Cover letters / Evidence | GATE-01…05, CL-01…14, SIG-01…07, LNM-01…08, ADD-01…07 | Done (signed-in walkthrough and letter evals pending) |
+
+Order inside the plan: Wave 0 design spike → 1 gate, data, page renderer → 2 studio, signature, guide → 3 NIMBUS → 4 add-to-resume and export → 5 verify.
