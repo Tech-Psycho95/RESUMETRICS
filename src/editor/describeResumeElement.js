@@ -9,8 +9,16 @@ const fieldNames = {
 const listNames = { bullets: 'bullet', details: 'detail' }
 
 /** A readable name for any element id the templates render, for the format panel and NIMBUS. */
+const letterNames = { role: 'Job title', date: 'Date', subject: 'Subject line', salutation: 'Greeting', signoff: 'Sign-off', signature: 'Signature', name: 'Your name' }
+const recipientNames = { name: 'Recipient name', title: 'Recipient title', company: 'Company' }
+
 export function describeResumeElement(id = '') {
   const parts = String(id).split('.')
+  if (parts[0] === 'letter') {
+    if (parts[1] === 'recipient') return { label: parts[2] === 'address' ? `Address line ${Number(parts[3]) + 1}` : recipientNames[parts[2]] ?? 'Recipient', kind: 'text' }
+    if (parts[1] === 'paragraph') return { label: 'Paragraph', kind: 'text' }
+    return { label: letterNames[parts[1]] ?? 'Letter text', kind: parts[1] === 'signature' ? 'image' : 'text' }
+  }
   if (parts[0] === 'resume' && parts[1] === 'header') {
     if (parts[2] === 'link') return { label: `Link ${Number(parts[3]) + 1}`, kind: 'text' }
     return { label: headerNames[parts[2]] ?? 'Header', kind: parts[2] === 'photo' ? 'image' : 'text' }

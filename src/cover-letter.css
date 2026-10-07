@@ -1,0 +1,143 @@
+/*
+ * Cover letter page (PLAN-033). The letter reuses each resume template's markup and CSS
+ * (header.generated-resume-header, .resume-columns-flow > .resume-sidebar-column + .resume-main-column),
+ * so the masthead and columns already match the resume. This file adds only the letter body and the
+ * five family devices (rule, band, rail, offset, centred) taken from the reference letters.
+ * Class names are deliberately NOT resume-page-*: NIMBUS and page counting select those.
+ */
+
+.letter-shell { position: relative; min-width: 0; background: transparent; }
+.letter-scroller { padding: 22px 18px 48px; }
+.letter-page-document { display: grid; justify-items: center; gap: 26px; min-width: 0; outline: none; zoom: var(--canvas-zoom, 1); }
+.letter-page-frame { position: relative; flex: none; }
+.letter-page.generated-resume.resume-a4-page { overflow: visible; }
+
+/* Overleaf-style templates stretch their main area to the page; a letter flows from the top. */
+.generated-resume.letter-page.letter-page > .generated-resume-main { justify-content: flex-start; }
+.generated-resume.letter-page.letter-page .resume-columns-flow { align-items: stretch; }
+
+/* ---------- Letter body ---------- */
+.letter-page { --letter-gap: .9em; }
+.letter-page .letter-meta, .letter-page .letter-body { min-width: 0; }
+:where(.letter-meta, .letter-body) p { margin: 0; }
+.letter-page .letter-date { margin-bottom: 1.1em; }
+.letter-page .letter-recipient { display: grid; margin: 0 0 1.5em; font-style: normal; line-height: 1.45; }
+.letter-page .letter-recipient-name { font-weight: 700; }
+.letter-page .letter-recipient-title { font-style: italic; }
+.letter-page .letter-subject { margin-bottom: 1.2em; font-weight: 700; }
+.letter-page .letter-body { max-width: 40em; }
+.letter-page .letter-salutation { margin-bottom: 1em; font-weight: 600; }
+.letter-page .letter-paragraph { margin-bottom: var(--letter-gap); line-height: 1.55; white-space: pre-line; text-wrap: pretty; hyphens: auto; }
+.letter-page .letter-signoff { margin-top: 1.5em; }
+.letter-page .letter-signature-slot { display: flex; min-height: 2.8em; margin: .2em 0 .35em; }
+.letter-page .letter-signature-slot.is-center { justify-content: center; }
+.letter-page .letter-signature-slot.is-right { justify-content: flex-end; }
+.letter-page .letter-signature { display: block; height: auto; max-width: 100%; user-select: none; }
+.letter-page .letter-name { font-weight: 700; }
+.letter-page .letter-contact { margin-bottom: 1.2em; }
+
+/* Hints and the empty-signature target belong to the editor; they never print. */
+.letter-page [data-hint]:empty::before { content: attr(data-hint); color: rgba(111, 118, 133, .85); font-style: italic; font-weight: 400; }
+.letter-page [data-hint]:empty { display: inline-block; min-width: 2em; }
+.letter-signature-add { padding: .5em 1.1em; color: rgba(111, 118, 133, .95); font: 500 .85em/1.2 inherit; background: transparent; border: 1.5px dashed rgba(111, 118, 133, .55); border-radius: 6px; cursor: pointer; }
+.letter-signature-add:hover, .letter-signature-add:focus-visible { color: var(--accent, #4f46e5); border-color: var(--accent, #4f46e5); outline: none; }
+
+.letter-page-break { position: absolute; right: -8px; left: -8px; z-index: 3; border-top: 2px dashed rgba(220, 38, 38, .6); pointer-events: none; }
+.letter-page-break span { position: absolute; top: -1.9em; right: 8px; padding: 3px 8px; color: #b91c1c; font: 600 11px/1 system-ui, sans-serif; background: #fff; border: 1px solid rgba(220, 38, 38, .35); border-radius: 4px; }
+
+/* ---------- Family devices ---------- */
+.letter-page .letter-contact + .letter-date { margin-top: 1.8em; }
+
+/* rule (reference 1): one full-height vertical rule at the left; the wider column carries the letter. */
+.letter-family-rule { position: relative; }
+.letter-family-rule::before { content: ""; position: absolute; top: 2.2em; bottom: 2.2em; left: .85em; width: 1.5px; background: var(--template-accent-color, #111); opacity: .9; }
+.generated-resume.letter-page.template-keywords-cv .resume-columns-flow { grid-template-columns: minmax(0, 1fr) 11.5em; }
+
+/* rail (reference 3): one accent bar over the date, and a hairline between the rail and the letter. */
+.letter-family-rail .letter-date::before { content: ""; display: block; width: 2.4em; height: .22em; margin-bottom: .7em; background: var(--template-accent-color, #6b7d8f); }
+.generated-resume.letter-page.template-libre-cv .resume-sidebar-column { padding-left: 1.2em; border-left: 1px solid rgba(0, 0, 0, .22); }
+
+/* offset (reference 4): masthead and date left, letter right, one hairline across the top of both. */
+.generated-resume.letter-family-offset > .generated-resume-main { display: grid; grid-template-columns: 11.5em minmax(0, 1fr); column-gap: 2.6em; align-items: start; }
+.letter-family-offset .letter-meta, .letter-family-offset .letter-body { padding-top: .9em; border-top: 1px solid rgba(0, 0, 0, .4); }
+.letter-family-offset .letter-body { max-width: none; }
+
+/* centred: the letter starts a little below the masthead rule. */
+.letter-family-centred .generated-resume-header { padding-bottom: .5em; }
+.letter-family-centred .letter-meta { margin-top: 1.2em; }
+
+/* band (reference 2): the template's own band is the header; rail text keeps the template's alignment. */
+.letter-family-band .letter-recipient { margin-bottom: 1.2em; }
+
+/* ---------- Per-template adjustments ---------- */
+/* Minimal Academic keeps its label column: everything but "Contact info" sits in the content column. */
+.generated-resume.letter-page.template-minimal-academic .letter-meta > :not(.letter-contact),
+.generated-resume.letter-page.template-minimal-academic .letter-body { margin-left: calc(var(--ma-label) + var(--ma-gap)); max-width: none; }
+.generated-resume.letter-page.template-minimal-academic .letter-body, .generated-resume.letter-page.template-minimal-academic .letter-meta { color: #3a414d; }
+.generated-resume.letter-page.template-minimal-academic .generated-contact-section > * { margin-bottom: .4em; }
+
+/* ---------- Letter studio ---------- */
+.letter-studio { position: relative; }
+.letter-notice { position: absolute; z-index: 30; top: 58px; left: 50%; display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 14px; background: #fff; border: 1px solid #f2d1ce; border-radius: 10px; box-shadow: 0 8px 24px rgba(23, 32, 51, .14); transform: translateX(-50%); }
+.letter-studio-title { cursor: default; }
+.letter-over { max-width: 560px; margin: -14px auto 28px; padding: 9px 14px; color: #92400e; font-size: 13px; background: #fffbeb; border: 1px solid #f3dca2; border-radius: 10px; }
+
+/* Right panel: Details | Format */
+.letter-panel { display: flex; flex-direction: column; min-height: 100%; }
+.letter-panel-tabs { position: sticky; top: 0; z-index: 4; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 10px 14px; background: var(--studio-surface); border-bottom: 1px solid var(--studio-line); }
+.letter-panel-tabs button { min-height: 34px; color: var(--studio-muted); font: inherit; font-size: 13px; font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 10px; cursor: pointer; }
+.letter-panel-tabs button.is-active { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-border); }
+.letter-panel-tabs button:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .3); outline-offset: 1px; }
+.letter-panel .fp-head { top: 55px; }
+.letter-panel [role="tabpanel"][hidden] { display: none; }
+.letter-details .fp-head { position: static; }
+.fp-field.is-wide { width: 100%; }
+.fp-input { width: 100%; min-height: 36px; padding: 0 10px; color: var(--studio-ink); font: inherit; font-size: 13.5px; background: #fff; border: 1px solid #dfe3ec; border-radius: 9px; }
+.fp-input:focus, .fp-textarea:focus { outline: none; border-color: var(--accent-border); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .12); }
+.letter-field-hint { color: var(--studio-muted); font-size: 11.5px; }
+.letter-optional { margin-left: 4px; color: var(--studio-muted); font-size: 11px; font-weight: 500; }
+.letter-toggle { display: flex; align-items: center; gap: 8px; color: var(--studio-ink); font-size: 13px; cursor: pointer; }
+.letter-toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
+.letter-panel-note { margin: 0; }
+.letter-range { width: 100%; accent-color: var(--accent); }
+.letter-signature-preview { display: grid; min-height: 72px; padding: 10px; place-items: center; border: 1px solid #dfe3ec; border-radius: 10px; }
+.letter-signature-preview img { display: block; max-width: 100%; max-height: 64px; }
+
+/* Starter chips under NIMBUS's first message */
+.nimbus-suggestions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 10px; }
+.nimbus-chip { padding: 6px 11px; color: var(--accent-ink); font: inherit; font-size: 12.5px; font-weight: 600; background: var(--accent-softer); border: 1px solid var(--accent-border); border-radius: 999px; cursor: pointer; }
+.nimbus-chip:hover { background: var(--accent-soft); }
+.nimbus-chip:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .3); outline-offset: 1px; }
+
+/* Letter guide (left rail dock) */
+.letter-guide { flex: 0 0 auto; border-top: 1px solid var(--studio-line); background: var(--studio-surface); }
+.letter-guide-toggle { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; color: var(--studio-ink); font: inherit; text-align: left; background: transparent; border: 0; cursor: pointer; }
+.letter-guide-toggle > span:nth-child(2) { display: grid; flex: 1 1 auto; line-height: 1.25; }
+.letter-guide-toggle b { font-size: 13px; }
+.letter-guide-toggle small { color: var(--studio-muted); font-size: 11.5px; }
+.letter-guide-toggle svg { width: 16px; height: 16px; fill: none; stroke: var(--studio-muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.letter-guide-toggle:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .3); outline-offset: -3px; }
+.letter-guide-ring { width: 22px; height: 22px; flex: 0 0 auto; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--share) * 360deg), #e3e6ee 0); -webkit-mask: radial-gradient(circle 7px, transparent 98%, #000); mask: radial-gradient(circle 7px, transparent 98%, #000); }
+.letter-guide-list { display: grid; gap: 2px; max-height: 280px; margin: 0; padding: 8px 10px 4px; overflow-y: auto; list-style: none; border-bottom: 1px solid var(--studio-line); }
+.letter-guide-list li { display: flex; align-items: center; gap: 9px; padding: 6px 4px; }
+.letter-guide-mark { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; color: #fff; font-size: 11px; font-weight: 700; background: #b7bfd0; border-radius: 50%; }
+.letter-guide-list .is-pass .letter-guide-mark { background: #1f9d6b; }
+.letter-guide-list .is-fail .letter-guide-mark { background: #d4483b; }
+.letter-guide-text { display: grid; flex: 1 1 auto; min-width: 0; line-height: 1.3; }
+.letter-guide-text b { color: var(--studio-ink); font-size: 12.5px; font-weight: 600; }
+.letter-guide-text small { color: var(--studio-muted); font-size: 11.5px; }
+
+[data-resolved-theme="dark"] .fp-input { color: #edf1ff; background: #121a2b; border-color: #36415c; }
+[data-resolved-theme="dark"] .letter-over { color: #fbbf24; background: #2a2412; border-color: #5b4a1c; }
+
+/* The letter shown as page 1 inside the resume editor */
+.letter-in-editor { display: grid; justify-items: center; margin-bottom: 8px; }
+.letter-bar { display: flex; align-items: center; gap: 10px; width: min(794px, 100% - 32px); margin: 14px 0 -8px; padding: 8px 12px; color: var(--studio-ink, #13203a); font-size: 13px; background: var(--accent-softer, #f4f2ff); border: 1px solid var(--accent-border, #d9d2ff); border-radius: 10px; }
+.letter-bar span { margin-right: auto; color: var(--studio-muted, #6b7489); }
+
+@media (max-width: 700px) {
+  .letter-studio .studio-title-wrap { display: none; }
+  .letter-studio .studio-topbar-end .btn { padding: 0 10px; font-size: 12.5px; }
+  .letter-studio .studio-topbar-end .btn-ghost { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .letter-signature-add, .nimbus-chip { transition: none; } }

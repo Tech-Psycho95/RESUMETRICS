@@ -23,7 +23,7 @@ import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
 import NimbusChat from './components/nimbus/NimbusChat.jsx'
 import EditorShell from './components/editor/EditorShell.jsx'
 import FormatPanel from './components/editor/FormatPanel.jsx'
-import AiRail, { EvidenceDock, TailorDock } from './components/editor/AiRail.jsx'
+import AiRail, { CoverLetterDock, EvidenceDock, TailorDock } from './components/editor/AiRail.jsx'
 import SectionForm from './components/form/SectionForm.jsx'
 import { formSectionsFor, hasStartedForm } from './form/sectionProgress.js'
 import { describeResumeElement } from './editor/describeResumeElement.js'
@@ -39,7 +39,7 @@ import { templatePreviewResumeData } from './data/templatePreviewData.js'
 import { createBlankResumeData } from './data/resumeData.js'
 import { applyResumeEditPlan } from './utils/applyResumeEditPlan.js'
 import { applyResumeEditingOperations, getPathValue } from './editor/resumeEditingEngine.js'
-import { clearWorkspaceSnapshot, restored, writeWorkspaceSnapshot } from './workspace/workspacePersistence.js'
+import { clearWorkspaceSnapshot, readWorkspaceSnapshot, restored, writeWorkspaceSnapshot } from './workspace/workspacePersistence.js'
 import { toggleMarkInRange } from './editor/inlineMarks.js'
 import { getTemplateSectionPlan } from './components/templates/ResumeTemplateLayout.jsx'
 import { buildResumeElementRegistry, ensureResumeElementIds } from './editor/resumeElementRegistry.js'
@@ -58,6 +58,11 @@ import { readProfilePhoto } from './utils/readProfilePhoto.js'
 import { applyNimbusOperations } from './nimbus/applyNimbusOperations.js'
 import { MIN_READABLE_BASE_SIZE } from '../shared/nimbusPlan.js'
 import useNimbusTurns, { settleLayout } from './nimbus/useNimbusTurns.js'
+import ResumeGateDialog, { gateTools } from './pages/ResumeGate.jsx'
+import CoverLetterPage from './coverLetter/CoverLetterPage.jsx'
+import LetterStudio, { LetterPrintPage, initialLetterMessages } from './coverLetter/LetterStudio.jsx'
+import { createLetter, letterFromJob, letterToText } from '../shared/letterModel.js'
+import './cover-letter.css'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
 
 // Items without a path are planned features shown as "Soon" until their pages exist.
@@ -69,9 +74,10 @@ const navSections = [
     ['Plan', null, 'crown']
   ] },
   { label: 'Career tools', items: [
-    ['Job tailoring', '/workspace/tailor', 'target'],
-    ['Cover letters', null, 'mail'],
-    ['Evidence check', '/evaluation', 'evidence'],
+    // These three need a resume: they do not navigate, they open the "Select a resume first" pop-up over the current page (PLAN-033).
+    ['Job tailoring', null, 'target', 'tailor'],
+    ['Cover letters', null, 'mail', 'letter'],
+    ['Evidence check', null, 'evidence', 'evidence'],
     ['Job tracker', null, 'briefcase']
   ] }
 ]
@@ -696,6 +702,8 @@ const helpArticles = [
   { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS writes for you: ask it to deepen your summary, strengthen bullets, add something to a section or change a detail. It only uses facts from your resume or what you tell it. Fonts and colours are changed in the Format panel.' },
   { topic: 'nimbus', question: 'How do I tailor my resume to a job?', steps: ['Open Job tailoring from the sidebar, or press Open beside "Tailor to a job" in the editor.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the changes you want and watch them appear on your resume beside it.'] },
   { topic: 'import', question: 'How do I start from my LinkedIn profile?', steps: ['On a desktop browser, open LinkedIn and go to Me → View Profile.', 'Choose Resources (or More), then Save to PDF.', 'In Resumetrics, choose Import from LinkedIn, upload that PDF, then pick a template.'] },
+  { topic: 'nimbus', question: 'How do I add a cover letter to my resume?', steps: ['Open Cover letters from the sidebar and pick your resume, or press Open beside "Write a cover letter" in the editor.', 'Paste the job post under Details, then ask NIMBUS to write your letter, or type it on the page.', 'Upload a photo of your signature under Format, then press Add to resume. The letter becomes page 1 and is included when you export.'] },
+  { topic: 'start', question: 'Why does a pop-up ask me to select a resume?', answer: 'Job tailoring, Cover letters and Evidence check each work on one resume. When you click one in the sidebar, a pop-up asks you to start or import a resume first. Saved resumes are coming; until then the pop-up also offers the resume you are working on in this session.' },
   { topic: 'evidence', question: 'Why connect GitHub?', answer: 'In the editor, press Compare next to GitHub evidence. Your 25 most recently updated repositories are scanned and each resume skill is shown with its share of your code; under 5% counts as too little evidence.' },
   { topic: 'export', question: 'Which formats can I download?', answer: 'Use the Export menu in the editor to download your resume as a PDF, a Word document (DOCX) or plain text (TXT).' },
   { topic: 'export', question: 'Is my resume saved automatically?', answer: 'Your current draft is kept in this browser tab, even if you refresh. Closing the tab clears it, so export your resume before you leave.' },
@@ -879,7 +887,12 @@ function TemplatesPage() {
   </Shell>
 }
 
-function SidebarLink({ label, path, icon }) {
+function SidebarLink({ label, path, icon, gate, onGate }) {
+  const location = useLocation()
+  if (gate) {
+    const active = location.pathname === gateTools[gate].route
+    return <button type="button" className={`sidebar-link${active ? ' active' : ''}`} aria-haspopup="dialog" onClick={() => onGate(gate)}><Icon name={icon} size={18} /><span>{label}</span></button>
+  }
   if (path) return <NavLink className="sidebar-link" to={path}><Icon name={icon} size={18} /><span>{label}</span></NavLink>
   return <span className="sidebar-link is-soon" aria-disabled="true" title={`${label} is coming soon`}><Icon name={icon} size={18} /><span>{label}</span><small>Soon</small></span>
 }
@@ -888,6 +901,22 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
   const navigate = useNavigate()
   const location = useLocation()
   const recentProjects = useMemo(() => readSavedProjects().filter(project => project.resumeData).slice(0, 3), [location.key])
+  // "Select a resume first" pop-up for the three career tools. It opens over any page; a page that sends someone
+  // here without a resume (a direct visit to a tool) passes location.state.gate.
+  const [gateTool, setGateTool] = useState(null)
+  useEffect(() => {
+    const requested = location.state?.gate
+    if (!requested) return
+    if (gateTools[requested]) setGateTool(requested)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.state]) // eslint-disable-line react-hooks/exhaustive-deps
+  const closeGate = useCallback(() => setGateTool(null), [])
+  const sessionResumes = () => {
+    const snapshot = readWorkspaceSnapshot()
+    const template = getResumeTemplate(snapshot?.selectedTemplateId)
+    return snapshot?.resumeData && template ? [{ id: 'session', name: snapshot.resumeName || 'Untitled resume', templateName: template.name, note: 'Open in this session' }] : []
+  }
+  const openFromGate = path => { setGateTool(null); navigate(path) }
 
   return <div className={`app-shell${immersive ? ' editor-shell' : ''}${dashboard ? ' dashboard-shell' : ''}${studio ? ' studio-shell' : ''}`}>
     {!immersive && <aside className="sidebar">
@@ -897,7 +926,7 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
       <div className="sidebar-scroll">
         {navSections.map(section => <div className="sidebar-section" key={section.label}>
           <span className="sidebar-label">{section.label}</span>
-          <nav aria-label={section.label}>{section.items.map(([label, path, icon]) => <SidebarLink key={label} label={label} path={path} icon={icon} />)}</nav>
+          <nav aria-label={section.label}>{section.items.map(([label, path, icon, gate]) => <SidebarLink key={label} label={label} path={path} icon={icon} gate={gate} onGate={setGateTool} />)}</nav>
         </div>)}
         {recentProjects.length > 0 && <div className="sidebar-section sidebar-recent">
           <span className="sidebar-label">Recent resumes</span>
@@ -915,6 +944,8 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
       </div>
     </aside>}
     <main>{children}</main>
+    {gateTool && <ResumeGateDialog tool={gateTool} resumes={sessionResumes()} onClose={closeGate}
+      onPick={() => openFromGate(gateTools[gateTool].route)} onStart={() => openFromGate('/workspace/templates')} onImport={() => openFromGate('/workspace')} />}
   </div>
 }
 
@@ -969,6 +1000,9 @@ function MainPage() {
   const [printing, setPrinting] = useState(false)
   const [importSource, setImportSource] = useState('resume')
   const [githubScan, setGithubScan] = useState(() => restored('githubScan', null))
+  const [coverLetter, setCoverLetter] = useState(() => restored('coverLetter', null))
+  const [coverLetterIncluded, setCoverLetterIncluded] = useState(() => restored('coverLetterIncluded', false))
+  const [letterMessages, setLetterMessages] = useState(() => restored('letterMessages', initialLetterMessages))
   const selectedTemplate = getResumeTemplate(selectedTemplateId)
   const resumeElementRegistry = useMemo(() => buildResumeElementRegistry(resumeData ?? {}, resumePresentation), [resumeData, resumePresentation])
   const selectedElementDefinition = selectedResumeElement ? resumeElementRegistry.get(selectedResumeElement.id) : null
@@ -980,13 +1014,17 @@ function MainPage() {
   const isEditorRoute = workspaceRoute === 'editor'
   const isEvidenceRoute = workspaceRoute === 'evidence'
   const isTailorRoute = workspaceRoute === 'tailor'
-  const isStartRoute = !isTemplatesRoute && !isBuilderRoute && !isEditorRoute && !isEvidenceRoute && !isTailorRoute
+  const isLetterRoute = workspaceRoute === 'letter'
+  const isSelectRoute = workspaceRoute === 'select'
+  const isStartRoute = !isTemplatesRoute && !isBuilderRoute && !isEditorRoute && !isEvidenceRoute && !isTailorRoute && !isLetterRoute
   const hasDraft = Boolean(TemplateComponent) && Boolean(resumeData)
   const isScratchResume = !uploadedFileName
   const isEditorReady = workspaceMode === 'editor-ready' && hasDraft
   const isEditorPage = isEditorRoute && isEditorReady
   // Job tailoring (PLAN-029): job match on one half, the live resume (read-only) on the other.
   const isTailorPage = isTailorRoute && isEditorReady
+  // Cover letter studio (PLAN-033): the letter on the resume's template, edited like the resume.
+  const isLetterPage = isLetterRoute && isEditorReady
   // GitHub evidence (PLAN-032) shows the live resume read-only in its preview pane.
   const isEvidencePage = isEvidenceRoute && hasDraft
   const isBuilderPage = isBuilderRoute && hasDraft && isScratchResume
@@ -1029,10 +1067,15 @@ function MainPage() {
       return
     }
     if (isBuilderPage && workspaceMode !== 'builder') setWorkspaceMode('builder')
-    if (isEvidenceRoute && !hasDraft) { navigate('/workspace', { replace: true }); return }
-    if ((isEditorRoute || isTailorRoute) && !hasDraft) navigate('/workspace', { replace: true })
-    else if ((isEditorRoute || isTailorRoute) && workspaceMode !== 'editor-ready') setWorkspaceMode('editor-ready')
-  }, [hasDraft, isBuilderPage, isBuilderRoute, isEditorRoute, isEvidenceRoute, isTailorRoute, isScratchResume, location.state, navigate, resumeData, workspaceMode])
+    // Career tools without a resume open the "Select a resume first" pop-up over the start page.
+    if (isEvidenceRoute && !hasDraft) { navigate('/workspace', { replace: true, state: { gate: 'evidence' } }); return }
+    if (isTailorRoute && !hasDraft) { navigate('/workspace', { replace: true, state: { gate: 'tailor' } }); return }
+    if (isLetterRoute && !hasDraft) { navigate('/workspace', { replace: true, state: { gate: 'letter' } }); return }
+    // Old links to the previous select page open the pop-up instead.
+    if (isSelectRoute) { navigate('/workspace', { replace: true, state: { gate: location.pathname.split('/').filter(Boolean)[2] } }); return }
+    if (isEditorRoute && !hasDraft) navigate('/workspace', { replace: true })
+    else if ((isEditorRoute || isTailorRoute || isLetterRoute) && workspaceMode !== 'editor-ready') setWorkspaceMode('editor-ready')
+  }, [hasDraft, isBuilderPage, isBuilderRoute, isEditorRoute, isEvidenceRoute, isTailorRoute, isLetterRoute, isSelectRoute, isScratchResume, location.state, navigate, resumeData, workspaceMode])
 
   useEffect(() => {
     resumeDataRef.current = resumeData
@@ -1043,14 +1086,14 @@ function MainPage() {
   useEffect(() => {
     if (!resumeData && workspaceMode === 'initial') return undefined
     const timer = window.setTimeout(() => {
-      const { photoDropped } = writeWorkspaceSnapshot({ workspaceMode, resumeData, selectedTemplateId, resumePresentation, uploadedFileName, parseMetadata, resumeName, fontColor, fontFamily, globalFontSize, useGlobalTextColor, footerText, assistantMessages: assistantMessages.slice(-40), aiTab, confirmedSections, description, analysis, githubScan: githubScan?.status === 'scanning' ? { ...githubScan, status: 'cancelled' } : githubScan })
+      const { photoDropped } = writeWorkspaceSnapshot({ workspaceMode, resumeData, selectedTemplateId, resumePresentation, uploadedFileName, parseMetadata, resumeName, fontColor, fontFamily, globalFontSize, useGlobalTextColor, footerText, assistantMessages: assistantMessages.slice(-40), aiTab, confirmedSections, description, analysis, coverLetter, coverLetterIncluded, letterMessages: letterMessages.slice(-40), githubScan: githubScan?.status === 'scanning' ? { ...githubScan, status: 'cancelled' } : githubScan })
       if (photoDropped && !photoDropNoticeRef.current) {
         photoDropNoticeRef.current = true
         setProfilePhotoError('Your photo is too large to keep after a refresh; it stays for this visit.')
       }
     }, 400)
     return () => window.clearTimeout(timer)
-  }, [aiTab, analysis, assistantMessages, confirmedSections, description, githubScan, fontColor, fontFamily, footerText, globalFontSize, parseMetadata, resumeData, resumeName, resumePresentation, selectedTemplateId, uploadedFileName, useGlobalTextColor, workspaceMode])
+  }, [aiTab, analysis, assistantMessages, confirmedSections, coverLetter, coverLetterIncluded, letterMessages, description, githubScan, fontColor, fontFamily, footerText, globalFontSize, parseMetadata, resumeData, resumeName, resumePresentation, selectedTemplateId, uploadedFileName, useGlobalTextColor, workspaceMode])
 
   // Undo/redo covers content and formatting from every source (format panel, inline edits, NIMBUS).
   const restoreHistorySnapshot = useCallback(snapshot => {
@@ -1327,6 +1370,9 @@ function MainPage() {
     setFooterText('')
     setAssistantInput('')
     setAssistantMessages(initialNimbusMessages)
+    setCoverLetter(null)
+    setCoverLetterIncluded(false)
+    setLetterMessages(initialLetterMessages)
     setSelectedResumeElement(null)
     setFormActiveSection(null)
     setConfirmedSections({})
@@ -1342,7 +1388,10 @@ function MainPage() {
 
   const exportDraft = async (format = 'TXT') => {
     if (!isEditorReady || exportLoading) return
-    const content = `${resumeName}\n${resumeData?.headline || ''}\n${selectedTemplate?.name || 'Resumetrics draft'}\n\n${editorRef.current?.innerText || resumeData?.summary || 'Start editing your resume in Resumetrics.'}`
+    const resumeContent = `${resumeName}\n${resumeData?.headline || ''}\n${selectedTemplate?.name || 'Resumetrics draft'}\n\n${editorRef.current?.innerText || resumeData?.summary || 'Start editing your resume in Resumetrics.'}`
+    // A cover letter added to the resume is the first page of every export.
+    const letterText = letterOnResume ? letterToText(coverLetter, resumeData) : ''
+    const content = letterText ? `${letterText}\n\n----------\n\n${resumeContent}` : resumeContent
     const baseName = `resumetrics-${safeFileName(resumeName)}`
     setExportLoading(true)
     try {
@@ -1352,7 +1401,8 @@ function MainPage() {
         await printResume()
       } else if (format === 'DOCX') {
         const { Document, Packer, Paragraph, TextRun } = await import('docx')
-        const documentDocx = new Document({ sections: [{ children: content.split(/\r?\n/).map(line => new Paragraph({ children: [new TextRun(line || ' ')] })) }] })
+        const toParagraphs = (text, breakBefore = false) => text.split(/\r?\n/).map((line, index) => new Paragraph({ pageBreakBefore: breakBefore && index === 0, children: [new TextRun(line || ' ')] }))
+        const documentDocx = new Document({ sections: [{ children: [...(letterText ? toParagraphs(letterText) : []), ...toParagraphs(resumeContent, Boolean(letterText))] }] })
         downloadBlob(await Packer.toBlob(documentDocx), `${baseName}.docx`)
       } else if (format === 'PPTX') {
         const module = await import('pptxgenjs')
@@ -1550,6 +1600,20 @@ function MainPage() {
   }
 
   const openEvidence = () => navigate('/workspace/evidence')
+
+  // ---- Cover letter (PLAN-033) ----
+  useEffect(() => {
+    if (isLetterPage && !coverLetter) setCoverLetter(letterFromJob(createLetter(), analysis?.jd ?? {}))
+  }, [isLetterPage, coverLetter, analysis])
+  const openLetter = () => navigate('/workspace/letter')
+  const addLetterToResume = () => { setCoverLetterIncluded(true); navigate('/workspace/editor') }
+  const removeLetterFromResume = () => setCoverLetterIncluded(false)
+  const letterOnResume = coverLetterIncluded && Boolean(coverLetter)
+  const handleLetterResumeChange = next => {
+    resumeDataRef.current = next
+    setResumeData(next)
+    if (next.fullName !== resumeName) setResumeName(next.fullName || 'Untitled resume')
+  }
 
   // GitHub evidence scan, streamed: progress and charts update as each repository finishes.
   const githubScanAbortRef = useRef(null)
@@ -1757,6 +1821,14 @@ function MainPage() {
     {isStepPage && supportsPhoto && <input ref={profilePhotoInputRef} className="upload-input" type="file" accept="image/jpeg,.jpg,.jpeg" aria-label="Choose JPEG profile photo" onChange={handleProfilePhotoUpload} />}
   </>
   const resumeCanvas = isStepPage && <div className="studio-canvas" style={{ '--canvas-zoom': isEditorPage || isTailorPage ? canvasZoom : 1 }}>
+    {isEditorPage && letterOnResume && <section className="letter-in-editor" aria-label="Cover letter, page 1 of your document">
+      <div className="letter-bar">
+        <b>Cover letter</b><span>The first page of your document</span>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={openLetter}>Edit letter</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={removeLetterFromResume}>Remove</button>
+      </div>
+      <CoverLetterPage template={selectedTemplate} resumeData={resumeData} letter={coverLetter} presentation={editorPresentation} readOnly />
+    </section>}
     <TemplateComponent
       resumeData={resumeData}
       editorRef={editorReady}
@@ -1792,6 +1864,7 @@ function MainPage() {
       </section>
     </div>}
     {printing && TemplateComponent && createPortal(<div className="print-root" aria-hidden="true">
+      {letterOnResume && <div className="print-letter-section"><LetterPrintPage template={selectedTemplate} resumeData={resumeData} letter={coverLetter} presentation={editorPresentation} /></div>}
       <TemplateComponent resumeData={resumeData} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} readOnly presentation={{ ...editorPresentation, photo: editorPresentation.photo?.uploadPlaceholder ? { visible: false } : editorPresentation.photo }} blankPreview={isScratchResume} pageWidthOverride={794} />
     </div>, document.body)}
   </>
@@ -1809,12 +1882,21 @@ function MainPage() {
     }, 150)
     return result
   }
+  if (isLetterPage) return <Shell immersive studio>
+    <LetterStudio
+      resumeData={resumeData} onResumeChange={handleLetterResumeChange} resumeName={resumeName} template={selectedTemplate} presentation={editorPresentation}
+      letter={coverLetter ?? createLetter()} onLetterChange={setCoverLetter} messages={letterMessages} setMessages={setLetterMessages}
+      jobText={description} onJobTextChange={setDescription}
+      included={coverLetterIncluded} onAddToResume={addLetterToResume} onRemoveFromResume={removeLetterFromResume}
+      onBackToResume={() => navigate('/workspace/editor')} onBack={() => navigate('/workspace/editor')} onOpenTailor={() => navigate('/workspace/tailor')} />
+  </Shell>
+
   if (isTailorPage) return <Shell immersive studio>
     <div className="studio tailor-page">
       {hiddenInputs}
       <TailorWorkspace analysis={analysis} resumeData={resumeData} jobMatch={jobMatch} draft={description} onDraftChange={setDescription}
         onExecuteFix={fix => flashChanges(() => jobMatch.executeFix(fix))} onUndoFix={fix => flashChanges(() => jobMatch.undoFix(fix))} onAnswerFix={answerJdFixWithNimbus}
-        resumeCanvas={resumeCanvas} resumeName={resumeName} templateName={selectedTemplate?.name} onBack={() => navigate('/workspace/editor')} onOpenEditor={() => navigate('/workspace/editor')} />
+        resumeCanvas={resumeCanvas} resumeName={resumeName} templateName={selectedTemplate?.name} onBack={() => navigate('/workspace/editor')} onOpenEditor={() => navigate('/workspace/editor')} onWriteLetter={openLetter} />
     </div>
     {dialogs}
   </Shell>
@@ -1926,6 +2008,7 @@ function MainPage() {
     nimbus={assistantEditor}
     docks={<>
       <TailorDock score={analysis?.step === 'results' && resumeData ? scoreKeywords(resumeData, analysis.keywords).score : null} onOpen={() => navigate('/workspace/tailor')} />
+      <CoverLetterDock included={letterOnResume} started={Boolean(coverLetter)} onOpen={openLetter} />
       <EvidenceDock onCompare={openEvidence} canCompare={hasDraft} connected={githubConnection.connected} />
     </>}
   />

@@ -21,7 +21,7 @@ function cloudState({ busy, phase, typing }) {
 }
 
 /** NIMBUS: wordmark, cloud, plain chat, a shimmering line for the task in progress, and the composer. */
-export default function NimbusChat({ turns, busy, phase, task, available, value, onChange, onSend, onStop, inputRef }) {
+export default function NimbusChat({ turns, busy, phase, task, available, value, onChange, onSend, onStop, inputRef, hints = placeholders, unavailableText = 'Open a resume to talk to NIMBUS', suggestions = [] }) {
   const sectionRef = useRef(null)
   const threadRef = useRef(null)
   const [placeholder, setPlaceholder] = useState(0)
@@ -34,7 +34,7 @@ export default function NimbusChat({ turns, busy, phase, task, available, value,
   // A new one-liner every few seconds while the box is empty.
   useEffect(() => {
     if (value) return undefined
-    const timer = window.setInterval(() => setPlaceholder(index => (index + 1) % placeholders.length), 4200)
+    const timer = window.setInterval(() => setPlaceholder(index => (index + 1) % hints.length), 4200)
     return () => window.clearInterval(timer)
   }, [value])
 
@@ -42,7 +42,7 @@ export default function NimbusChat({ turns, busy, phase, task, available, value,
     event.preventDefault()
     if (busy || !value.trim() || !available) return
     onSend(value.trim())
-    setPlaceholder(index => (index + 1) % placeholders.length)
+    setPlaceholder(index => (index + 1) % hints.length)
   }
 
   const messages = turns.filter(turn => turn.role === 'user' || turn.text || turn.question?.text)
@@ -57,9 +57,12 @@ export default function NimbusChat({ turns, busy, phase, task, available, value,
         : <p key={turn.id} className={`nimbus-msg is-nimbus${turn.tone === 'warning' || turn.status === 'error' ? ' is-warning' : ''}`}>{turn.question?.text ? `${turn.intro ? `${turn.intro} ` : ''}${turn.question.text}` : turn.text}</p>)}
     </div>
     {busy && task && <p className="nimbus-task" role="status">{task}</p>}
+    {!busy && available && suggestions.length > 0 && !turns.some(turn => turn.role === 'user') && <div className="nimbus-suggestions" role="group" aria-label="Suggestions">
+      {suggestions.map(item => <button key={item} type="button" className="nimbus-chip" onClick={() => onSend(item)}>{item}</button>)}
+    </div>}
     <form className="nimbus-input" onSubmit={submit}>
       <textarea ref={inputRef} value={value} rows={1} maxLength={2000} disabled={!available}
-        placeholder={available ? placeholders[placeholder] : 'Open a resume to talk to NIMBUS'} aria-label="Message NIMBUS"
+        placeholder={available ? hints[placeholder] : unavailableText} aria-label="Message NIMBUS"
         onChange={onChange}
         onInput={event => { const box = event.currentTarget; box.style.height = 'auto'; box.style.height = `${Math.min(box.scrollHeight, 150)}px`; box.classList.toggle('is-scrolling', box.scrollHeight > 150) }}
         onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) submit(event) }} />

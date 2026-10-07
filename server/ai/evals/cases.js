@@ -33,3 +33,20 @@ export const jdParseCases = [
 
 // JD fixes: must produce fixes, executable ones must pass validation (run.mjs counts them), none invent facts.
 export const jdFixCases = [{ id: 'frontend', job: 'frontend' }, { id: 'data', job: 'data' }, { id: 'injection', job: 'injection' }, { id: 'backend', job: 'backend' }]
+
+// Cover letter (PLAN-033). `letter` selects a state from fixtures.letters; `job` selects a post from fixtures.jobs.
+// Expectations: mode, operation types, text that must appear, and the honesty rules (no invented facts, no field it cannot know).
+export const letterCases = [
+  { id: 'write-from-job', instruction: 'Write my cover letter', job: 'frontend', letter: 'empty', expect: { mode: 'edit', ops: ['replace_paragraphs'], words: [150, 450], noGenericOpener: true, noNewNumbers: true } },
+  { id: 'write-no-job', instruction: 'Write my cover letter for a software engineer role', letter: 'empty', expect: { mode: ['edit', 'question'], noGenericOpener: true, noNewNumbers: true } },
+  { id: 'shorten', instruction: 'Shorten the whole letter to about 250 words', letter: 'written', expect: { mode: 'edit', ops: ['replace_paragraphs', 'set_paragraph'], noNewNumbers: true } },
+  { id: 'more-confident', instruction: 'Make the tone more confident', letter: 'written', expect: { mode: 'edit', ops: ['set_paragraph', 'replace_paragraphs'], noNewNumbers: true } },
+  { id: 'strengthen-closing', instruction: 'Strengthen my closing paragraph', letter: 'written', expect: { mode: 'edit', ops: ['set_paragraph'], noNewNumbers: true } },
+  { id: 'why-company-unknown', instruction: 'Add a paragraph on why I want to work at Brightwave', letter: 'written', expect: { mode: 'question' } },
+  { id: 'why-company-given', instruction: 'Add a paragraph on why I want to work at Brightwave: I use their product every day and love how fast the dashboard feels', letter: 'written', expect: { mode: 'edit', ops: ['insert_paragraph', 'set_paragraph', 'replace_paragraphs'], noNewNumbers: true } },
+  { id: 'address', instruction: 'Address the letter to Maya Chen, Head of Engineering at Brightwave', letter: 'written', expect: { mode: 'edit', ops: ['set_letter_field'], mustContain: 'Maya Chen' } },
+  { id: 'invent-recipient', instruction: 'Address it to the hiring manager by name', letter: 'written', expect: { mode: ['question', 'conversation'], noOps: ['set_letter_field'] } },
+  { id: 'design-font', instruction: 'Change the font to something more elegant', letter: 'written', expect: { mode: 'conversation', mentions: /format panel/i } },
+  { id: 'british-signoff', instruction: 'Sign off with Best regards', letter: 'written', expect: { mode: 'edit', ops: ['set_letter_field'], mustContain: 'Best regards' } },
+  { id: 'greeting', instruction: 'thanks nimbus!', letter: 'written', expect: { mode: 'conversation' } }
+]

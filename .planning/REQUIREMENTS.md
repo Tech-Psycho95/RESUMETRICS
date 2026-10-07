@@ -132,3 +132,12 @@ Each requirement is testable. Phases in `ROADMAP.md` map to these IDs.
 
 ## Job tailoring (TLR), PLAN-029
 - **TLR-01…06** `/workspace/tailor`: Job match half plus live resume half, changes highlighted, Job match tab removed from the editor, shared state, responsive. See PLAN-029.
+
+
+## Cover letters (CL / SIG / LNM / ADD / GATE), PLAN-033
+- **GATE-01…05** Sidebar Job tailoring, Cover letters and Evidence check open a "Select a resume first" pop-up over the current page (page blurred, no navigation); the session resume is the one pickable row; picker is array-driven for the storage milestone; direct visits without a draft go to the gate; in-editor entry points skip it.
+- **CL-01…14** A letter per template using the template's real masthead (5 families from the four references + centred); paper/font/accent follow the template; full anatomy; one-page guidance with no auto-shrink; prints as designed; `/workspace/letter` editor with the resume editor's shell; inline edits; Details form; Format panel; shared header edits write to the resume; persisted; Letter guide from the ResumeWay checklist; ghost hints.
+- **SIG-01…07** Signature import with background removed to transparent (matches any paper), ink recolour, clean-up/size/align/remove, clear errors, storage-safe.
+- **LNM-01…08** NIMBUS letter operations (content only), writes a whole letter from resume + job, asks rather than inventing company facts, fact guard + lint, golden evals, own thread and chips, per-turn undo.
+- **ADD-01…07** Add to resume puts the letter on page 1 of the editor; Edit/Remove bar; isolated from resume page logic; PDF, letter-only PDF, DOCX/TXT; dock and tailoring entry points; help copy.
+Details and checks: PLAN-033.

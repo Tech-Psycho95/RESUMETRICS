@@ -8,7 +8,7 @@ const valueOr = (value, fallback) => value || fallback
 const asArray = value => Array.isArray(value) ? value : []
 const allSkills = skills => Object.values(skills ?? {}).flat().filter(Boolean)
 const period = item => [item?.startDate, item?.endDate].filter(Boolean).join(' — ')
-const A4_RATIO = 297 / 210
+export const A4_RATIO = 297 / 210
 const PAGE_EDGE_TOLERANCE = 4
 // Height a block really takes in the flow: its box plus its own vertical margins.
 const outerHeight = element => {
@@ -16,7 +16,7 @@ const outerHeight = element => {
   const style = window.getComputedStyle(element)
   return element.offsetHeight + parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0)
 }
-const MAX_A4_WIDTH = 794
+export const MAX_A4_WIDTH = 794
 
 // LaTeX template clones (PLAN-027). Each entry switches on the few markup differences CSS cannot make;
 // everything else lives in latex-templates.css. `base` is the body size in px on an A4 page.
@@ -35,12 +35,12 @@ export const latexTemplateFeatures = {
   'elegant-resume': { base: 13.3333, entryLayout: 'elegant', dash: ' – ' },
   'developer-cv': { base: 12, entryLayout: 'developer', dash: ' – ' }
 }
-const featuresFor = variant => latexTemplateFeatures[variant] ?? {}
-const isLatexVariant = variant => Object.hasOwn(latexTemplateFeatures, variant)
+export const featuresFor = variant => latexTemplateFeatures[variant] ?? {}
+export const isLatexVariant = variant => Object.hasOwn(latexTemplateFeatures, variant)
 const inCloneSidebar = (features, id) => Boolean(features.sidebarIds) && (features.sidebarIds.includes(id) || (String(id).startsWith('custom-') && features.sidebarSide !== 'none'))
 
 // Per-element formatting from the editor's format panel (presentation.elementOverrides) and the current selection.
-const ResumeStyleContext = createContext({ overrides: {}, selectedId: null, focusSectionId: null, features: {} })
+export const ResumeStyleContext = createContext({ overrides: {}, selectedId: null, focusSectionId: null, features: {} })
 
 // Sizes are stored as they print on an A4 page; --page-scale shrinks them with the on-screen page.
 export function overrideToStyle(override = {}) {
@@ -71,7 +71,7 @@ export function MarkedText({ text }) {
   }, run.text)}</span>)
 }
 
-function StyledElement({ as: Tag = 'span', elementId, path, children }) {
+export function StyledElement({ as: Tag = 'span', elementId, path, children }) {
   const { overrides, selectedId } = useContext(ResumeStyleContext)
   const override = overrides?.[elementId]
   return <Tag
@@ -96,7 +96,7 @@ function SplitName({ name }) {
 
 const addressOf = item => String(item.address || item.href || item.value).replace(/^[a-z]+:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '')
 
-function ContactList({ items, blankPreview, inSection = false }) {
+export function ContactList({ items, blankPreview, inSection = false }) {
   const { features } = useContext(ResumeStyleContext)
   return <address className={`generated-contact${inSection ? ' generated-contact-section' : ''}`}>
     {items.length
@@ -107,7 +107,7 @@ function ContactList({ items, blankPreview, inSection = false }) {
   </address>
 }
 
-function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onProfilePhotoClick }) {
+export function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onProfilePhotoClick }) {
   const { selectedId, focusSectionId, features } = useContext(ResumeStyleContext)
   const contactItems = resumeData.contactItems ?? []
   const photo = presentation.photo
@@ -425,12 +425,12 @@ export const reactiveSidebarPositions = {
   azurill: 'left', chikorita: 'right', ditgar: 'left', ditto: 'left', gengar: 'left', glalie: 'left', leafish: 'right', pikachu: 'left',
   bronzor: 'none', kakuna: 'none', lapras: 'none', meowth: 'none', onyx: 'none', rhyhorn: 'none', scizor: 'none'
 }
-const isReactiveVariant = variant => Object.hasOwn(reactiveSidebarPositions, variant)
-const reactiveClassName = variant => isReactiveVariant(variant) ? ` template-reactive template-reactive-sidebar-${reactiveSidebarPositions[variant]}` : ''
+export const isReactiveVariant = variant => Object.hasOwn(reactiveSidebarPositions, variant)
+export const reactiveClassName = variant => isReactiveVariant(variant) ? ` template-reactive template-reactive-sidebar-${reactiveSidebarPositions[variant]}` : ''
 const reactiveSidebarSectionIds = new Set(['skills', 'certifications', 'achievements', 'languages'])
 const isReactiveSidebarSection = id => reactiveSidebarSectionIds.has(id) || String(id).startsWith('custom-')
 
-const visualColumnVariants = new Set(['product-startup', ...Object.entries(latexTemplateFeatures).filter(([, features]) => features.sidebarIds).map(([id]) => id), ...Object.entries(reactiveSidebarPositions).filter(([, side]) => side !== 'none').map(([id]) => id)])
+export const visualColumnVariants = new Set(['product-startup', ...Object.entries(latexTemplateFeatures).filter(([, features]) => features.sidebarIds).map(([id]) => id), ...Object.entries(reactiveSidebarPositions).filter(([, side]) => side !== 'none').map(([id]) => id)])
 const sidebarSectionIds = new Set(['skills', 'education', 'certifications', 'achievements', 'languages'])
 const overleafSidebarSectionIds = new Set(['summary', 'skills', 'languages', 'certifications'])
 
