@@ -47,6 +47,7 @@ import { findFont, loadFontsForPresentation, resumeFonts } from './editor/fontRe
 import { extractResumeDocument } from './utils/extractResumeDocument.js'
 import useJobMatch from './jd/useJobMatch.js'
 import { streamNdjson } from './utils/readNdjson.js'
+import { authHeaders } from './utils/authHeaders.js'
 import TailorWorkspace from './components/jd/TailorWorkspace.jsx'
 import { scoreKeywords } from '../shared/jdKeywords.js'
 import EvidenceWorkspace from './components/evidence/EvidenceWorkspace.jsx'
@@ -1404,16 +1405,6 @@ function MainPage() {
         const toParagraphs = (text, breakBefore = false) => text.split(/\r?\n/).map((line, index) => new Paragraph({ pageBreakBefore: breakBefore && index === 0, children: [new TextRun(line || ' ')] }))
         const documentDocx = new Document({ sections: [{ children: [...(letterText ? toParagraphs(letterText) : []), ...toParagraphs(resumeContent, Boolean(letterText))] }] })
         downloadBlob(await Packer.toBlob(documentDocx), `${baseName}.docx`)
-      } else if (format === 'PPTX') {
-        const module = await import('pptxgenjs')
-        const PptxGenJS = module.default || module
-        const presentation = new PptxGenJS()
-        presentation.layout = 'LAYOUT_WIDE'
-        const slide = presentation.addSlide()
-        slide.background = { color: 'FFFFFF' }
-        slide.addText(resumeName, { x: 0.6, y: 0.45, w: 12.1, h: 0.4, fontSize: 24, bold: true, color: '172033' })
-        slide.addText(content, { x: 0.6, y: 1.1, w: 12.1, h: 5.8, fontSize: 11, color: '26314A', fit: 'shrink', breakLine: false })
-        await presentation.writeFile({ fileName: `${baseName}.pptx` })
       }
     } catch (error) {
       showAssistantError(`Export failed. Please try again${error?.message ? `: ${error.message}` : '.'}`)
@@ -1493,7 +1484,7 @@ function MainPage() {
       if (!extractedDocument.rawText) throw new Error('Could not read this file. Try a text-based PDF, DOCX, or TXT file.')
       const response = await fetch('/api/resume/extract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ document: { pages: extractedDocument.pages, links: extractedDocument.links ?? [], metadata: { ...extractedDocument.metadata, ...(source === 'linkedin' ? { sourceType: 'linkedin' } : {}) } } })
       })
       const isJson = response.headers.get('content-type')?.includes('application/json')

@@ -23,7 +23,7 @@ The product goal is to keep resume claims tied to source facts and verifiable ev
 - Authenticated persistence: Firebase Admin verifies Firebase ID tokens and uses Firestore for GitHub connection metadata.
 - GitHub integration: Octokit GitHub App support. Per-installation tokens are generated on demand; they are not persisted.
 - Resume parsing/import: browser-side `pdfjs-dist` and Mammoth extract PDF/DOCX text and page structure; server chunks source text and sends chunks to AI for structured extraction, with deterministic fallback.
-- Exports/dependencies: `jspdf`, `docx`, and `pptxgenjs` are present. The visible export menu currently offers PDF, DOCX and TXT; confirm any PPTX UI path before assuming it is exposed.
+- Exports/dependencies: `jspdf` and `docx` are present. The export menu offers PDF, DOCX and TXT. The unreachable PPTX export and `pptxgenjs` were removed (its `image-size` dependency had high-severity advisories).
 - Other runtime features: DotLottie animations, IntersectionObserver/CSS motion, loaded-on-demand Google Fonts for some editor choices.
 
 Useful commands (from `package.json`):
@@ -130,8 +130,8 @@ All endpoints are mounted under `/api` in `server/index.js`:
 | Method + path | Auth | Purpose |
 | --- | --- | --- |
 | `GET /api/ai/health` | none | Reports whether AI config is valid (provider only; no secret returned) |
-| `POST /api/ai/test` | none | Basic AI abstraction smoke endpoint, message max 2,000 chars |
-| `POST /api/resume/extract` | none | Structure resume/profile text; max document chars enforced; heuristic fallback on model failures |
+| ~~`POST /api/ai/test`~~ | removed | Replaced by `npm run ai:ping` (CLI); it let anyone send prompts on the server's key |
+| `POST /api/resume/extract` | Firebase ID token | Structure resume/profile text; max document chars enforced; heuristic fallback on model failures |
 | `POST /api/resume/analyze` | none | Deterministic skill comparison plus optional AI summary/recommendations; JD max 12,000 chars |
 | `POST /api/resume/edit` | none | Prepare a validated edit plan; instruction max 4,000 chars |
 | `GET /api/github/connect` | Firebase ID token | Create connection state and return GitHub authorization URL |
@@ -221,7 +221,6 @@ The README is useful for broad product intent and setup, but some specifics are 
 - Current routes include `/dashboard`, `/settings`, and nested `/workspace/editor`; the README's old route table lists a simpler `/workspace` and does not cover all current routes.
 - Current central template registry exposes four templates (`Navy Professional`, `Simple Hipster`, `CurVe Academic`, `ReCeiVe`), not the five templates named in README.
 - Current resume API includes `POST /api/resume/edit`; LinkedIn is a client-upload/import and comparison path, not a listed standalone server route.
-- README says PPTX export is available; current visible export menu shows PDF, DOCX, and TXT. Inspect `exportDraft` and current UI before extending export behavior.
 - README tree and feature notes do not fully reflect the current editor engine/element registry, LinkedIn import, dashboard/settings, or complete GitHub setup/authorization paths.
 - README's sample says GitHub callback `http://localhost:5173/workspace`; `server/.env.example` currently also uses the frontend URL, while backend defaults in `server/config/env.js` point to `/api/github/callback` on port 8787. Match the GitHub App's configured Redirect URI to the actual chosen flow and environment; inspect latest code/config before changing this because both frontend-forwarded and backend callback behaviors exist.
 

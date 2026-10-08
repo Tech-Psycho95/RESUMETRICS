@@ -28,7 +28,7 @@ The platform features role-alignment analysis, AI-assisted editing, resume impor
 - **🐙 GitHub Evidence Integration** — Securely connect the Resumetrics-evidence GitHub App, verify its installation, and prepare repository evidence for review
 - **🎨 Visual Resume Editor** — Customize fonts, colors, sizes, and left/center/right alignment in an editable canvas
 - **📥 Resume Import** — Upload existing resumes in PDF, Word, or TXT format and generate a separate editable draft
-- **📤 Multi-Format Export** — Download your resume as PDF, DOCX, PPTX, or TXT
+- **📤 Multi-Format Export** — Download your resume as PDF, DOCX, or TXT
 - **🔒 Protected Routes** — Secure workspace with authentication-gated access
 - **📱 Responsive Design** — Clean, modern UI that works across devices
 
@@ -42,7 +42,7 @@ The platform features role-alignment analysis, AI-assisted editing, resume impor
 - **[Firebase Authentication](https://firebase.google.com/products/auth)** — Google Sign-In and user session management
 - **[React Router DOM](https://reactrouter.com/)** — Client-side routing and protected navigation
 - **PDF.js and Mammoth** — Browser-side PDF and DOCX text extraction
-- **jsPDF, docx, and PptxGenJS** — Resume export formats
+- **jsPDF and docx** — Resume export formats
 - **Node.js and Express** — Private backend and API routes
 - **Firebase Admin and Firestore** — Server-side Firebase ID-token verification and per-user GitHub connection metadata
 - **Octokit** — Server-side GitHub App authentication, installation tokens, and read-only repository access
@@ -185,8 +185,7 @@ resumetrics/
 
 The Vite development server proxies `/api` requests to the Express server at `http://localhost:8787`.
 
-- `GET /api/ai/health` — confirms server AI configuration
-- `POST /api/ai/test` — tests the AI abstraction
+- `GET /api/ai/health` — confirms server AI configuration (to try the model itself, run `npm run ai:ping`)
 - `POST /api/resume/extract` — extracts structured data from resume text
 - `POST /api/resume/analyze` — compares resume skills against a job description
 - `POST /api/resume/rewrite-bullet` — returns an improved resume bullet
