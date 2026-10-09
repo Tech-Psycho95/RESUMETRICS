@@ -60,8 +60,9 @@ export function useFirestoreAutosave({
    * - 5.4: Uses saveResume from userApi.js
    * 
    * @param {Object} state - Complete workspace snapshot to save
+   * @param {string} saveType - Either 'autosave' or 'manual' for logging purposes
    */
-  const saveToFirestore = useCallback(async (state) => {
+  const saveToFirestore = useCallback(async (state, saveType = 'autosave') => {
     // Requirement 5.1: Verify authentication before initiating save
     if (!isAuthenticated) {
       if (import.meta.env.DEV) {
@@ -106,8 +107,10 @@ export function useFirestoreAutosave({
       // Get current resume ID for this save operation
       const resumeId = resumeIdRef.current
       
+      // TEMPORARY: Enhanced logging to verify fix
       if (import.meta.env.DEV) {
-        console.log('[Firestore Autosave] Starting save operation...', {
+        console.log('[Firestore ' + saveType.toUpperCase() + '] Starting save operation...', {
+          saveType,
           resumeId: resumeId || '(will generate new)',
           timestamp: new Date().toISOString()
         })
@@ -282,7 +285,7 @@ export function useFirestoreAutosave({
     // Requirement 1.3: Schedule new save with 200ms debounce delay
     debounceTimerRef.current = setTimeout(() => {
       // Requirement 1.5: Execute save with final state after window expires
-      saveToFirestore(workspaceState).catch(err => {
+      saveToFirestore(workspaceState, 'autosave').catch(err => {
         // Errors already logged in saveToFirestore, swallow here for autosave
       })
     }, AUTOSAVE_DEBOUNCE_MS)
@@ -364,7 +367,7 @@ export function useFirestoreAutosave({
       if (workspaceState && isAuthenticated && isEditorReady) {
         // Execute immediate save without debounce
         // Use catch to handle async errors gracefully (silent failure)
-        saveToFirestore(workspaceState).catch(err => {
+        saveToFirestore(workspaceState, 'autosave').catch(err => {
           // Log flush save errors but don't propagate
           console.error('Flush save on unmount failed:', err)
         })
@@ -406,7 +409,7 @@ export function useFirestoreAutosave({
     }
     
     // Execute immediate save (this will throw on error for the caller to handle)
-    await saveToFirestore(workspaceState)
+    await saveToFirestore(workspaceState, 'manual')
   }, [workspaceState, saveToFirestore])
   
   /**

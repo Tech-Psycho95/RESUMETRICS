@@ -963,7 +963,7 @@ function MainPage() {
   const exportMenuRef = useRef(null)
   const assistantInputRef = useRef(null)
   const editorPresentationRef = useRef(null)
-  const resumeIdRef = useRef(null)
+  const [resumeId, setResumeId] = useState(null)
   const [description, setDescription] = useState(() => restored('description', ''))
   const [analysis, setAnalysis] = useState(() => restored('analysis', null))
   const [githubConnection, setGithubConnection] = useState({ loading: true, connected: false })
@@ -1034,16 +1034,16 @@ function MainPage() {
     if (!resumeData) return null
     return {
       resumeData,
-      resumeId: resumeIdRef.current,
+      resumeId,
       selectedTemplateId,
       resumeName,
       workspaceMode
     }
-  }, [resumeData, selectedTemplateId, resumeName, workspaceMode])
+  }, [resumeData, resumeId, selectedTemplateId, resumeName, workspaceMode])
 
   // Firestore autosave: callback for when resume ID is generated
   const onResumeIdGenerated = useCallback((id) => {
-    resumeIdRef.current = id
+    setResumeId(id)
     console.log('[MainPage] Resume ID generated:', id)
   }, [])
 
@@ -1107,8 +1107,8 @@ function MainPage() {
         setResumePresentation(createResumePresentation(saved.templateId))
         
         // Set the resumeId BEFORE entering editor mode to prevent duplicate doc creation
-        resumeIdRef.current = projectId
-        console.log('[MainPage] Set resumeIdRef.current =', projectId)
+        setResumeId(projectId)
+        console.log('[MainPage] Set resumeId state =', projectId)
 
         // draftContent only contains resumeData; other workspace state is not persisted
 
