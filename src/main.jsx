@@ -25,9 +25,12 @@ import EditorShell from './components/editor/EditorShell.jsx'
 import FormatPanel from './components/editor/FormatPanel.jsx'
 import AiRail, { EvidenceDock } from './components/editor/AiRail.jsx'
 import SectionForm from './components/form/SectionForm.jsx'
+import { SaveButton } from './components/SaveButton.jsx'
 import { formSectionsFor, hasStartedForm } from './form/sectionProgress.js'
 import { describeResumeElement } from './editor/describeResumeElement.js'
 import useEditorHistory from './editor/useEditorHistory.js'
+import { useFirestoreAutosave } from './hooks/useFirestoreAutosave.js'
+import { listResumes, getResume } from './utils/userApi.js'
 import './editor-studio.css'
 import './section-form.css'
 import './print.css'
@@ -548,11 +551,43 @@ function DashboardPage() {
   const location = useLocation()
   const pageRef = useRef(null)
   useEffect(() => {
-    setSavedProjects(readSavedProjects())
+    let cancelled = false
+    
+    async function loadFromFirestore() {
+      try {
+        console.log('[Dashboard] Loading projects from Firestore...')
+        const response = await listResumes()
+        if (cancelled) return
+        
+        console.log('[Dashboard] Firestore response:', response)
+        const projects = (response.resumes || []).map(resume => {
+          const updatedDate = new Date(resume.updatedAt)
+          return {
+            id: resume.id,
+            name: resume.title || 'Untitled Resume',
+            templateId: resume.templateId,
+            updatedAt: updatedDate.getTime(),
+            updatedLabel: 'Recently',
+            resumeData: resume.draftContent,
+            progress: resume.progress || {}
+          }
+        })
+        
+        console.log('[Dashboard] Loaded projects:', projects)
+        setSavedProjects(projects)
+      } catch (error) {
+        console.error('[Dashboard] Failed to load from Firestore:', error)
+        setSavedProjects(readSavedProjects())
+      }
+    }
+    
+    loadFromFirestore()
     setSelectedProjectId(null)
     setConfirmDeleteId(null)
     projectRailRef.current?.scrollTo({ left: 0 })
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) pageRef.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' })
+    
+    return () => { cancelled = true }
   }, [location.key])
 
   const selectProject = id => {
@@ -928,6 +963,7 @@ function MainPage() {
   const exportMenuRef = useRef(null)
   const assistantInputRef = useRef(null)
   const editorPresentationRef = useRef(null)
+  const resumeIdRef = useRef(null)
   const [description, setDescription] = useState(() => restored('description', ''))
   const [analysis, setAnalysis] = useState(() => restored('analysis', null))
   const [githubConnection, setGithubConnection] = useState({ loading: true, connected: false })
@@ -992,6 +1028,33 @@ function MainPage() {
   const hasImportedResumeSkills = Boolean(uploadedFileName) && resumeEvidenceSkills.length > 0
   const hasWorkspaceResumeSkills = workspaceMode === 'editor-ready' && resumeEvidenceSkills.length > 0
 
+  // Firestore autosave: workspace state memo
+  // Firestore autosave: workspace state memo (includes resumeId for saves)
+  const workspaceState = useMemo(() => {
+    if (!resumeData) return null
+    return {
+      resumeData,
+      resumeId: resumeIdRef.current,
+      selectedTemplateId,
+      resumeName,
+      workspaceMode
+    }
+  }, [resumeData, selectedTemplateId, resumeName, workspaceMode])
+
+  // Firestore autosave: callback for when resume ID is generated
+  const onResumeIdGenerated = useCallback((id) => {
+    resumeIdRef.current = id
+    console.log('[MainPage] Resume ID generated:', id)
+  }, [])
+
+  // Firestore autosave: wire the hook
+  const { saveNow, isSaving } = useFirestoreAutosave({
+    workspaceState,
+    isAuthenticated: Boolean(currentUser),
+    isEditorReady,
+    onResumeIdGenerated
+  })
+
   // A template picked on the sidebar Templates page starts a new scratch resume at the details form.
   useEffect(() => {
     const templateId = location.state?.dashboardTemplateId
@@ -1012,6 +1075,58 @@ function MainPage() {
     setWorkspaceMode('builder')
     navigate('/workspace/build', { replace: true })
   }, [location.state, navigate])
+
+  // Load a saved project from the dashboard Open button
+  useEffect(() => {
+    const projectId = location.state?.savedProjectId
+    if (!projectId) return
+
+    let cancelled = false
+
+    async function loadSavedProject() {
+      try {
+        console.log('[MainPage] Loading saved project:', projectId)
+        const response = await getResume(projectId)
+        
+        if (cancelled) return
+        
+        if (!response.resume) {
+          throw new Error('Resume not found')
+        }
+
+        const saved = response.resume
+        console.log('[MainPage] Loaded resume:', saved)
+
+        // Clear stale sessionStorage to prevent mixing resumes
+        clearWorkspaceSnapshot()
+
+        // Hydrate editor state from saved draftContent
+        setResumeData(ensureResumeElementIds(saved.draftContent || {}))
+        setResumeName(saved.title || 'Untitled Resume')
+        setSelectedTemplateId(saved.templateId || null)
+        setResumePresentation(createResumePresentation(saved.templateId))
+        
+        // Set the resumeId BEFORE entering editor mode to prevent duplicate doc creation
+        resumeIdRef.current = projectId
+        console.log('[MainPage] Set resumeIdRef.current =', projectId)
+
+        // draftContent only contains resumeData; other workspace state is not persisted
+
+        // Enter editor mode and navigate
+        setWorkspaceMode('editor-ready')
+        navigate('/workspace/editor', { replace: true })
+
+      } catch (error) {
+        console.error('[MainPage] Failed to load saved project:', error)
+        setWorkspaceError(error.message || 'Could not load this resume. Please try again.')
+        navigate('/dashboard', { replace: true })
+      }
+    }
+
+    loadSavedProject()
+
+    return () => { cancelled = true }
+  }, [location.state?.savedProjectId, navigate])
 
   // Keep the URL and the draft in step: each step needs the work from the step before it.
   useEffect(() => {
@@ -1843,6 +1958,7 @@ function MainPage() {
     </div>}
     <div className="studio-topbar-end">
       <button className="btn btn-ghost btn-icon" type="button" onClick={deleteDraft} aria-label="Delete this draft" title="Delete draft"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4.5h4V6M6 6l.8 10h6.4L14 6" /></svg></button>
+      {isEditorPage && <SaveButton onSave={saveNow} isSaving={isSaving} />}
       {isEditorPage && <span className="canvas-export-wrap" ref={exportMenuRef}>
         <button className="btn btn-primary" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3.5v9M6 8.5l4 4 4-4M4 16.5h12" /></svg>{exportLoading ? 'Exporting…' : 'Export'}

@@ -10,7 +10,7 @@
     "dev:all": "concurrently -n client,server -c cyan,magenta \"npm run dev\" \"npm run dev:server\"",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/railSizing.test.js && node tests/sectionProgress.test.js && node tests/inlineMarks.test.js && node tests/factGuard.test.js && node tests/nimbusPlan.test.js && node tests/applyNimbusOperations.test.js && node tests/jdScoring.test.js && node tests/githubEvidence.test.js && node tests/githubScan.test.js",
+    "test": "node tests/railSizing.test.js && node tests/sectionProgress.test.js && node tests/inlineMarks.test.js && node tests/factGuard.test.js && node tests/nimbusPlan.test.js && node tests/applyNimbusOperations.test.js && node tests/jdScoring.test.js && node tests/githubEvidence.test.js && node tests/githubScan.test.js && node tests/workspacePersistence.test.js && node tests/useFirestoreAutosave.errorLogging.test.js && node tests/useFirestoreAutosave.editorReadyGating.test.js && node tests/useFirestoreAutosave.saveOrder.test.js && node tests/useFirestoreAutosave.workspaceReset.test.js",
     "ai:eval": "node server/ai/evals/run.mjs",
     "fonts:fetch": "node scripts/fonts/fetch-fonts.mjs"
   },

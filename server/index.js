@@ -6,6 +6,7 @@ import githubRoutes from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
 import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
+import userRoutes from './routes/user.routes.js'
 import { initializeFirebaseAdmin } from './services/firebaseAdmin.js'
 
 const app = express()
@@ -46,6 +47,7 @@ app.use('/api/github', githubRoutes)
 app.use('/api/resume', resumeRoutes)
 app.use('/api/nimbus', nimbusRoutes)
 app.use('/api/jd', jdRoutes)
+app.use('/api/user', userRoutes)
 
 try {
   initializeFirebaseAdmin()
@@ -65,3 +67,4 @@ app.use((error, _request, response, _next) => {
 app.listen(env.port, () => {
   console.log(`Resumetrics AI server listening on http://localhost:${env.port}`)
 })
+
