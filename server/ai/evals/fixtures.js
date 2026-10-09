@@ -31,3 +31,18 @@ export const jobs = {
   nurse: 'Registered Nurse — Riverside Hospital\nRequired: active RN license, BLS and ACLS certification, 2 years of acute care experience, Epic EHR. Shift work including nights.\nResponsibilities: patient assessment, medication administration, care coordination with physicians.\nBachelor of Science in Nursing preferred.',
   short: 'Intern wanted. Must know React. Apply now. Remote friendly team building cool things.'
 }
+
+// Cover letter fixtures (PLAN-033): an empty letter and a written one for Brightwave's Frontend Engineer role.
+const blankLetter = { role: '', date: '', recipient: { name: '', title: '', company: 'Brightwave', address: [] }, subject: '', showSubject: false, salutation: '', signoff: '' }
+export const letters = {
+  empty: { ...blankLetter, paragraphs: ['opening', 'proof', 'fit', 'closing'].map(kind => ({ kind, text: '' })) },
+  written: {
+    ...blankLetter,
+    paragraphs: [
+      { kind: 'opening', text: 'Brightwave’s Frontend Engineer opening caught my attention because your customer dashboard is the kind of product I built during my internship at Northwind.' },
+      { kind: 'proof', text: 'At Northwind I built a React dashboard that 30 support agents used every day, and I learned to ask the agents what slowed them down before I changed anything. I would bring that habit to your customer team.' },
+      { kind: 'fit', text: 'Your focus on a fast, readable dashboard matches the work I enjoy most, because a calm screen helps a busy person do their job well.' },
+      { kind: 'closing', text: 'Thank you for your time. I would welcome a conversation about the role and look forward to hearing from you.' }
+    ]
+  }
+}

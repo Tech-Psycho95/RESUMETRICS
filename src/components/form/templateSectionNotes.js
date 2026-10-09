@@ -15,5 +15,11 @@ export const templateSectionNotes = {
   rhyhorn: { summary: 'A minimal header with lots of whitespace; short paragraphs suit it best.' },
   scizor: { summary: 'Section headings are printed in capitals with a rule above each one.' },
   'navy-professional': { education: 'This template puts education first.' },
-  'curve-academic': { experience: 'Clearly dated entries; add start and end dates for every role.' }
+  'curve-academic': { experience: 'Clearly dated entries; add start and end dates for every role.' },
+  'minimal-academic': { personal: 'Your contact details print as the first section, with a label beside each one.', summary: 'Printed as "About me" in grey body text.' },
+  'libre-cv': { skills: 'Shown in the right column, each group as a row with its name in small capitals.', experience: 'The organisation is in bold on the first line, your role and dates on the second.' },
+  'simple-hipster': { summary: 'Sits in the grey sidebar under your photo, right-aligned.', experience: 'Dates sit in the margin beside a timeline rule.', skills: 'Each skill is printed as its own grey label.' },
+  'keywords-cv': { summary: 'Runs full width; everything else is in two columns below it.', experience: 'The heading reads "Role / dates", so keep titles short.' },
+  'elegant-resume': { experience: 'The organisation and role sit on one line in capitals, then location and dates.' },
+  'developer-cv': { summary: 'Sits beside your skills at the top of the page; two or three sentences fit best.', projects: 'The tools you list print in the left margin of each project.' }
 }

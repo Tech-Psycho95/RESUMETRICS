@@ -20,12 +20,12 @@ function readPath(source, path) {
 }
 
 // The element's rendered style, so controls show what is on the page (whole resume: its body text).
-function useComputedStyle(elementId, revision) {
+function useComputedStyle(elementId, revision, documentSelector) {
   const [computed, setComputed] = useState(null)
   useLayoutEffect(() => {
     const node = elementId
-      ? document.querySelector(`.resume-page-document [data-resume-element-id="${CSS.escape(elementId)}"]`)
-      : document.querySelector('.resume-page-document .resume-section li, .resume-page-document .resume-section p')
+      ? document.querySelector(`${documentSelector} [data-resume-element-id="${CSS.escape(elementId)}"]`)
+      : document.querySelector(`${documentSelector} .resume-section li, ${documentSelector} .resume-section p, ${documentSelector} .letter-paragraph`)
     if (!node) { setComputed(null); return }
     const style = window.getComputedStyle(node)
     const page = node.closest('.generated-resume')
@@ -42,7 +42,7 @@ function useComputedStyle(elementId, revision) {
       letterSpacing: Number.isFinite(letterSpacingPx) ? round(letterSpacingPx / scale, .1) : 0,
       textAlign: window.getComputedStyle(block).textAlign
     })
-  }, [elementId, revision])
+  }, [elementId, revision, documentSelector])
   return computed
 }
 
@@ -110,11 +110,14 @@ export default function FormatPanel({
   fonts, fontFamily, onFontFamily, templateFontFamily,
   baseFontSize, onBaseFontSize, textColor, onTextColor,
   accentColor, onAccentColor, templateAccent,
-  photo, onPhotoChange, onPhotoUpload, photoControls, onResetAll
+  photo, onPhotoChange, onPhotoUpload, photoControls, onResetAll,
+  // The cover letter reuses this panel: its own page selector, wording, extra whole-document sections and per-element panels.
+  documentSelector = '.resume-page-document', scopeLabel = 'Whole resume', documentNoun = 'resume', wholeExtras = null, elementPanels = null
 }) {
   const elementId = selection?.id ?? null
   const isPhoto = elementId === PHOTO_ID
-  const computed = useComputedStyle(isPhoto ? '__none__' : elementId, revision)
+  const customPanel = elementId && elementPanels?.[elementId] ? elementPanels[elementId] : null
+  const computed = useComputedStyle(isPhoto || customPanel ? '__none__' : elementId, revision, documentSelector)
   const override = elementId ? overrides[elementId] ?? {} : {}
   const resumeOverride = overrides.resume ?? {}
   const description = elementId ? describeResumeElement(elementId) : null
@@ -153,12 +156,14 @@ export default function FormatPanel({
     <header className="fp-head">
       <h2>Format</h2>
       <div className="fp-scope">
-        <b>{elementId ? description.label : 'Whole resume'}</b>
-        {elementId && <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClearSelection} aria-label="Back to whole resume" title="Back to whole resume">×</button>}
+        <b>{elementId ? description.label : scopeLabel}</b>
+        {elementId && <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClearSelection} aria-label={`Back to ${scopeLabel.toLowerCase()}`} title={`Back to ${scopeLabel.toLowerCase()}`}>×</button>}
       </div>
     </header>
 
-    {isPhoto && <section className="fp-group">
+    {customPanel}
+
+    {isPhoto && !customPanel && <section className="fp-group">
       <h3>Photo</h3>
       <div className="fp-row">
         <button type="button" className="btn btn-secondary btn-sm" onClick={onPhotoUpload}>{photo?.uploaded ? 'Replace' : 'Upload'}</button>
@@ -177,7 +182,7 @@ export default function FormatPanel({
       </>}
     </section>}
 
-    {elementId && !isPhoto && <>
+    {elementId && !isPhoto && !customPanel && <>
       {editablePath && <section className="fp-group"><h3>Text</h3><EditText elementId={elementId} value={String(readPath(resumeData, editablePath))} onCommit={value => onEditText(editablePath, value)} /></section>}
       <section className="fp-group">
         <h3>Style</h3>
@@ -187,7 +192,7 @@ export default function FormatPanel({
           <span className="fp-toolbar-gap" aria-hidden="true" />
           {Object.entries(alignIcons).map(([id, path]) => <button key={id} type="button" aria-pressed={align === id} className={align === id ? 'is-active' : ''} onClick={() => setStyle({ textAlign: id })} aria-label={`Align ${id}`} title={`Align ${id}`}><svg viewBox="0 0 20 20" aria-hidden="true"><path d={path} /></svg></button>)}
         </div>
-        <Field label="Font" wide><FontPicker id="format-font" fonts={fonts} value={override.fontFamily ?? null} onChange={value => setStyle({ fontFamily: value })} defaultLabel="Same as resume" headingsAllowed={headingLike} /></Field>
+        <Field label="Font" wide><FontPicker id="format-font" fonts={fonts} value={override.fontFamily ?? null} onChange={value => setStyle({ fontFamily: value })} defaultLabel={`Same as ${documentNoun}`} headingsAllowed={headingLike} /></Field>
         <Field label="Weight" wide>
           <select className="format-select" value={override.fontWeight ? String(override.fontWeight) : ''} onChange={event => setStyle({ fontWeight: event.target.value ? Number(event.target.value) : null })}>
             <option value="">Default</option>
@@ -221,7 +226,8 @@ export default function FormatPanel({
           <Field label="Letters"><Stepper label="Letter spacing" value={resumeOverride.letterSpacing ?? computed?.letterSpacing ?? 0} min={-2} max={10} step={.1} suffix="px" onChange={value => onStyle('resume', { letterSpacing: value })} /></Field>
         </div>
       </section>
-      <p className="fp-hint">Click text on the resume to style just that part.</p>
+      {wholeExtras}
+      <p className="fp-hint">Click text on the {documentNoun} to style just that part.</p>
       <div className="fp-foot"><button type="button" className="btn btn-link" onClick={onResetAll}>Reset all formatting</button></div>
     </>}
   </div>

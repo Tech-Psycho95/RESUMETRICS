@@ -1,5 +1,5 @@
 // AI evaluation harness. Usage:
-//   npm run ai:eval -- --task nimbus|jd-parse|jd-fixes|all [--model openai/gpt-oss-120b]
+//   npm run ai:eval -- --task nimbus|letter|jd-parse|jd-fixes|all [--model openai/gpt-oss-120b]
 // Writes a Markdown report to .planning/evals/. Uses the API key in server/.env.local; data is synthetic.
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -14,11 +14,14 @@ if (model) for (const key of ['RESUMETRICS_AI_MODEL_NIMBUS', 'RESUMETRICS_AI_MOD
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const { env } = await import('../../config/env.js')
 const { planNimbusTurn } = await import('../../nimbus/nimbusEngine.js')
+const { planLetterTurn } = await import('../../nimbus/letterEngine.js')
+const { isGenericOpener } = await import('../../../shared/letterLint.js')
+const { countWords } = await import('../../../shared/letterModel.js')
 const { parseJobDescription, suggestFixes } = await import('../../jd/jdEngine.js')
-const { scoreResumeAgainstJd } = await import('../../../shared/jdScoring.js')
+const { extractJdKeywords, scoreKeywords } = await import('../../../shared/jdKeywords.js')
 const { findInventedFacts, sourceTextOf } = await import('../../../shared/factGuard.js')
-const { resume, elements, style, jobs } = await import('./fixtures.js')
-const { nimbusCases, jdParseCases, jdFixCases } = await import('./cases.js')
+const { resume, elements, style, jobs, letters } = await import('./fixtures.js')
+const { nimbusCases, letterCases, jdParseCases, jdFixCases } = await import('./cases.js')
 
 const asList = value => Array.isArray(value) ? value : value == null ? [] : [value]
 const numbersIn = text => (String(text).match(/\d[\d,.]*%?/g) ?? []).map(value => value.replace(/[,%.]+$/, ''))
@@ -66,6 +69,41 @@ async function evalNimbus() {
   return rows
 }
 
+async function evalLetter() {
+  const rows = []
+  for (const testCase of letterCases) {
+    const job = testCase.job ? { text: jobs[testCase.job], title: '', company: '' } : null
+    const context = { document: 'letter', resumeData: resume, letter: letters[testCase.letter], job, elements: [], selection: null, conversation: [] }
+    const run = await timed(onAttempt => planLetterTurn({ instruction: testCase.instruction, context, onAttempt }))
+    const turn = run.value
+    const failures = []
+    if (!turn) failures.push(`error: ${run.error}`)
+    else {
+      const ops = (turn.steps ?? []).flatMap(step => step.operations)
+      const written = ops.flatMap(op => op.type === 'replace_paragraphs' ? op.values : typeof op.text === 'string' ? [op.text] : [])
+      if (!asList(testCase.expect.mode).includes(turn.mode)) failures.push(`mode ${turn.mode}`)
+      if (testCase.expect.ops && turn.mode === 'edit' && !testCase.expect.ops.some(type => ops.some(op => op.type === type))) failures.push(`missing op ${testCase.expect.ops.join('|')}`)
+      if (testCase.expect.noOps && ops.some(op => testCase.expect.noOps.includes(op.type))) failures.push('set a field it could not know')
+      if (testCase.expect.mustContain && !JSON.stringify(ops).includes(testCase.expect.mustContain)) failures.push(`missing "${testCase.expect.mustContain}"`)
+      if (testCase.expect.mentions && !testCase.expect.mentions.test(turn.message ?? '')) failures.push('did not point to the Format panel')
+      if (testCase.expect.words && turn.mode === 'edit' && ops.some(op => op.type === 'replace_paragraphs')) {
+        const total = written.reduce((sum, text) => sum + countWords(text), 0)
+        if (total < testCase.expect.words[0] || total > testCase.expect.words[1]) failures.push(`${total} words`)
+      }
+      if (testCase.expect.noGenericOpener && written[0] && isGenericOpener(written[0])) failures.push('generic opener')
+      if (testCase.expect.noNewNumbers) {
+        const invented = written.flatMap(text => findInventedFacts(text, sourceTextOf(resume, testCase.instruction, job?.text, letters[testCase.letter])))
+        if (invented.length) failures.push(`invented ${invented.map(item => item.value).join(',')}`)
+      }
+      if (turn.repaired) failures.push('(repaired)')
+    }
+    const pass = failures.every(item => item === '(repaired)')
+    rows.push({ id: testCase.id, pass, firstTry: run.attempts[0]?.ok === true, ms: run.ms, notes: failures.join('; ') || turn?.mode })
+    process.stdout.write(pass ? '.' : 'F')
+  }
+  return rows
+}
+
 async function evalJdParse() {
   const rows = []
   for (const testCase of jdParseCases) {
@@ -93,8 +131,8 @@ async function evalJdFixes() {
   const rows = []
   for (const testCase of jdFixCases) {
     const jd = await parseJobDescription(jobs[testCase.job])
-    const score = scoreResumeAgainstJd(resume, jd, { pages: 1 })
-    const run = await timed(onAttempt => suggestFixes({ resumeData: resume, jd, score, onAttempt }))
+    const keywords = scoreKeywords(resume, extractJdKeywords(jd, jobs[testCase.job])).rows
+    const run = await timed(onAttempt => suggestFixes({ resumeData: resume, jd, keywords, onAttempt }))
     const failures = []
     const result = run.value
     if (!result) failures.push(`error: ${run.error}`)
@@ -111,7 +149,7 @@ async function evalJdFixes() {
   return rows
 }
 
-const suites = { nimbus: evalNimbus, 'jd-parse': evalJdParse, 'jd-fixes': evalJdFixes }
+const suites = { nimbus: evalNimbus, letter: evalLetter, 'jd-parse': evalJdParse, 'jd-fixes': evalJdFixes }
 const selected = task === 'all' ? Object.keys(suites) : [task]
 const usedModel = model || env.ai.defaultModel
 let report = `# AI eval — ${new Date().toISOString().slice(0, 16).replace('T', ' ')}\n\nModel: \`${usedModel}\`\n`

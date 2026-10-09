@@ -29,10 +29,6 @@ export default function CinematicHero() {
   const sceneRef = useRef(null)
   useScrollProgress(sceneRef, 'pin')
 
-  // Experience runs from .32 to .54: each role gets a header beat then three bullet beats.
-  let beat = .32
-  const next = width => { const s = beat; beat += width; return [s, beat] }
-
   return <section className="cine" id="top" ref={sceneRef}>
     <div className="cine-stage">
       <div className="cine-layer cine-grid" aria-hidden="true" />
@@ -55,44 +51,66 @@ export default function CinematicHero() {
       </div>
 
       <div className="cine-camera fx" style={at(.72, .9)}>
+        <div className="cine-deck" aria-hidden="true">
+          {deck.map((card, i) => <div key={card.tpl} className="cine-deck-card fx" style={at(.78 + i * .025, .9 + i * .02, { '--slot': card.slot, '--lift': Math.abs(card.slot), '--tilt': card.tilt })}>
+            <ResumeSheet className={`tpl-${card.tpl}`} style={{ '--p': 1 }} />
+          </div>)}
+        </div>
         <div className="cine-tilt fx" style={at(0, .12)}>
-          <article className="cine-paper" aria-label="A sample resume filling in">
-            <div className="cine-sheen fx" style={at(.66, .76)} aria-hidden="true" />
-            <span className="cine-done fx" style={at(.66, .72)}><LandingIcon name="shield" size={12} /> 100% complete</span>
-
-            <header className="cv-head">
-              <h3 className="fx wipe" style={at(.04, .12)}>Aarav Mehta</h3>
-              <p className="cv-role fx wipe" style={at(.1, .16)}>Software Engineer</p>
-              <p className="cv-contact fx wipe" style={at(.14, .2)}>aarav@mail.com · Bengaluru · github.com/aarav · linkedin.com/in/aarav</p>
-              <span className="cv-rule fx" style={at(.17, .22)} />
-            </header>
-
-            <Section title="Summary" s={.2}>
-              {summary.map((line, i) => <p key={i} className="fx wipe" style={at(.21 + i * .06, .27 + i * .06)}>{line}</p>)}
-            </Section>
-
-            <Section title="Experience" s={.32}>
-              {roles.map(role => {
-                const [hs, he] = next(.04)
-                return <div className="cv-item" key={role.org}>
-                  <div className="cv-item-head fx wipe" style={at(hs, he)}><b>{role.title} · {role.org}</b><span>{role.dates}</span></div>
-                  <ul>{role.bullets.map(text => { const [s, e] = next(.025); return <li key={text} className="fx wipe" style={at(s, e)}>{text}</li> })}</ul>
-                </div>
-              })}
-            </Section>
-
-            <Section title="Skills" s={.52}>
-              <div className="cv-skills">{skills.map((skill, i) => <i key={skill} className="fx pop" style={at(.53 + i * .011, .56 + i * .011)}>{skill}</i>)}</div>
-            </Section>
-
-            <Section title="Education" s={.6}>
-              <div className="cv-item-head fx wipe" style={at(.61, .67)}><b>B.Tech, Computer Science · IIT Delhi</b><span>2020 – 2024</span></div>
-            </Section>
-          </article>
+          <ResumeSheet />
         </div>
       </div>
     </div>
   </section>
+}
+
+// The same resume in other templates, fanned out behind the original once the logo appears.
+const deck = [
+  { tpl: 'serif', slot: -1, tilt: '-4deg' },
+  { tpl: 'band', slot: 1, tilt: '4deg' },
+  { tpl: 'rail', slot: -2, tilt: '-8deg' },
+  { tpl: 'mono', slot: 2, tilt: '8deg' }
+]
+
+function ResumeSheet({ className = '', style }) {
+  // Experience runs from .32 to .54: each role gets a header beat then three bullet beats.
+  let beat = .32
+  const next = width => { const s = beat; beat += width; return [s, beat] }
+  return (
+    <article className={`cine-paper ${className}`} style={style} aria-label="A sample resume">
+      <div className="cine-sheen fx" style={at(.66, .76)} aria-hidden="true" />
+      <span className="cine-done fx" style={at(.66, .72)}><LandingIcon name="shield" size={12} /> 100% complete</span>
+
+      <header className="cv-head">
+        <h3 className="fx wipe" style={at(.04, .12)}>Aarav Mehta</h3>
+        <p className="cv-role fx wipe" style={at(.1, .16)}>Software Engineer</p>
+        <p className="cv-contact fx wipe" style={at(.14, .2)}>aarav@mail.com · Bengaluru · github.com/aarav · linkedin.com/in/aarav</p>
+        <span className="cv-rule fx" style={at(.17, .22)} />
+      </header>
+
+      <Section title="Summary" s={.2}>
+        {summary.map((line, i) => <p key={i} className="fx wipe" style={at(.21 + i * .06, .27 + i * .06)}>{line}</p>)}
+      </Section>
+
+      <Section title="Experience" s={.32}>
+        {roles.map(role => {
+          const [hs, he] = next(.04)
+          return <div className="cv-item" key={role.org}>
+            <div className="cv-item-head fx wipe" style={at(hs, he)}><b>{role.title} · {role.org}</b><span>{role.dates}</span></div>
+            <ul>{role.bullets.map(text => { const [s, e] = next(.025); return <li key={text} className="fx wipe" style={at(s, e)}>{text}</li> })}</ul>
+          </div>
+        })}
+      </Section>
+
+      <Section title="Skills" s={.52}>
+        <div className="cv-skills">{skills.map((skill, i) => <i key={skill} className="fx pop" style={at(.53 + i * .011, .56 + i * .011)}>{skill}</i>)}</div>
+      </Section>
+
+      <Section title="Education" s={.6}>
+        <div className="cv-item-head fx wipe" style={at(.61, .67)}><b>B.Tech, Computer Science · IIT Delhi</b><span>2020 – 2024</span></div>
+      </Section>
+    </article>
+  )
 }
 
 function Section({ title, s, children }) {

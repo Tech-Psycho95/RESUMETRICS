@@ -1,15 +1,19 @@
 import { useRef, useState } from 'react'
 import { streamNdjson } from '../utils/readNdjson.js'
 import { extractResumeDocument } from '../utils/extractResumeDocument.js'
-import { scoreResumeAgainstJd } from '../../shared/jdScoring.js'
+import { customKeyword, extractJdKeywords, scoreKeywords } from '../../shared/jdKeywords.js'
+import { extractJd } from '../../shared/jdExtract.js'
+import { applyNimbusOperations } from '../nimbus/applyNimbusOperations.js'
 import { settleLayout } from '../nimbus/useNimbusTurns.js'
 
 /**
- * Job match runner shared by the editor and its fixture.
- * adapter: { getResume(), pageCount(), elementIds(), snapshot(), restore(snapshot), applyOperations(ops) }
- * analysis/setAnalysis hold the persisted result; draft/setDraft the composer text.
+ * Keyword-driven job match (PLAN-030/031): read the posting (instantly, in the browser) → pick keywords → score → fixes.
+ * adapter: { getResume(), elementIds(), snapshot(), restore(snapshot), applyOperations(ops) }
+ * analysis (persisted): { runId, jobText, jd, keywords, step: 'keywords'|'results', baseline, fixes, fixState, fixesStatus }
+ * The live score is not stored: callers derive it from the current resume with scoreKeywords, so it
+ * follows every executed change, undo and manual edit.
  */
-export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, adapter, endpoint = '/api/jd/analyze' }) {
+export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, adapter, endpoints = { fixes: '/api/jd/fixes' } }) {
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -19,55 +23,84 @@ export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, ad
   const adapterRef = useRef(adapter)
   adapterRef.current = adapter
 
-  const run = async (savedJobText = null) => {
+  // Keywords are found locally (shared/jdExtract.js), so this is instant; only an attached file needs reading first.
+  const parse = async () => {
     setError('')
-    let jobText = typeof savedJobText === 'string' ? savedJobText : draft.trim()
-    if (file && typeof savedJobText !== 'string') {
+    let jobText = draft.trim()
+    if (file) {
+      setBusy(true)
       try {
         const extracted = await extractResumeDocument(file)
         jobText = [extracted.rawText, jobText].filter(Boolean).join('\n\n')
       } catch {
         setError('Could not read that file. Try a text-based PDF, a Word file, or paste the text.')
+        setBusy(false)
         return
       }
+      setBusy(false)
     }
-    if (jobText.trim().length < 40) { setError('That job description looks too short — paste the full posting.'); return }
+    if (jobText.trim().length < 40) { setError('That job post looks too short. Paste the full post, including the requirements.'); return }
+    const jd = extractJd(jobText)
+    const keywords = extractJdKeywords(jd, jobText)
+    if (!keywords.length) { setError('No skills or requirements were found in that text. Paste the requirements section of the post.'); return }
+    snapshotsRef.current.clear()
+    setAnalysis({ runId: Date.now(), jobText: jobText.slice(0, 20_000), jd, keywords, step: 'keywords', fixes: [], fixState: {}, skipped: {} })
+    setDraft('')
+    setFile(null)
+  }
+
+  const updateKeywords = change => setAnalysis(current => ({ ...current, keywords: change(current.keywords) }))
+  const toggleKeyword = term => updateKeywords(keywords => keywords.map(keyword => keyword.term === term ? { ...keyword, selected: !keyword.selected } : keyword))
+  const selectAll = (selected, group = null) => updateKeywords(keywords => keywords.map(keyword => !group || keyword.group === group ? { ...keyword, selected } : keyword))
+  const addKeyword = term => {
+    const keyword = customKeyword(term, analysis?.jobText)
+    if (!keyword) return false
+    if (analysis?.keywords?.some(item => item.term.toLowerCase() === keyword.term.toLowerCase())) return false
+    updateKeywords(keywords => [...keywords, keyword])
+    return true
+  }
+
+  const fetchFixes = async (keywords = analysis?.keywords) => {
+    const resume = adapterRef.current.getResume()
+    const rows = scoreKeywords(resume, keywords).rows
+    setAnalysis(current => ({ ...current, fixes: (current.fixes ?? []).filter(fix => fix.local), fixState: {}, skipped: {}, fixesStatus: 'loading', fixesDegraded: false, fixesLimited: false }))
+    snapshotsRef.current.clear()
     const controller = new AbortController()
     abortRef.current = controller
-    snapshotsRef.current.clear()
-    setBusy(true)
-    setAnalysis({ jobText: jobText.slice(0, 20_000), stages: [], fixes: [], fixState: {}, runId: Date.now() })
     try {
-      await streamNdjson(endpoint, {
-        body: { jobText, resumeData: adapterRef.current.getResume(), pages: adapterRef.current.pageCount(), elementIds: adapterRef.current.elementIds() },
+      await streamNdjson(endpoints.fixes, {
+        body: { resumeData: resume, jd: analysis?.jd, keywords: rows, elementIds: adapterRef.current.elementIds() },
         signal: controller.signal,
         onEvent: event => {
-          if (event.type === 'stage') setAnalysis(current => ({ ...current, stages: [...(current?.stages ?? []), { id: event.id, label: event.label }] }))
-          else if (event.type === 'jd') setAnalysis(current => ({ ...current, jd: event.jd }))
-          else if (event.type === 'score') setAnalysis(current => ({ ...current, score: event.score, categories: event.categories, keywords: event.keywords }))
-          else if (event.type === 'fixes') setAnalysis(current => ({ ...current, fixes: event.fixes, fixesDegraded: Boolean(event.degraded), fixesLimited: Boolean(event.limited) }))
-          else if (event.type === 'error') setError(event.message)
+          if (event.type === 'fixes') setAnalysis(current => ({ ...current, fixes: [...event.fixes, ...(current.fixes ?? []).filter(fix => fix.local)], fixesStatus: 'ready', fixesDegraded: Boolean(event.degraded), fixesLimited: Boolean(event.limited) }))
+          else if (event.type === 'error') setAnalysis(current => ({ ...current, fixesStatus: 'error', fixesError: event.message }))
         }
       })
-      setDraft('')
-      setFile(null)
     } catch (caught) {
-      if (!controller.signal.aborted) setError(caught instanceof TypeError ? 'The job match service is offline — start the app with npm run dev:all.' : caught.message || 'The job match could not be completed.')
+      if (!controller.signal.aborted) setAnalysis(current => ({ ...current, fixesStatus: 'error', fixesError: caught instanceof TypeError ? 'The job match service is offline.' : caught?.status ? caught.message : 'Changes could not be prepared.' }))
     } finally {
-      setBusy(false)
       abortRef.current = null
     }
   }
 
-  const rescore = (current, extra = {}) => {
-    if (!current?.jd) return current
-    const next = scoreResumeAgainstJd(adapterRef.current.getResume(), current.jd, { pages: adapterRef.current.pageCount() })
-    return { ...current, score: next.score, categories: next.categories, keywords: next.keywords, ...extra }
+  /** Score the resume against the selected keywords; this score is the "from" of the final spotlight. */
+  const scoreNow = () => {
+    const result = scoreKeywords(adapterRef.current.getResume(), analysis?.keywords)
+    setAnalysis(current => ({ ...current, step: 'results', baseline: result.score }))
+    fetchFixes(analysis?.keywords)
+  }
+
+  /** How many points a fix would add right now (applied to a copy of the resume, then re-scored). */
+  const impactOf = (fix, resume, keywords) => {
+    if (fix.kind !== 'executable') return 0
+    try {
+      const next = applyNimbusOperations({ resumeData: resume }, fix.operations, { elementIds: [] }).resumeData
+      return scoreKeywords(next, keywords).score - scoreKeywords(resume, keywords).score
+    } catch { return 0 }
   }
 
   const executeFix = async fix => {
     const before = adapterRef.current.snapshot()
-    const previousScore = analysis?.score ?? 0
     try {
       adapterRef.current.applyOperations(fix.operations)
     } catch (caught) {
@@ -77,14 +110,9 @@ export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, ad
     snapshotsRef.current.set(fix.id, before)
     orderRef.current += 1
     const order = orderRef.current
+    setAnalysis(current => ({ ...current, fixState: { ...current.fixState, [fix.id]: { status: 'done', order } } }))
     await settleLayout(160)
-    setAnalysis(current => {
-      const next = rescore(current)
-      return { ...next, fixState: { ...current.fixState, [fix.id]: { status: 'done', order, delta: next.score - previousScore } } }
-    })
   }
-
-  const executeMany = async fixes => { for (const fix of fixes) await executeFix(fix) }
 
   // Undoing a fix also undoes the fixes applied after it (they were built on top of it).
   const undoFix = async fix => {
@@ -92,14 +120,22 @@ export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, ad
     const order = analysis?.fixState?.[fix.id]?.order
     if (!snapshot || !order) return
     adapterRef.current.restore(snapshot)
+    setAnalysis(current => ({ ...current, fixState: Object.fromEntries(Object.entries(current.fixState).filter(([, state]) => !(state.order >= order))) }))
     await settleLayout(160)
-    setAnalysis(current => rescore(current, { fixState: Object.fromEntries(Object.entries(current.fixState).filter(([, state]) => !(state.order >= order))) }))
   }
 
-  // Ask for fixes again without re-reading the job (used when the first attempt couldn't produce tailored fixes).
-  const retryFixes = () => run(analysis?.jobText ?? '')
+  const skipFix = fix => setAnalysis(current => ({ ...current, skipped: { ...current.skipped, [fix.id]: !current.skipped?.[fix.id] } }))
 
+  /** A fix built on the client (e.g. the job-title check) joins the list so it can be applied and undone like the rest. */
+  const addLocalFix = fix => setAnalysis(current => current.fixes?.some(item => item.id === fix.id) ? current : { ...current, fixes: [...(current.fixes ?? []), fix] })
+
+  const editKeywords = () => setAnalysis(current => ({ ...current, step: 'keywords' }))
   const reset = () => { abortRef.current?.abort(); setAnalysis(null); setError(''); snapshotsRef.current.clear() }
 
-  return { busy, error, file, retryFixes, setFile: next => { setFile(next); setError('') }, run, stop: () => abortRef.current?.abort(), executeFix, executeMany, undoFix, reset }
+  return {
+    busy, error, file, setFile: next => { setFile(next); setError('') },
+    parse, stop: () => abortRef.current?.abort(),
+    toggleKeyword, selectAll, addKeyword, scoreNow, fetchFixes, impactOf,
+    executeFix, undoFix, skipFix, addLocalFix, editKeywords, reset
+  }
 }

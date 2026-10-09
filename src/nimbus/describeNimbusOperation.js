@@ -3,6 +3,7 @@ import { describeResumeElement } from '../editor/describeResumeElement.js'
 
 const groupNames = { name: 'your name', headline: 'the headline', contact: 'contact details', headings: 'section headings', summary: 'the summary', 'job-titles': 'job titles', companies: 'company names', dates: 'dates', bullets: 'bullet points', skills: 'skills', 'education-degrees': 'degrees', 'project-names': 'project names' }
 const targetName = target => String(target).startsWith('group:') ? groupNames[target.slice(6)] ?? target.slice(6) : describeResumeElement(target).label.toLowerCase()
+const letterFieldNames = { role: 'job title', date: 'date', recipientName: 'recipient name', recipientTitle: 'recipient title', company: 'company', address: 'address', subject: 'subject line', salutation: 'greeting', signoff: 'sign-off' }
 const markNames = { b: 'Bold', i: 'Italic', u: 'Underline', s: 'Strikethrough' }
 const sectionItem = (section, index) => `${section === 'experience' ? 'role' : section === 'projects' ? 'project' : 'education entry'} ${Number(index) + 1}`
 
@@ -39,6 +40,13 @@ export function describeNimbusOperation(operation) {
     case 'set_accent': return `Accent colour ${operation.hex}`
     case 'reset_style': return operation.scope === 'all' ? 'Reset all formatting' : `Reset formatting on ${targetName(operation.target)}`
     case 'fit_one_page': return 'Fit on one page'
+    case 'set_letter_field': return `Updated the ${letterFieldNames[operation.target] ?? operation.target}`
+    case 'clear_letter_field': return `Cleared the ${letterFieldNames[operation.target] ?? operation.target}`
+    case 'set_paragraph': return `Rewrote paragraph ${Number(operation.index) + 1}`
+    case 'insert_paragraph': return `Added a paragraph at position ${Number(operation.index) + 1}`
+    case 'remove_paragraph': return `Removed paragraph ${Number(operation.index) + 1}`
+    case 'move_paragraph': return `Moved paragraph ${Number(operation.from) + 1} to position ${Number(operation.to) + 1}`
+    case 'replace_paragraphs': return `Wrote ${operation.values.length} paragraphs`
     default: return operation.type
   }
 }

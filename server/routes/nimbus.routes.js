@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { startNdjson } from '../ai/ndjson.js'
 import { friendlyNimbusError, planNimbusTurn } from '../nimbus/nimbusEngine.js'
+import { planLetterTurn } from '../nimbus/letterEngine.js'
 
 const router = Router()
 
@@ -13,10 +14,15 @@ router.post('/turn', async (request, response) => {
   if (!context || typeof context !== 'object' || !context.resumeData) {
     return response.status(400).json({ ok: false, error: 'Open a resume before asking NIMBUS to edit it.' })
   }
+  // The cover letter uses the same turn contract with its own prompt and operations (PLAN-033).
+  const isLetter = context.document === 'letter'
+  if (isLetter && (!context.letter || typeof context.letter !== 'object')) {
+    return response.status(400).json({ ok: false, error: 'Open a cover letter before asking NIMBUS to edit it.' })
+  }
   const stream = startNdjson(request, response)
   stream.send({ type: 'thinking', text: 'Reading your resume and request…' })
   try {
-    const turn = await planNimbusTurn({ instruction: instruction.trim(), context })
+    const turn = isLetter ? await planLetterTurn({ instruction: instruction.trim(), context }) : await planNimbusTurn({ instruction: instruction.trim(), context })
     if (stream.closed) return
     if (turn.mode === 'edit') {
       stream.send({ type: 'plan', steps: turn.steps.map((step, index) => ({ id: `s${index + 1}`, title: step.title })) })

@@ -10,8 +10,13 @@
     "dev:all": "concurrently -n client,server -c cyan,magenta \"npm run dev\" \"npm run dev:server\"",
     "build": "vite build",
     "preview": "vite preview",
+<<<<<<< HEAD
     "test": "node tests/railSizing.test.js && node tests/sectionProgress.test.js && node tests/inlineMarks.test.js && node tests/factGuard.test.js && node tests/nimbusPlan.test.js && node tests/applyNimbusOperations.test.js && node tests/jdScoring.test.js && node tests/githubEvidence.test.js && node tests/githubScan.test.js && node tests/workspacePersistence.test.js && node tests/useFirestoreAutosave.errorLogging.test.js && node tests/useFirestoreAutosave.editorReadyGating.test.js && node tests/useFirestoreAutosave.saveOrder.test.js && node tests/useFirestoreAutosave.workspaceReset.test.js",
+=======
+    "test": "node tests/jdExtract.test.js && node tests/fixPreview.test.js && node tests/jdKeywords.test.js && node tests/skillGroups.test.js && node tests/railSizing.test.js && node tests/sectionProgress.test.js && node tests/inlineMarks.test.js && node tests/factGuard.test.js && node tests/nimbusPlan.test.js && node tests/applyNimbusOperations.test.js && node tests/jdScoring.test.js && node tests/githubEvidence.test.js && node tests/githubScan.test.js && node tests/letterModel.test.js && node tests/letterLint.test.js && node tests/letterPlan.test.js && node tests/signature.test.js && node tests/requireUser.test.js && node tests/providerBudget.test.js && node tests/limits.test.js && node tests/aiUsage.test.js && node tests/mockProvider.test.js",
+>>>>>>> c7f7c94c4b27e01ce29aff071267e73915e2f056
     "ai:eval": "node server/ai/evals/run.mjs",
+    "ai:ping": "node server/ai/ping.mjs",
     "fonts:fetch": "node scripts/fonts/fetch-fonts.mjs"
   },
   "dependencies": {
@@ -22,6 +27,7 @@
     "docx": "^9.7.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
     "firebase": "^12.19.0",
     "firebase-admin": "^14.4.0",
     "groq-sdk": "^1.6.0",
@@ -30,7 +36,6 @@
     "mammoth": "^1.12.2",
     "octokit": "^5.0.5",
     "pdfjs-dist": "^6.3.289",
-    "pptxgenjs": "^4.0.1",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
@@ -40,5 +45,13 @@
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5",
+    "shell-quote": "^1.12.0",
+    "uuid": "^11.1.1",
+    "mammoth": {
+      "argparse": "^2.0.1"
+    }
   }
 }

@@ -1,5 +1,5 @@
 /* Section-based resume form (/workspace/build) */
-.section-form { --form-line: #e6e9f1; --form-ink: #13203a; --form-muted: #6b7489; --form-error: #c4322d; --form-good: #1e9c5a; display: flex; flex-direction: column; min-height: 100%; color: var(--form-ink); }
+.section-form { --form-line: #e6e9f1; --form-ink: #13203a; --form-muted: #5b6478; --form-error: #c4322d; --form-good: #1e9c5a; display: flex; flex-direction: column; min-height: 100%; color: var(--form-ink); }
 .form-list-header { padding: 22px 22px 10px; }
 .form-list-header h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.01em; }
 .form-list-header p { margin: 0; color: var(--form-muted); font-size: 13px; }
@@ -122,3 +122,23 @@
 @media (prefers-reduced-motion: reduce) {
   .form-section-card, .form-entry-chevron, .form-overall-bar span { transition: none; }
 }
+
+/* PLAN-028: skill groups for every profession, additional sections, accessibility (WCAG 2.2 AA). */
+.form-tags-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.form-group-actions { display: inline-flex; gap: 4px; }
+.form-group-actions .form-text-button { min-height: 24px; padding: 0 6px; font-size: 12px; }
+.form-tag button { width: 24px; height: 24px; }
+.form-skill-groups { display: grid; gap: 14px; }
+.form-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.form-inline-row input { flex: 1 1 200px; min-height: 40px; }
+.form-add-group { padding-top: 12px; border-top: 1px dashed var(--form-line); }
+.form-group-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.form-suggestion { min-height: 30px; padding: 0 11px; border: 1px solid #d6dbe7; border-radius: 999px; color: var(--form-ink); background: #fff; font: inherit; font-size: 12.5px; cursor: pointer; }
+.form-suggestion:hover { border-color: var(--accent-border); background: var(--accent-softer); }
+.form-custom-sections { display: grid; gap: 12px; }
+.form-custom-sections .form-entry-body { display: grid; gap: 10px; }
+.form-custom-sections .form-text-button { justify-self: start; }
+/* One visible focus ring for every control in the form. */
+.section-form :is(input, textarea, select, button):focus-visible { outline: 2px solid var(--accent-ink, #4b3bc4); outline-offset: 2px; }
+.form-tags-box input:focus-visible { outline: 0; }
+@media (prefers-reduced-motion: reduce) { .section-form *, .section-form *::before, .section-form *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }

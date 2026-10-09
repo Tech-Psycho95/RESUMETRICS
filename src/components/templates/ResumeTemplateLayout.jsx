@@ -2,12 +2,13 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { adaptResumeForTemplate, linkDisplayLabel } from '../../templates/templateDataAdapter.js'
 import { findFont, loadFontsForPresentation, loadResumeFont } from '../../editor/fontRegistry.js'
 import { parseMarks, rangeOffsetsWithin, readMarkedText } from '../../editor/inlineMarks.js'
+import { skillGroupLabel } from '../../../shared/skillGroups.js'
 
 const valueOr = (value, fallback) => value || fallback
 const asArray = value => Array.isArray(value) ? value : []
 const allSkills = skills => Object.values(skills ?? {}).flat().filter(Boolean)
 const period = item => [item?.startDate, item?.endDate].filter(Boolean).join(' — ')
-const A4_RATIO = 297 / 210
+export const A4_RATIO = 297 / 210
 const PAGE_EDGE_TOLERANCE = 4
 // Height a block really takes in the flow: its box plus its own vertical margins.
 const outerHeight = element => {
@@ -15,10 +16,31 @@ const outerHeight = element => {
   const style = window.getComputedStyle(element)
   return element.offsetHeight + parseFloat(style.marginTop || 0) + parseFloat(style.marginBottom || 0)
 }
-const MAX_A4_WIDTH = 794
+export const MAX_A4_WIDTH = 794
+
+// LaTeX template clones (PLAN-027). Each entry switches on the few markup differences CSS cannot make;
+// everything else lives in latex-templates.css. `base` is the body size in px on an A4 page.
+//   nameSplit       first name and the rest in separate spans (still one editable fullName)
+//   contactSection  contact details print as a section (so they paginate) instead of in the header
+//   contactLabels   a label beside each contact line (from CSS); links show their address, as with linkAddress
+//   entryLayout     arrangement of experience / education / project entries
+//   skillChips      each skill in its own box; skillSeparator joins a group's skills
+//   leadSections    sections printed full width above the two columns
+//   sidebarIds      sections in the second column; sidebarSide is where that column sits
+export const latexTemplateFeatures = {
+  'minimal-academic': { base: 13.3333, nameSplit: true, contactSection: { title: 'Contact info' }, contactLabels: true, entryLayout: 'academic', dash: '-' },
+  'libre-cv': { base: 16, linkAddress: true, entryLayout: 'libre', dash: ' – ', skillSeparator: ' · ', sidebarSide: 'right', sidebarIds: ['skills', 'languages', 'certifications', 'achievements'] },
+  'simple-hipster': { base: 12, nameSplit: true, contactSection: { title: 'Contact' }, entryLayout: 'hipster', dash: '–', skillChips: true, sidebarSide: 'left', sidebarIds: ['summary', 'languages', 'contact'] },
+  'keywords-cv': { base: 13.3333, nameSplit: true, contactLabels: true, entryLayout: 'keywords', dash: ' - ', leadSections: ['summary'], sidebarSide: 'right', sidebarIds: ['projects', 'education', 'certifications', 'achievements'] },
+  'elegant-resume': { base: 13.3333, entryLayout: 'elegant', dash: ' – ' },
+  'developer-cv': { base: 12, entryLayout: 'developer', dash: ' – ' }
+}
+export const featuresFor = variant => latexTemplateFeatures[variant] ?? {}
+export const isLatexVariant = variant => Object.hasOwn(latexTemplateFeatures, variant)
+const inCloneSidebar = (features, id) => Boolean(features.sidebarIds) && (features.sidebarIds.includes(id) || (String(id).startsWith('custom-') && features.sidebarSide !== 'none'))
 
 // Per-element formatting from the editor's format panel (presentation.elementOverrides) and the current selection.
-const ResumeStyleContext = createContext({ overrides: {}, selectedId: null, focusSectionId: null })
+export const ResumeStyleContext = createContext({ overrides: {}, selectedId: null, focusSectionId: null, features: {} })
 
 // Sizes are stored as they print on an A4 page; --page-scale shrinks them with the on-screen page.
 export function overrideToStyle(override = {}) {
@@ -49,7 +71,7 @@ export function MarkedText({ text }) {
   }, run.text)}</span>)
 }
 
-function StyledElement({ as: Tag = 'span', elementId, path, children }) {
+export function StyledElement({ as: Tag = 'span', elementId, path, children }) {
   const { overrides, selectedId } = useContext(ResumeStyleContext)
   const override = overrides?.[elementId]
   return <Tag
@@ -66,8 +88,27 @@ function EditableText({ path, elementId = path, children }) {
 
 const itemKey = (item, itemIndex) => item?.id || itemIndex
 
-function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onProfilePhotoClick }) {
-  const { selectedId, focusSectionId } = useContext(ResumeStyleContext)
+// "Jane van Doe" → <span.name-first>Jane</span> <span.name-rest>van Doe</span>, still one editable name.
+function SplitName({ name }) {
+  const [first, ...rest] = String(name).trim().split(/\s+/)
+  return <><span className="name-first">{first}</span>{rest.length > 0 && <>{' '}<span className="name-rest">{rest.join(' ')}</span></>}</>
+}
+
+const addressOf = item => String(item.address || item.href || item.value).replace(/^[a-z]+:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '')
+
+export function ContactList({ items, blankPreview, inSection = false }) {
+  const { features } = useContext(ResumeStyleContext)
+  return <address className={`generated-contact${inSection ? ' generated-contact-section' : ''}`}>
+    {items.length
+      ? items.map((item, index) => item.kind === 'link' && item.href
+        ? <a className="generated-contact-link" href={item.href} key={item.path || index} target="_blank" rel="noreferrer" title={item.address || item.href}><EditableText path={item.path} elementId={`resume.header.link.${index}`}>{features.contactLabels || features.linkAddress ? addressOf(item) : item.value}</EditableText></a>
+        : <EditableText path={item.path} elementId={`resume.header.${item.kind}`} key={item.path || index}>{item.value}</EditableText>)
+      : !blankPreview && <EditableText path="email" elementId="resume.header.email">email@example.com</EditableText>}
+  </address>
+}
+
+export function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onProfilePhotoClick }) {
+  const { selectedId, focusSectionId, features } = useContext(ResumeStyleContext)
   const contactItems = resumeData.contactItems ?? []
   const photo = presentation.photo
   const requestedPhotoSize = Math.max(Number(photo?.width) || 64, Number(photo?.height) || 64)
@@ -76,16 +117,10 @@ function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onP
   const photoSize = Math.max(48, Math.min(requestedPhotoSize, 96))
   return <header className={`generated-resume-header${focusSectionId === 'personal' ? ' is-form-focus' : ''}`} data-page-header>
     {(resumeData.fullName || resumeData.headline || !blankPreview) && <div className="generated-resume-identity">
-      {(resumeData.fullName || !blankPreview) && <h1><EditableText path="fullName" elementId="resume.header.name">{valueOr(resumeData.fullName, 'YOUR NAME')}</EditableText></h1>}
+      {(resumeData.fullName || !blankPreview) && <h1><EditableText path="fullName" elementId="resume.header.name">{features.nameSplit ? <SplitName name={valueOr(resumeData.fullName, 'YOUR NAME')} /> : valueOr(resumeData.fullName, 'YOUR NAME')}</EditableText></h1>}
       {(resumeData.headline || !blankPreview) && <p><EditableText path="headline" elementId="resume.header.headline">{valueOr(resumeData.headline, 'Professional headline')}</EditableText></p>}
     </div>}
-    <address className="generated-contact">
-      {contactItems.length
-        ? contactItems.map((item, index) => item.kind === 'link' && item.href
-          ? <a className="generated-contact-link" href={item.href} key={item.path || index} target="_blank" rel="noreferrer" title={item.address || item.href}><EditableText path={item.path} elementId={`resume.header.link.${index}`}>{item.value}</EditableText></a>
-          : <EditableText path={item.path} elementId={`resume.header.${item.kind}`} key={item.path || index}>{item.value}</EditableText>)
-        : !blankPreview && <EditableText path="email" elementId="resume.header.email">email@example.com</EditableText>}
-    </address>
+    {!features.contactSection && <ContactList items={contactItems} blankPreview={blankPreview} />}
     {photo?.source && photo.visible !== false && <img
       className="generated-resume-photo"
       data-resume-element-id="resume.header.photo"
@@ -98,38 +133,123 @@ function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onP
   </header>
 }
 
+// The same editable fields arranged per template. `layout` comes from latexTemplateFeatures; without one the original markup is used.
+function EntryShell({ layout, title, period, org, location, list }) {
+  const at = location ? <span className="resume-entry-location">{location}</span> : null
+  if (layout === 'libre') return <article className="resume-entry resume-entry-libre">
+    <div className="resume-entry-heading"><strong className="resume-entry-title">{org}</strong>{at}</div>
+    <div className="resume-entry-heading resume-entry-second"><span className="resume-entry-role">{title}</span><span className="resume-entry-period">{period}</span></div>
+    {list}
+  </article>
+  if (layout === 'elegant') return <article className="resume-entry resume-entry-elegant">
+    <div className="resume-entry-heading"><strong className="resume-entry-title">{org}</strong><strong className="resume-entry-role">{title}</strong></div>
+    <div className="resume-entry-heading resume-entry-second">{at ?? <span />}<span className="resume-entry-period">{period}</span></div>
+    {list}
+  </article>
+  if (layout === 'academic') return <article className="resume-entry resume-entry-academic">
+    <div className="resume-entry-heading"><strong className="resume-entry-title">{title}</strong><span className="resume-entry-period">{period}</span></div>
+    <p className="resume-entry-subtitle"><em className="resume-entry-org">{org}</em>{at && <span className="resume-entry-sep"> | </span>}{at}</p>
+    {list}
+  </article>
+  if (layout === 'keywords') return <article className="resume-entry resume-entry-keywords">
+    <div className="resume-entry-heading"><strong className="resume-entry-title">{title}<span className="resume-entry-sep"> / </span>{period}</strong></div>
+    <p className="resume-entry-subtitle"><span className="resume-entry-org">{org}</span>{at && <span className="resume-entry-sep"> - </span>}{at}</p>
+    {list}
+  </article>
+  if (layout === 'hipster') return <article className="resume-entry resume-entry-hipster">
+    <span className="resume-entry-period">{period}</span>
+    <div className="resume-entry-body">
+      <strong className="resume-entry-title">{title}</strong>
+      <p className="resume-entry-subtitle"><span className="resume-entry-org">{org}</span>{at && <span className="resume-entry-sep"> · </span>}{at}</p>
+      {list}
+    </div>
+  </article>
+  if (layout === 'developer') return <article className="resume-entry resume-entry-developer">
+    <span className="resume-entry-period">{period}</span>
+    <div className="resume-entry-body"><strong className="resume-entry-title">{title}</strong>{list}</div>
+    <span className="resume-entry-org">{org}{at && <><br />{at}</>}</span>
+  </article>
+  return null
+}
+
+function Period({ section, item, itemIndex, dash = ' — ' }) {
+  const key = itemKey(item, itemIndex)
+  return <><EditableText path={`${section}.${itemIndex}.startDate`} elementId={`${section}.${key}.startDate`}>{item?.startDate || 'Start date'}</EditableText>{dash}<EditableText path={`${section}.${itemIndex}.endDate`} elementId={`${section}.${key}.endDate`}>{item?.endDate || 'End date'}</EditableText></>
+}
+
 function ExperienceEntry({ item, itemIndex }) {
+  const { features } = useContext(ResumeStyleContext)
+  const role = <EditableText path={`experience.${itemIndex}.role`} elementId={`experience.${item?.id || itemIndex}.role`}>{item?.role || 'Role'}</EditableText>
+  const company = <EditableText path={`experience.${itemIndex}.company`} elementId={`experience.${item?.id || itemIndex}.company`}>{item?.company || 'Company'}</EditableText>
+  const location = item?.location ? <EditableText path={`experience.${itemIndex}.location`} elementId={`experience.${item?.id || itemIndex}.location`}>{item.location}</EditableText> : null
+  const bullets = <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`experience.${itemIndex}.bullets.${index}`} elementId={`experience.${itemKey(item, itemIndex)}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`experience.${itemIndex}.bullets.0`} elementId={`experience.${itemKey(item, itemIndex)}.bullets.0`}>Add an achievement or responsibility.</EditableText></li>}</ul>
+  if (features.entryLayout) return <EntryShell layout={features.entryLayout} title={role} org={company} location={location} list={bullets} period={<Period section="experience" item={item} itemIndex={itemIndex} dash={features.dash} />} />
   return <article className="resume-entry">
     <div className="resume-entry-heading">
-      <strong className="resume-entry-title"><EditableText path={`experience.${itemIndex}.role`} elementId={`experience.${item?.id || itemIndex}.role`}>{item?.role || 'Role'}</EditableText></strong>
-      <span className="resume-entry-period"><EditableText path={`experience.${itemIndex}.startDate`} elementId={`experience.${item?.id || itemIndex}.startDate`}>{item?.startDate || 'Start date'}</EditableText> — <EditableText path={`experience.${itemIndex}.endDate`} elementId={`experience.${item?.id || itemIndex}.endDate`}>{item?.endDate || 'End date'}</EditableText></span>
+      <strong className="resume-entry-title">{role}</strong>
+      <span className="resume-entry-period"><Period section="experience" item={item} itemIndex={itemIndex} /></span>
     </div>
     {/* An empty location is left out instead of printing the word "Location" on the resume. */}
-    <p className="resume-entry-subtitle"><EditableText path={`experience.${itemIndex}.company`} elementId={`experience.${item?.id || itemIndex}.company`}>{item?.company || 'Company'}</EditableText>{item?.location && <> · <EditableText path={`experience.${itemIndex}.location`} elementId={`experience.${item?.id || itemIndex}.location`}>{item.location}</EditableText></>}</p>
-    <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`experience.${itemIndex}.bullets.${index}`} elementId={`experience.${itemKey(item, itemIndex)}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`experience.${itemIndex}.bullets.0`} elementId={`experience.${itemKey(item, itemIndex)}.bullets.0`}>Add an achievement or responsibility.</EditableText></li>}</ul>
+    <p className="resume-entry-subtitle">{company}{location && <> · {location}</>}</p>
+    {bullets}
   </article>
 }
 
 function ProjectEntry({ item, itemIndex }) {
-  return <article className="resume-entry">
-    <div className="resume-entry-heading">
-      <strong className="resume-entry-title"><EditableText path={`projects.${itemIndex}.name`} elementId={`projects.${item?.id || itemIndex}.name`}>{item?.name || 'Project'}</EditableText></strong>
+  const { features } = useContext(ResumeStyleContext)
+  const layout = features.entryLayout
+  const name = <EditableText path={`projects.${itemIndex}.name`} elementId={`projects.${item?.id || itemIndex}.name`}>{item?.name || 'Project'}</EditableText>
+  const tech = <EditableText path={`projects.${itemIndex}.techStack`} elementId={`projects.${item?.id || itemIndex}.techStack`}>{asArray(item?.techStack).join(', ') || 'Add technologies'}</EditableText>
+  const description = <p className="resume-project-description"><EditableText path={`projects.${itemIndex}.description`} elementId={`projects.${item?.id || itemIndex}.description`}>{item?.description || 'Describe the project and its outcome.'}</EditableText></p>
+  const links = asArray(item?.links).length > 0 && <p className="resume-project-links">{item.links.map((link, index) => <a className="generated-contact-link" href={/^https?:\/\//i.test(link) ? link : `https://${link}`} target="_blank" rel="noreferrer" title={link} key={index}>{linkDisplayLabel(link)}</a>)}</p>
+  // The LaTeX samples have no empty bullet under a project, so clones only print bullets that exist.
+  const bullets = asArray(item?.bullets).length
+    ? <ul>{item.bullets.map((bullet, index) => <li key={index}><EditableText path={`projects.${itemIndex}.bullets.${index}`} elementId={`projects.${itemKey(item, itemIndex)}.bullets.${index}`}>{bullet}</EditableText></li>)}</ul>
+    : layout ? null : <ul><li><EditableText path={`projects.${itemIndex}.bullets.0`} elementId={`projects.${itemKey(item, itemIndex)}.bullets.0`}>Add a project contribution.</EditableText></li></ul>
+  if (layout === 'developer') return <article className="resume-entry resume-entry-developer resume-entry-project">
+    <span className="resume-entry-period resume-project-technologies">{tech}</span>
+    <div className="resume-entry-body"><strong className="resume-entry-title">{name}</strong>{description}{bullets}</div>
+    <span className="resume-entry-org">{links}</span>
+  </article>
+  if (layout === 'hipster') return <article className="resume-entry resume-entry-hipster resume-entry-project">
+    <span className="resume-entry-period" />
+    <div className="resume-entry-body">
+      <strong className="resume-entry-title">{name}</strong>
+      <p className="resume-entry-subtitle resume-project-technologies">{tech}</p>
+      {description}{links}{bullets}
     </div>
-    <p className="resume-entry-meta resume-project-technologies"><span>Technologies: </span><EditableText path={`projects.${itemIndex}.techStack`} elementId={`projects.${item?.id || itemIndex}.techStack`}>{asArray(item?.techStack).join(', ') || 'Add technologies'}</EditableText></p>
-    <p className="resume-project-description"><EditableText path={`projects.${itemIndex}.description`} elementId={`projects.${item?.id || itemIndex}.description`}>{item?.description || 'Describe the project and its outcome.'}</EditableText></p>
-    {asArray(item?.links).length > 0 && <p className="resume-project-links">{item.links.map((link, index) => <a className="generated-contact-link" href={/^https?:\/\//i.test(link) ? link : `https://${link}`} target="_blank" rel="noreferrer" title={link} key={index}>{linkDisplayLabel(link)}</a>)}</p>}
-    <ul>{asArray(item?.bullets).length ? item.bullets.map((bullet, index) => <li key={index}><EditableText path={`projects.${itemIndex}.bullets.${index}`} elementId={`projects.${itemKey(item, itemIndex)}.bullets.${index}`}>{bullet}</EditableText></li>) : <li><EditableText path={`projects.${itemIndex}.bullets.0`} elementId={`projects.${itemKey(item, itemIndex)}.bullets.0`}>Add a project contribution.</EditableText></li>}</ul>
+  </article>
+  return <article className={`resume-entry${layout ? ` resume-entry-${layout} resume-entry-project` : ''}`}>
+    <div className="resume-entry-heading">
+      <strong className="resume-entry-title">{name}</strong>
+    </div>
+    <p className="resume-entry-meta resume-project-technologies">{!layout && <span>Technologies: </span>}{tech}</p>
+    {description}
+    {links}
+    {bullets}
   </article>
 }
 
 function EducationEntry({ item, itemIndex }) {
+  const { features } = useContext(ResumeStyleContext)
+  const key = itemKey(item, itemIndex)
+  const layout = features.entryLayout
+  const degree = <EditableText path={`education.${itemIndex}.degree`} elementId={`education.${item?.id || itemIndex}.degree`}>{item?.degree || 'Degree'}</EditableText>
+  const institution = <EditableText path={`education.${itemIndex}.institution`} elementId={`education.${key}.institution`}>{item?.institution || 'Institution'}</EditableText>
+  const location = item?.location ? <EditableText path={`education.${itemIndex}.location`} elementId={`education.${key}.location`}>{item.location}</EditableText> : null
+  const details = <ul>{asArray(item?.details).length ? item.details.map((detail, index) => <li key={index}><EditableText path={`education.${itemIndex}.details.${index}`} elementId={`education.${key}.details.${index}`}>{detail}</EditableText></li>) : <li><EditableText path={`education.${itemIndex}.details.0`} elementId={`education.${key}.details.0`}>Add coursework, honors, or relevant details.</EditableText></li>}</ul>
+  // Keywords, Developer and Hipster date education by its end year only, like their samples.
+  const endOnly = ['keywords', 'developer', 'hipster'].includes(layout)
+  if (layout) return <EntryShell layout={layout} title={degree} org={institution} location={location} list={details} period={endOnly
+    ? <EditableText path={`education.${itemIndex}.endDate`} elementId={`education.${key}.endDate`}>{item?.endDate || 'End date'}</EditableText>
+    : <Period section="education" item={item} itemIndex={itemIndex} dash={features.dash} />} />
   return <article className="resume-entry">
     <div className="resume-entry-heading">
-      <strong className="resume-entry-title"><EditableText path={`education.${itemIndex}.degree`} elementId={`education.${item?.id || itemIndex}.degree`}>{item?.degree || 'Degree'}</EditableText></strong>
-      <span className="resume-entry-period"><EditableText path={`education.${itemIndex}.startDate`} elementId={`education.${itemKey(item, itemIndex)}.startDate`}>{item?.startDate || 'Start date'}</EditableText> — <EditableText path={`education.${itemIndex}.endDate`} elementId={`education.${itemKey(item, itemIndex)}.endDate`}>{item?.endDate || 'End date'}</EditableText></span>
+      <strong className="resume-entry-title">{degree}</strong>
+      <span className="resume-entry-period"><Period section="education" item={item} itemIndex={itemIndex} /></span>
     </div>
-    <p className="resume-entry-subtitle"><EditableText path={`education.${itemIndex}.institution`} elementId={`education.${itemKey(item, itemIndex)}.institution`}>{item?.institution || 'Institution'}</EditableText>{item?.location && <> · <EditableText path={`education.${itemIndex}.location`} elementId={`education.${itemKey(item, itemIndex)}.location`}>{item.location}</EditableText></>}</p>
-    <ul>{asArray(item?.details).length ? item.details.map((detail, index) => <li key={index}><EditableText path={`education.${itemIndex}.details.${index}`} elementId={`education.${itemKey(item, itemIndex)}.details.${index}`}>{detail}</EditableText></li>) : <li><EditableText path={`education.${itemIndex}.details.0`} elementId={`education.${itemKey(item, itemIndex)}.details.0`}>Add coursework, honors, or relevant details.</EditableText></li>}</ul>
+    <p className="resume-entry-subtitle">{institution}{location && <> · {location}</>}</p>
+    {details}
   </article>
 }
 
@@ -161,7 +281,13 @@ function buildEntryBlocks(items, type, listKey) {
 
 const sectionOrderByVariant = {
   'navy-professional': ['education', 'experience', 'summary', 'skills', 'languages', 'projects', 'certifications', 'achievements'],
-  'simple-hipster': ['summary', 'skills', 'languages', 'experience', 'education', 'projects', 'certifications', 'achievements'],
+  // LaTeX clones (PLAN-027): the order of each sample, then the sections it does not show.
+  'minimal-academic': ['contact', 'summary', 'experience', 'education', 'projects', 'skills', 'languages', 'certifications', 'achievements'],
+  'libre-cv': ['summary', 'education', 'experience', 'projects', 'skills', 'languages', 'achievements', 'certifications'],
+  'simple-hipster': ['summary', 'languages', 'contact', 'experience', 'education', 'skills', 'projects', 'certifications', 'achievements'],
+  'keywords-cv': ['summary', 'experience', 'skills', 'languages', 'projects', 'education', 'achievements', 'certifications'],
+  'elegant-resume': ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
+  'developer-cv': ['summary', 'skills', 'projects', 'education', 'experience', 'languages', 'certifications', 'achievements'],
   'curve-academic': ['experience', 'education', 'summary', 'projects', 'skills', 'certifications', 'achievements', 'languages'],
   receive: ['summary', 'skills', 'languages', 'education', 'experience', 'projects', 'achievements', 'certifications'],
   // Reactive Resume's default layout order: the main column, then the sidebar column.
@@ -182,6 +308,7 @@ const sectionOrderByVariant = {
 }
 
 function buildSections(resumeData, variant, blankPreview = false) {
+  const features = featuresFor(variant)
   const skills = resumeData.allSkills ?? allSkills(resumeData.skills)
   const experience = asArray(resumeData.experience)
   const projects = asArray(resumeData.projects)
@@ -240,7 +367,13 @@ function buildSections(resumeData, variant, blankPreview = false) {
       id: `custom-${index}`,
       title: section.title || 'Additional Information',
       blocks: [{ id: `custom-${index}-copy`, type: 'custom', value: section.content || section.description || '' }],
-    }))
+    })),
+    // Templates that print contact details as their own section (latexTemplateFeatures.contactSection).
+    ...(features.contactSection && (asArray(resumeData.contactItems).length || !blankPreview) ? [{
+      id: 'contact',
+      title: features.contactSection.title,
+      blocks: [{ id: 'contact-copy', type: 'contact', value: asArray(resumeData.contactItems) }],
+    }] : [])
   ]
   const order = sectionOrderByVariant[variant] ?? sectionOrderByVariant['classic-professional']
   return sections.filter(section => section.blocks.length).sort((left, right) => {
@@ -250,7 +383,13 @@ function buildSections(resumeData, variant, blankPreview = false) {
   })
 }
 
+// One box per skill. The separators stay in the text (visually hidden) so editing the line still splits on them.
+function SkillChips({ values, separator }) {
+  return values.map((value, index) => <span key={`${value}-${index}`}><span className="skill-chip">{value}</span>{index < values.length - 1 && <span className="skill-chip-sep">{separator}</span>}</span>)
+}
+
 function RenderBlock({ block }) {
+  const { features } = useContext(ResumeStyleContext)
   if (block.type === 'experience') return <ExperienceEntry item={block.value} itemIndex={block.itemIndex} />
   if (block.type === 'experience-continuation') return <EntryListContinuation item={block.value} itemIndex={block.itemIndex} valueIndex={block.valueIndex} section="experience" listKey="bullets" />
   if (block.type === 'project') return <ProjectEntry item={block.value} itemIndex={block.itemIndex} />
@@ -259,9 +398,10 @@ function RenderBlock({ block }) {
   if (block.type === 'education-continuation') return <EntryListContinuation item={block.value} itemIndex={block.itemIndex} valueIndex={block.valueIndex} section="education" listKey="details" />
   if (block.type === 'placeholder') return <p className="resume-placeholder">{block.value}</p>
   if (block.type === 'skills') {
-    if (block.value.some?.(group => group && typeof group === 'object')) return <div className="resume-skill-groups">{block.value.map(group => <p key={group.category}><strong>{group.category.replace(/([A-Z])/g, ' $1').replace(/^./, character => character.toUpperCase())}: </strong><EditableText path={`skills.${group.category}`}>{group.values.join(', ')}</EditableText></p>)}</div>
-    return <p className="resume-skills"><EditableText path="skills">{block.value.join(' · ') || 'Add the skills most relevant to your target role.'}</EditableText></p>
+    if (block.value.some?.(group => group && typeof group === 'object')) return <div className="resume-skill-groups">{block.value.map(group => <p key={group.category}><strong>{skillGroupLabel(group.category)}<span className="skill-sep">:</span> </strong><EditableText path={`skills.${group.category}`}>{features.skillChips ? <SkillChips values={group.values} separator=", " /> : group.values.join(features.skillSeparator ?? ', ')}</EditableText></p>)}</div>
+    return <p className="resume-skills"><EditableText path="skills">{features.skillChips && block.value.length ? <SkillChips values={block.value} separator=" · " /> : block.value.join(' · ') || 'Add the skills most relevant to your target role.'}</EditableText></p>
   }
+  if (block.type === 'contact') return <ContactList items={block.value} inSection />
   if (block.type === 'languages') return <p className="resume-skills"><EditableText path="languages">{block.value}</EditableText></p>
   if (block.type === 'custom') return <p>{block.value}</p>
   if (block.type === 'list-item') return <ul className="resume-single-item-list"><li><EditableText path={`${block.target}.${block.itemIndex}`}>{block.value}</EditableText></li></ul>
@@ -285,12 +425,12 @@ export const reactiveSidebarPositions = {
   azurill: 'left', chikorita: 'right', ditgar: 'left', ditto: 'left', gengar: 'left', glalie: 'left', leafish: 'right', pikachu: 'left',
   bronzor: 'none', kakuna: 'none', lapras: 'none', meowth: 'none', onyx: 'none', rhyhorn: 'none', scizor: 'none'
 }
-const isReactiveVariant = variant => Object.hasOwn(reactiveSidebarPositions, variant)
-const reactiveClassName = variant => isReactiveVariant(variant) ? ` template-reactive template-reactive-sidebar-${reactiveSidebarPositions[variant]}` : ''
+export const isReactiveVariant = variant => Object.hasOwn(reactiveSidebarPositions, variant)
+export const reactiveClassName = variant => isReactiveVariant(variant) ? ` template-reactive template-reactive-sidebar-${reactiveSidebarPositions[variant]}` : ''
 const reactiveSidebarSectionIds = new Set(['skills', 'certifications', 'achievements', 'languages'])
 const isReactiveSidebarSection = id => reactiveSidebarSectionIds.has(id) || String(id).startsWith('custom-')
 
-const visualColumnVariants = new Set(['product-startup', ...Object.entries(reactiveSidebarPositions).filter(([, side]) => side !== 'none').map(([id]) => id)])
+export const visualColumnVariants = new Set(['product-startup', ...Object.entries(latexTemplateFeatures).filter(([, features]) => features.sidebarIds).map(([id]) => id), ...Object.entries(reactiveSidebarPositions).filter(([, side]) => side !== 'none').map(([id]) => id)])
 const sidebarSectionIds = new Set(['skills', 'education', 'certifications', 'achievements', 'languages'])
 const overleafSidebarSectionIds = new Set(['summary', 'skills', 'languages', 'certifications'])
 
@@ -304,10 +444,12 @@ export function getTemplateSectionPlan(variant) {
   const order = sectionOrderByVariant[variant] ?? sectionOrderByVariant['classic-professional']
   const ids = [...order, ...Object.keys(plannedSectionTitles).filter(id => !order.includes(id))]
   // Simple Hipster and ReCeiVe draw one ATS-safe column, so only true column variants have a sidebar.
-  const sidebarSide = isReactiveVariant(variant) ? reactiveSidebarPositions[variant] : visualColumnVariants.has(variant) ? 'left' : 'none'
+  const clone = featuresFor(variant)
+  const sidebarSide = isReactiveVariant(variant) ? reactiveSidebarPositions[variant] : clone.sidebarSide ?? (visualColumnVariants.has(variant) ? 'left' : 'none')
   const inSidebar = id => {
     if (sidebarSide === 'none') return false
     if (isReactiveVariant(variant)) return isReactiveSidebarSection(id)
+    if (clone.sidebarIds) return inCloneSidebar(clone, id)
     return sidebarSectionIds.has(id)
   }
   return {
@@ -318,21 +460,29 @@ export function getTemplateSectionPlan(variant) {
 
 function ResumeSectionFlow({ sections, variant, renderSection }) {
   if (!visualColumnVariants.has(variant)) return <>{sections.map(renderSection)}</>
-  const sidebarIds = ['simple-hipster', 'receive'].includes(variant) ? overleafSidebarSectionIds : sidebarSectionIds
-  const inSidebar = section => isReactiveVariant(variant) ? isReactiveSidebarSection(section.id || section.sectionId) : sidebarIds.has(section.id || section.sectionId)
-  const sidebar = sections.filter(inSidebar)
-  const main = sections.filter(section => !inSidebar(section))
-  return <div className={`resume-columns-flow resume-columns-${variant}`} data-layout="columns">
-    <div className="resume-column resume-sidebar-column">{sidebar.map(renderSection)}</div>
-    <div className="resume-column resume-main-column">{main.map(renderSection)}</div>
-  </div>
+  const clone = featuresFor(variant)
+  const sectionId = section => section.id || section.sectionId
+  const sidebarIds = variant === 'receive' ? overleafSidebarSectionIds : sidebarSectionIds
+  const inSidebar = section => isReactiveVariant(variant) ? isReactiveSidebarSection(sectionId(section)) : clone.sidebarIds ? inCloneSidebar(clone, sectionId(section)) : sidebarIds.has(sectionId(section))
+  // Lead sections (Keywords' summary) run full width above both columns.
+  const isLead = section => Boolean(clone.leadSections?.includes(sectionId(section)))
+  const lead = sections.filter(isLead)
+  const sidebar = sections.filter(section => !isLead(section) && inSidebar(section))
+  const main = sections.filter(section => !isLead(section) && !inSidebar(section))
+  return <>
+    {lead.map(renderSection)}
+    <div className={`resume-columns-flow resume-columns-${variant}`} data-layout="columns">
+      <div className="resume-column resume-sidebar-column">{sidebar.map(renderSection)}</div>
+      <div className="resume-column resume-main-column">{main.map(renderSection)}</div>
+    </div>
+  </>
 }
 
 function SingleResume({ resumeData, sections, variant, editorStyle, useGlobalTextColor, footerText, editorRef, preview, onManualEdit, presentation, blankPreview, onProfilePhotoClick }) {
   return <article
     ref={editorRef}
     style={editorStyle}
-    className={`generated-resume template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${preview ? 'template-live-preview' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
+    className={`generated-resume template-${variant}${reactiveClassName(variant)}${isLatexVariant(variant) ? ' template-latex' : ''} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${preview ? 'template-live-preview' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}`}
     contentEditable={!preview}
     role="textbox"
     aria-multiline="true"
@@ -428,9 +578,12 @@ function paginateMeasurement(measurement, sections) {
   const columnDisplay = columnFlow ? window.getComputedStyle(columnFlow).display : ''
   const isColumns = Boolean(columnFlow) && (columnDisplay === 'grid' || columnDisplay === 'flex' || (columnFlow.dataset.layout === 'columns' && columnDisplay === 'contents'))
   // Two-column designs paginate each column on its own and then pair pages up.
+  // Sections outside the columns (full-width lead sections) flow with the main column, which they sit above.
+  const leadIds = isColumns ? new Set([...measurement.querySelectorAll('[data-measure-section]')].filter(element => !columnFlow.contains(element)).map(element => element.dataset.measureSection)) : new Set()
   const columnPages = isColumns
     ? [...columnFlow.children].map(column => {
       const ids = new Set([...column.querySelectorAll('[data-measure-section]')].map(section => section.dataset.measureSection))
+      if (column.classList.contains('resume-main-column')) leadIds.forEach(id => ids.add(id))
       return flow(sections.filter(section => ids.has(section.id)))
     })
     : [flow(sections)]
@@ -458,7 +611,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
   }
   const sections = useMemo(() => buildSections(templateResume, variant, blankPreview), [templateResume, variant, blankPreview])
   const overrides = presentation?.elementOverrides
-  const styleContext = useMemo(() => ({ overrides: overrides ?? {}, selectedId: selectedElementId, focusSectionId }), [overrides, selectedElementId, focusSectionId])
+  const styleContext = useMemo(() => ({ overrides: overrides ?? {}, selectedId: selectedElementId, focusSectionId, features: featuresFor(variant) }), [overrides, selectedElementId, focusSectionId, variant])
   const shellRef = useRef(null)
   const measurementRef = useRef(null)
   const [pageWidth, setPageWidth] = useState(MAX_A4_WIDTH)
@@ -466,13 +619,17 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
   const [fontLoadRevision, setFontLoadRevision] = useState(0)
   const pageHeight = Math.round(pageWidth * A4_RATIO)
   // Preserve A4 proportions when the editor is narrower than a desktop sheet.
-  if (!preview && ['navy-professional', 'simple-hipster', 'curve-academic', 'receive'].includes(variant)) {
+  if (!preview && ['navy-professional', 'curve-academic', 'receive'].includes(variant)) {
     templateStyle.fontSize = `${(parseFloat(editorStyle?.fontSize) || 13.3333) * pageWidth / MAX_A4_WIDTH}px`
     templateStyle.padding = `${pageWidth * .055}px`
   }
   // Reactive Resume designs are sized in em from a 10pt body, so scaling the font scales the whole page.
   if (!preview && isReactiveVariant(variant)) {
     templateStyle.fontSize = `${(parseFloat(editorStyle?.fontSize) || 13.3333) * pageWidth / MAX_A4_WIDTH}px`
+  }
+  // LaTeX clones are sized in em from their class's body size, so the whole page scales with it.
+  if (isLatexVariant(variant)) {
+    templateStyle.fontSize = `${(parseFloat(editorStyle?.fontSize) || latexTemplateFeatures[variant].base) * (preview ? 1 : pageWidth / MAX_A4_WIDTH)}px`
   }
   templateStyle['--page-scale'] = preview ? 1 : pageWidth / MAX_A4_WIDTH
   // Whole-resume formatting (line height, letter spacing) from the format panel.
@@ -602,7 +759,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
         >
           <article
             style={{ ...templateStyle, width: pageWidth, height: pageHeight }}
-            className={`generated-resume resume-a4-page template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}${pageIndex > 0 ? ' resume-page-continued' : ''}`}
+            className={`generated-resume resume-a4-page template-${variant}${reactiveClassName(variant)}${isLatexVariant(variant) ? ' template-latex' : ''} ${useGlobalTextColor ? 'ai-global-text-color' : ''} ${blankPreview ? 'scratch-resume-preview' : ''}${pageIndex > 0 ? ' resume-page-continued' : ''}`}
           >
             {page.showHeader && <ResumeHeader resumeData={templateResume} presentation={presentation} blankPreview={blankPreview} onProfilePhotoClick={onProfilePhotoClick} />}
             <div className="generated-resume-main">
@@ -626,7 +783,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     <article
       ref={measurementRef}
       style={{ ...templateStyle, width: pageWidth, height: pageHeight }}
-      className={`generated-resume resume-a4-page resume-pagination-measure template-${variant}${reactiveClassName(variant)} ${useGlobalTextColor ? 'ai-global-text-color' : ''}`}
+      className={`generated-resume resume-a4-page resume-pagination-measure template-${variant}${reactiveClassName(variant)}${isLatexVariant(variant) ? ' template-latex' : ''} ${useGlobalTextColor ? 'ai-global-text-color' : ''}`}
       aria-hidden="true"
     >
       <ResumeHeader resumeData={templateResume} presentation={presentation} />
