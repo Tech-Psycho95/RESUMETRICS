@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
 import { saveResume } from '../utils/userApi.js'
 
 // Autosave debounce delay in milliseconds
@@ -24,8 +24,10 @@ const AUTOSAVE_DEBOUNCE_MS = 200
  */
 export function useFirestoreAutosave({
   workspaceState,
+  resumeId,
   isAuthenticated,
   isEditorReady,
+  isHydrating,
   onResumeIdGenerated
 }) {
   // Ref for tracking the debounce timer
@@ -33,8 +35,10 @@ export function useFirestoreAutosave({
   const debounceTimerRef = useRef(null)
   
   // Ref for tracking the current resume ID
-  // This persists across renders and avoids dependency issues in callbacks
-  const resumeIdRef = useRef(workspaceState?.resumeId || null)
+  // Sync synchronously during render to prevent stale ID at save time
+  const resumeIdRef = useRef(resumeId)
+  // Update ref synchronously on every render (no useEffect delay)
+  resumeIdRef.current = resumeId
   
   // Track whether a save operation is currently in flight
   const saveInProgressRef = useRef(false)
@@ -43,12 +47,8 @@ export function useFirestoreAutosave({
   // Queue for pending save when a save is already in progress
   const pendingSaveRef = useRef(null)
   
-  // Sync resumeId from workspaceState to internal ref
-  useEffect(() => {
-    if (workspaceState?.resumeId !== undefined) {
-      resumeIdRef.current = workspaceState.resumeId
-    }
-  }, [workspaceState?.resumeId])
+  // Baseline state for dirty checking (set after hydration or successful save)
+  const baselineStateRef = useRef(null)
   
   /**
    * Save workspace state to Firestore with authentication and validation checks
@@ -146,6 +146,9 @@ export function useFirestoreAutosave({
         })
       }
       
+      // Update baseline after successful save for dirty checking
+      baselineStateRef.current = JSON.stringify(state.resumeData)
+      
       // Process queued save if one exists
       const queuedState = pendingSaveRef.current
       pendingSaveRef.current = null
@@ -194,6 +197,19 @@ export function useFirestoreAutosave({
         errorDetails.recovery = 'Skip saves - may indicate configuration issue'
         errorDetails.permissionContext = 'Firestore security rules or backend authorization'
       }
+      // Resume not found (404) - document was deleted
+      else if (error.message.includes('Resume not found') || 
+               error.message.includes('not found') ||
+               error.message.includes('404')) {
+        errorType = 'not_found'
+        errorDetails.recovery = 'Reset resumeId to null and stop saving stale ID'
+        // Reset resumeId so we don't keep trying to save to deleted document
+        resumeIdRef.current = null
+        if (onResumeIdGenerated) {
+          // Notify parent to clear its resumeId state
+          onResumeIdGenerated(null)
+        }
+      }
       // Validation errors (400, malformed data)
       else if (error.message.includes('Bad Request') || 
                error.message.includes('400') ||
@@ -228,6 +244,19 @@ export function useFirestoreAutosave({
   }, [isAuthenticated, isEditorReady, onResumeIdGenerated])
   
   /**
+   * Set baseline when hydration completes
+   * This prevents autosave from triggering on freshly-loaded state
+   */
+  useEffect(() => {
+    if (!isHydrating && workspaceState?.resumeData && !baselineStateRef.current) {
+      baselineStateRef.current = JSON.stringify(workspaceState.resumeData)
+      if (import.meta.env.DEV) {
+        console.log('[Firestore Autosave] Baseline set after hydration')
+      }
+    }
+  }, [isHydrating, workspaceState])
+  
+  /**
    * Debounced save effect
    * 
    * Requirements addressed:
@@ -253,6 +282,8 @@ export function useFirestoreAutosave({
           console.log('[Firestore Autosave] Cancelled pending save: Workspace reset or cleared')
         }
       }
+      // Clear baseline so next workspace starts fresh
+      baselineStateRef.current = null
       return
     }
     
@@ -266,6 +297,27 @@ export function useFirestoreAutosave({
         if (import.meta.env.DEV) {
           console.log('[Firestore Autosave] Cancelled pending save: Editor not ready')
         }
+      }
+      return
+    }
+    
+    // Skip autosave during hydration to prevent duplicate document creation on Open
+    if (isHydrating) {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+        if (import.meta.env.DEV) {
+          console.log('[Firestore Autosave] Cancelled pending save: Hydrating')
+        }
+      }
+      return
+    }
+    
+    // Dirty check: only save if state has changed from baseline
+    const currentStateStr = JSON.stringify(workspaceState.resumeData)
+    if (baselineStateRef.current && currentStateStr === baselineStateRef.current) {
+      if (import.meta.env.DEV) {
+        console.log('[Firestore Autosave] Skipped: State unchanged from baseline')
       }
       return
     }

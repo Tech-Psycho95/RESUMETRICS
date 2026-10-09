@@ -30,7 +30,7 @@ import { formSectionsFor, hasStartedForm } from './form/sectionProgress.js'
 import { describeResumeElement } from './editor/describeResumeElement.js'
 import useEditorHistory from './editor/useEditorHistory.js'
 import { useFirestoreAutosave } from './hooks/useFirestoreAutosave.js'
-import { listResumes, getResume } from './utils/userApi.js'
+import { listResumes, getResume, deleteResume } from './utils/userApi.js'
 import './editor-studio.css'
 import './section-form.css'
 import './print.css'
@@ -964,6 +964,7 @@ function MainPage() {
   const assistantInputRef = useRef(null)
   const editorPresentationRef = useRef(null)
   const [resumeId, setResumeId] = useState(null)
+  const [isHydrating, setIsHydrating] = useState(false)
   const [description, setDescription] = useState(() => restored('description', ''))
   const [analysis, setAnalysis] = useState(() => restored('analysis', null))
   const [githubConnection, setGithubConnection] = useState({ loading: true, connected: false })
@@ -1043,15 +1044,31 @@ function MainPage() {
 
   // Firestore autosave: callback for when resume ID is generated
   const onResumeIdGenerated = useCallback((id) => {
-    setResumeId(id)
-    console.log('[MainPage] Resume ID generated:', id)
+    // Handle null (404 case - document was deleted)
+    if (id === null) {
+      console.log('[MainPage] Resume was deleted (404), clearing resumeId')
+      setResumeId(null)
+      return
+    }
+    
+    setResumeId(prev => {
+      // Only set if still null (prevent overwriting after Open or workspace switch)
+      if (prev === null) {
+        console.log('[MainPage] Resume ID generated:', id)
+        return id
+      }
+      console.log('[MainPage] Ignoring generated ID (already set to', prev, ')')
+      return prev
+    })
   }, [])
 
   // Firestore autosave: wire the hook
-  const { saveNow, isSaving } = useFirestoreAutosave({
+  const { saveNow, isSaving, cancelPendingSave } = useFirestoreAutosave({
     workspaceState,
+    resumeId,
     isAuthenticated: Boolean(currentUser),
     isEditorReady,
+    isHydrating,
     onResumeIdGenerated
   })
 
@@ -1097,24 +1114,29 @@ function MainPage() {
         const saved = response.resume
         console.log('[MainPage] Loaded resume:', saved)
 
+        // Set isHydrating guard to prevent autosave during hydration
+        setIsHydrating(true)
+
         // Clear stale sessionStorage to prevent mixing resumes
         clearWorkspaceSnapshot()
 
-        // Hydrate editor state from saved draftContent
+        // Hydrate editor state from saved draftContent AND set resumeId atomically
+        setResumeId(projectId)
         setResumeData(ensureResumeElementIds(saved.draftContent || {}))
         setResumeName(saved.title || 'Untitled Resume')
         setSelectedTemplateId(saved.templateId || null)
         setResumePresentation(createResumePresentation(saved.templateId))
         
-        // Set the resumeId BEFORE entering editor mode to prevent duplicate doc creation
-        setResumeId(projectId)
-        console.log('[MainPage] Set resumeId state =', projectId)
+        console.log('[MainPage] Hydrating with resumeId =', projectId)
 
         // draftContent only contains resumeData; other workspace state is not persisted
 
         // Enter editor mode and navigate
         setWorkspaceMode('editor-ready')
         navigate('/workspace/editor', { replace: true })
+        
+        // Clear isHydrating guard after state commits (next tick)
+        setTimeout(() => setIsHydrating(false), 0)
 
       } catch (error) {
         console.error('[MainPage] Failed to load saved project:', error)

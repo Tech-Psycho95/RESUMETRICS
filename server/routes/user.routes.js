@@ -52,6 +52,7 @@ router.get('/dashboard', async (request, response) => {
     // Limit to 6 for dashboard grid
     const projects = recentResumes.slice(0, 6)
     
+    response.set('Cache-Control', 'no-store')
     return response.json({
       ok: true,
       summary,
@@ -155,6 +156,7 @@ router.get('/resumes', async (request, response) => {
     }
     
     const resumes = await listResumes(request.firebaseUser.uid, options)
+    response.set('Cache-Control', 'no-store')
     return response.json({ ok: true, resumes })
   } catch (error) {
     console.error('Resume list failed:', error?.message)
