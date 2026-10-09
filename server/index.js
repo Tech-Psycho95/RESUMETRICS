@@ -6,14 +6,10 @@ import githubRoutes from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
 import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
-<<<<<<< HEAD
 import userRoutes from './routes/user.routes.js'
-import { initializeFirebaseAdmin } from './services/firebaseAdmin.js'
-=======
 import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
 import { enforceDailyTokenBudget, trackAiUsage } from './ai/usage.js'
->>>>>>> c7f7c94c4b27e01ce29aff071267e73915e2f056
 
 const app = express()
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
@@ -58,19 +54,12 @@ const documentJson = express.json({ limit: '2mb' })
 
 app.use('/api', ipLimiter)
 app.use('/api/ai', aiRoutes)
-<<<<<<< HEAD
-app.use('/api/github', githubRoutes)
-app.use('/api/resume', resumeRoutes)
-app.use('/api/nimbus', nimbusRoutes)
-app.use('/api/jd', jdRoutes)
-app.use('/api/user', userRoutes)
-=======
 app.use('/api/github', smallJson, githubRoutes)
 // Resume import, NIMBUS and job fixes call the AI model: signed-in users only, within their limits.
 app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, documentJson, trackAiUsage, resumeRoutes)
 app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
 app.use('/api/jd', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
->>>>>>> c7f7c94c4b27e01ce29aff071267e73915e2f056
+app.use('/api/user', smallJson, userRoutes)
 
 try {
   initializeFirebaseAdmin()
@@ -91,4 +80,3 @@ app.listen(env.port, () => {
   console.log(`Resumetrics AI server listening on http://localhost:${env.port}`)
   if (env.ai.provider === 'mock') console.warn('AI provider is MOCK: every AI answer is canned (RESUMETRICS_AI_PROVIDER=mock). Never use this in production.')
 })
-
