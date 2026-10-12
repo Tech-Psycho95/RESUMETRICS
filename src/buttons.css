@@ -58,3 +58,11 @@
 .studio-menu b { color: var(--studio-ink); font-size: 13.5px; }
 .studio-menu small { color: var(--studio-muted); font-size: 12px; }
 [data-resolved-theme="dark"] .studio-title:hover:not(.is-static) { background: rgba(255, 255, 255, .06); }
+
+/* Cloud save status in the studio top bar */
+.save-status { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.save-status-label { overflow: hidden; max-width: 190px; color: var(--studio-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.save-status.is-bad .save-status-label, .save-status.is-conflict > span:first-child { color: #b42318; font-weight: 600; }
+.save-status.is-conflict { font-size: 12.5px; }
+[data-resolved-theme="dark"] .save-status.is-bad .save-status-label, [data-resolved-theme="dark"] .save-status.is-conflict > span:first-child { color: #ff9ea3; }
+@media (max-width: 760px) { .save-status-label { display: none; } }

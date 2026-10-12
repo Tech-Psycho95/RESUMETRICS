@@ -1,0 +1,85 @@
+// A small in-memory stand-in for the Admin SDK Firestore: just the calls server/db/*.js makes.
+// Values are stored as JSON; timestamps are { __ts: n } and come back with .toDate() like the real Timestamp.
+export function createFakeFirestore() {
+  const docs = new Map()   // 'users/alice/resumes/r1' -> JSON string
+  const stats = { reads: 0, writes: 0 }
+  let clock = 1_700_000_000_000
+
+  const revive = value => {
+    if (Array.isArray(value)) return value.map(revive)
+    if (value && typeof value === 'object') {
+      if ('__ts' in value) return { __ts: value.__ts, toDate: () => new Date(value.__ts) }   // survives being written back
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, revive(item)]))
+    }
+    return value
+  }
+  const snapshotOf = path => {
+    const raw = docs.get(path)
+    return { exists: raw !== undefined, id: path.split('/').pop(), ref: refOf(path), data: () => (raw === undefined ? undefined : revive(JSON.parse(raw))) }
+  }
+  const setPath = (object, dotted, value) => {
+    const keys = dotted.split('.')
+    let target = object
+    for (const key of keys.slice(0, -1)) target = target[key] ??= {}
+    target[keys.at(-1)] = value
+  }
+  const isChildOf = (collectionPath, path) => path.startsWith(`${collectionPath}/`) && !path.slice(collectionPath.length + 1).includes('/')
+
+  function refOf(path) {
+    return {
+      path,
+      id: path.split('/').pop(),
+      collection: name => collectionOf(`${path}/${name}`),
+      get: async () => { stats.reads += 1; return snapshotOf(path) },
+      set: async value => { stats.writes += 1; docs.set(path, JSON.stringify(value)) },
+      update: async changes => {
+        if (!docs.has(path)) throw Object.assign(new Error('NOT_FOUND'), { code: 5 })
+        stats.writes += 1
+        const current = JSON.parse(docs.get(path))
+        for (const [key, value] of Object.entries(changes)) setPath(current, key, value)
+        docs.set(path, JSON.stringify(current))
+      }
+    }
+  }
+
+  function collectionOf(path) {
+    const query = (field, direction, max) => ({
+      orderBy: (nextField, nextDirection = 'asc') => query(nextField, nextDirection, max),
+      limit: count => query(field, direction, count),
+      get: async () => {
+        let rows = [...docs.keys()].filter(key => isChildOf(path, key)).map(snapshotOf)
+        if (field) {
+          const sortKey = row => { const value = JSON.parse(docs.get(row.ref.path))[field]; return value && typeof value === 'object' && '__ts' in value ? value.__ts : value }
+          rows.sort((a, b) => (sortKey(a) > sortKey(b) ? 1 : -1) * (direction === 'desc' ? -1 : 1))
+        }
+        if (max) rows = rows.slice(0, max)
+        stats.reads += rows.length
+        return { docs: rows, empty: rows.length === 0 }
+      }
+    })
+    return { path, doc: id => refOf(`${path}/${id}`), ...query(null, 'asc', null) }
+  }
+
+  return {
+    stats,
+    docs,
+    collection: name => collectionOf(name),
+    timestamp: () => ({ __ts: (clock += 1000) }),
+    async runTransaction(work) {
+      const pending = []
+      const transaction = {
+        get: ref => ref.get(),
+        set: (ref, value) => { pending.push([ref, value]) }
+      }
+      const result = await work(transaction)
+      for (const [ref, value] of pending) await ref.set(value)
+      return result
+    },
+    async recursiveDelete(ref) {
+      for (const key of [...docs.keys()]) if (key === ref.path || key.startsWith(`${ref.path}/`)) { docs.delete(key); stats.writes += 1 }
+    },
+    // Test helpers
+    seed: (path, value) => docs.set(path, JSON.stringify(value)),
+    read: path => (docs.has(path) ? JSON.parse(docs.get(path)) : undefined)
+  }
+}

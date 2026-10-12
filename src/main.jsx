@@ -29,7 +29,8 @@ import { SaveButton } from './components/SaveButton.jsx'
 import { formSectionsFor, hasStartedForm } from './form/sectionProgress.js'
 import { describeResumeElement } from './editor/describeResumeElement.js'
 import useEditorHistory from './editor/useEditorHistory.js'
-import { useFirestoreAutosave } from './hooks/useFirestoreAutosave.js'
+import { useResumeAutosave } from './hooks/useResumeAutosave.js'
+import { buildResumeFields, hashFields, splitSavedPresentation } from './db/resumeFields.js'
 import { listResumes, getResume, deleteResume } from './utils/userApi.js'
 import './editor-studio.css'
 import './section-form.css'
@@ -561,36 +562,26 @@ function DashboardPage() {
   const pageRef = useRef(null)
   useEffect(() => {
     let cancelled = false
-    
-    async function loadFromFirestore() {
+
+    async function loadFromCloud() {
       try {
-        console.log('[Dashboard] Loading projects from Firestore...')
-        const response = await listResumes()
+        const resumes = await listResumes()
         if (cancelled) return
-        
-        console.log('[Dashboard] Firestore response:', response)
-        const projects = (response.resumes || []).map(resume => {
-          const updatedDate = new Date(resume.updatedAt)
-          return {
-            id: resume.id,
-            name: resume.title || 'Untitled Resume',
-            templateId: resume.templateId,
-            updatedAt: updatedDate.getTime(),
-            updatedLabel: 'Recently',
-            resumeData: resume.draftContent,
-            progress: resume.progress || {}
-          }
-        })
-        
-        console.log('[Dashboard] Loaded projects:', projects)
-        setSavedProjects(projects)
+        setSavedProjects(resumes.map(resume => describeSavedProject({
+          id: resume.id,
+          name: resume.name,
+          templateId: resume.templateId,
+          updatedAt: Date.parse(resume.updatedAt) || 0,
+          resumeData: resume.data,
+          progress: { building: resume.progress }
+        })))
       } catch (error) {
-        console.error('[Dashboard] Failed to load from Firestore:', error)
-        setSavedProjects(readSavedProjects())
+        console.error('[Dashboard] Could not load saved resumes:', error)
+        if (!cancelled) setSavedProjects(readSavedProjects())
       }
     }
-    
-    loadFromFirestore()
+
+    loadFromCloud()
     setSelectedProjectId(null)
     setConfirmDeleteId(null)
     projectRailRef.current?.scrollTo({ left: 0 })
@@ -604,12 +595,20 @@ function DashboardPage() {
     setSelectedProjectId(current => current === id ? null : id)
   }
 
-  const deleteProject = id => {
-    const next = savedProjects.filter(project => project.id !== id)
+  const deleteProject = async id => {
+    const previous = savedProjects
+    const next = previous.filter(project => project.id !== id)
     setSavedProjects(next)
-    storeSavedProjects(next)
     setSelectedProjectId(null)
     setConfirmDeleteId(null)
+    // Placeholder cards ('saved-work-1') were never in the cloud; real ones are deleted there too.
+    if (placeholderSavedProjects.some(project => project.id === id)) { storeSavedProjects(next); return }
+    try {
+      await deleteResume(id)
+    } catch (error) {
+      console.error('[Dashboard] Could not delete the resume:', error)
+      setSavedProjects(previous)   // it still exists in the cloud, so keep showing it
+    }
   }
 
   const progressStages = [
@@ -997,8 +996,8 @@ function MainPage() {
   const exportMenuRef = useRef(null)
   const assistantInputRef = useRef(null)
   const editorPresentationRef = useRef(null)
-  const [resumeId, setResumeId] = useState(null)
-  const [isHydrating, setIsHydrating] = useState(false)
+  // The cloud copy of the open draft: { id, uid, revision, savedHash }. Kept in the session snapshot so a refresh keeps saving to the same document.
+  const [cloud, setCloud] = useState(() => restored('cloud', null))
   const [description, setDescription] = useState(() => restored('description', ''))
   const [analysis, setAnalysis] = useState(() => restored('analysis', null))
   const [githubConnection, setGithubConnection] = useState({ loading: true, connected: false })
@@ -1075,48 +1074,21 @@ function MainPage() {
   const hasImportedResumeSkills = Boolean(uploadedFileName) && resumeEvidenceSkills.length > 0
   const hasWorkspaceResumeSkills = workspaceMode === 'editor-ready' && resumeEvidenceSkills.length > 0
 
-  // Firestore autosave: workspace state memo
-  // Firestore autosave: workspace state memo (includes resumeId for saves)
-  const workspaceState = useMemo(() => {
-    if (!resumeData) return null
-    return {
-      resumeData,
-      resumeId,
-      selectedTemplateId,
-      resumeName,
-      workspaceMode
-    }
-  }, [resumeData, resumeId, selectedTemplateId, resumeName, workspaceMode])
-
-  // Firestore autosave: callback for when resume ID is generated
-  const onResumeIdGenerated = useCallback((id) => {
-    // Handle null (404 case - document was deleted)
-    if (id === null) {
-      console.log('[MainPage] Resume was deleted (404), clearing resumeId')
-      setResumeId(null)
-      return
-    }
-    
-    setResumeId(prev => {
-      // Only set if still null (prevent overwriting after Open or workspace switch)
-      if (prev === null) {
-        console.log('[MainPage] Resume ID generated:', id)
-        return id
-      }
-      console.log('[MainPage] Ignoring generated ID (already set to', prev, ')')
-      return prev
-    })
-  }, [])
-
-  // Firestore autosave: wire the hook
-  const { saveNow, isSaving, cancelPendingSave } = useFirestoreAutosave({
-    workspaceState,
-    resumeId,
-    isAuthenticated: Boolean(currentUser),
-    isEditorReady,
-    isHydrating,
-    onResumeIdGenerated
-  })
+  // Cloud save (src/hooks/useResumeAutosave.js). A new draft gets its id here, in the browser, so a retried first
+  // save can never create a second document.
+  const cloudFields = useMemo(() => resumeData ? buildResumeFields({ resumeName, selectedTemplateId, resumeData, resumePresentation, fontColor, fontFamily, globalFontSize, useGlobalTextColor, footerText, confirmedSections, uploadedFileName, parseMetadata }) : null,
+    [resumeName, selectedTemplateId, resumeData, resumePresentation, fontColor, fontFamily, globalFontSize, useGlobalTextColor, footerText, confirmedSections, uploadedFileName, parseMetadata])
+  useEffect(() => {
+    if (isEditorReady && currentUser && !cloud?.id) setCloud({ id: crypto.randomUUID(), uid: currentUser.uid, revision: null, savedHash: null })
+  }, [isEditorReady, currentUser, cloud?.id])
+  // A pointer left in the tab by someone else (signed out, another account signed in) is not this person's document.
+  useEffect(() => {
+    if (currentUser && cloud?.uid && cloud.uid !== currentUser.uid) setCloud(null)
+  }, [currentUser, cloud?.uid])
+  useEffect(() => {
+    if (!resumeData && cloud?.id) setCloud(null)
+  }, [resumeData, cloud?.id])
+  const cloudSave = useResumeAutosave({ cloud, onCloudChange: next => setCloud(current => current?.id === next.id ? { ...current, ...next } : current), fields: cloudFields, enabled: Boolean(currentUser) && isEditorReady })
 
   // A template picked on the sidebar Templates page starts a new scratch resume at the details form.
   useEffect(() => {
@@ -1135,64 +1107,67 @@ function MainPage() {
     setWorkspaceError('')
     setGithubCompareError('')
     setResumeName('Untitled resume')
+    setCloud(null)
     setWorkspaceMode('builder')
     navigate('/workspace/build', { replace: true })
   }, [location.state, navigate])
 
+  // Opens a saved resume from the cloud into the editor, replacing whatever draft is open.
+  // A ref, not useCallback: it reads state hooks declared further down (history, NIMBUS) and must see the latest of each.
+  const openCloudResumeRef = useRef(null)
+  openCloudResumeRef.current = async id => {
+    const saved = await getResume(id)
+    const { presentation, style } = splitSavedPresentation(saved.presentation)
+    const state = {
+      resumeData: ensureResumeElementIds(saved.data || {}),
+      resumeName: saved.name || 'Untitled resume',
+      selectedTemplateId: saved.templateId || null,
+      resumePresentation: saved.presentation ? presentation : createResumePresentation(saved.templateId),
+      ...style,
+      confirmedSections: saved.confirmedSections ?? {},
+      uploadedFileName: saved.sourceFileName || '',
+      parseMetadata: saved.parseMetadata ?? null
+    }
+    clearWorkspaceSnapshot()
+    // savedHash = what these fields hash to, so opening a resume doesn't immediately save it again.
+    setCloud({ id, uid: currentUser?.uid, revision: saved.revision, savedHash: hashFields(buildResumeFields(state)) })
+    setResumeData(state.resumeData)
+    setResumeName(state.resumeName)
+    setSelectedTemplateId(state.selectedTemplateId)
+    setResumePresentation(state.resumePresentation)
+    setFontColor(state.fontColor)
+    setFontFamily(state.fontFamily)
+    setGlobalFontSize(state.globalFontSize)
+    setUseGlobalTextColor(state.useGlobalTextColor)
+    setFooterText(state.footerText)
+    setConfirmedSections(state.confirmedSections)
+    setUploadedFileName(state.uploadedFileName)
+    setParseMetadata(state.parseMetadata)
+    // Nothing from the previous draft's chats, letter, job match or undo history carries over.
+    setCoverLetter(null)
+    setCoverLetterIncluded(false)
+    setAssistantMessages(initialNimbusMessages)
+    setLetterMessages(initialLetterMessages)
+    setAnalysis(null)
+    setDescription('')
+    history.reset()
+    nimbusResetRef.current?.()
+    setWorkspaceError('')
+    setWorkspaceMode('editor-ready')
+    navigate('/workspace/editor', { replace: true })
+  }
+
   // Load a saved project from the dashboard Open button
   useEffect(() => {
     const projectId = location.state?.savedProjectId
-    if (!projectId) return
-
+    if (!projectId) return undefined
     let cancelled = false
-
-    async function loadSavedProject() {
-      try {
-        console.log('[MainPage] Loading saved project:', projectId)
-        const response = await getResume(projectId)
-        
-        if (cancelled) return
-        
-        if (!response.resume) {
-          throw new Error('Resume not found')
-        }
-
-        const saved = response.resume
-        console.log('[MainPage] Loaded resume:', saved)
-
-        // Set isHydrating guard to prevent autosave during hydration
-        setIsHydrating(true)
-
-        // Clear stale sessionStorage to prevent mixing resumes
-        clearWorkspaceSnapshot()
-
-        // Hydrate editor state from saved draftContent AND set resumeId atomically
-        setResumeId(projectId)
-        setResumeData(ensureResumeElementIds(saved.draftContent || {}))
-        setResumeName(saved.title || 'Untitled Resume')
-        setSelectedTemplateId(saved.templateId || null)
-        setResumePresentation(createResumePresentation(saved.templateId))
-        
-        console.log('[MainPage] Hydrating with resumeId =', projectId)
-
-        // draftContent only contains resumeData; other workspace state is not persisted
-
-        // Enter editor mode and navigate
-        setWorkspaceMode('editor-ready')
-        navigate('/workspace/editor', { replace: true })
-        
-        // Clear isHydrating guard after state commits (next tick)
-        setTimeout(() => setIsHydrating(false), 0)
-
-      } catch (error) {
-        console.error('[MainPage] Failed to load saved project:', error)
-        setWorkspaceError(error.message || 'Could not load this resume. Please try again.')
-        navigate('/dashboard', { replace: true })
-      }
-    }
-
-    loadSavedProject()
-
+    openCloudResumeRef.current(projectId).catch(error => {
+      if (cancelled) return
+      console.error('[MainPage] Failed to load saved project:', error)
+      setWorkspaceError(error.message || 'Could not load this resume. Please try again.')
+      navigate('/dashboard', { replace: true })
+    })
     return () => { cancelled = true }
   }, [location.state?.savedProjectId, navigate])
 
@@ -1224,14 +1199,14 @@ function MainPage() {
   useEffect(() => {
     if (!resumeData && workspaceMode === 'initial') return undefined
     const timer = window.setTimeout(() => {
-      const { photoDropped } = writeWorkspaceSnapshot({ workspaceMode, resumeData, selectedTemplateId, resumePresentation, uploadedFileName, parseMetadata, resumeName, fontColor, fontFamily, globalFontSize, useGlobalTextColor, footerText, assistantMessages: assistantMessages.slice(-40), aiTab, confirmedSections, description, analysis, coverLetter, coverLetterIncluded, letterMessages: letterMessages.slice(-40), githubScan: githubScan?.status === 'scanning' ? { ...githubScan, status: 'cancelled' } : githubScan })
+      const { photoDropped } = writeWorkspaceSnapshot({ workspaceMode, cloud, resumeData, selectedTemplateId, resumePresentation, uploadedFileName, parseMetadata, resumeName, fontColor, fontFamily, globalFontSize, useGlobalTextColor, footerText, assistantMessages: assistantMessages.slice(-40), aiTab, confirmedSections, description, analysis, coverLetter, coverLetterIncluded, letterMessages: letterMessages.slice(-40), githubScan: githubScan?.status === 'scanning' ? { ...githubScan, status: 'cancelled' } : githubScan })
       if (photoDropped && !photoDropNoticeRef.current) {
         photoDropNoticeRef.current = true
         setProfilePhotoError('Your photo is too large to keep after a refresh; it stays for this visit.')
       }
     }, 400)
     return () => window.clearTimeout(timer)
-  }, [aiTab, analysis, assistantMessages, confirmedSections, coverLetter, coverLetterIncluded, letterMessages, description, githubScan, fontColor, fontFamily, footerText, globalFontSize, parseMetadata, resumeData, resumeName, resumePresentation, selectedTemplateId, uploadedFileName, useGlobalTextColor, workspaceMode])
+  }, [aiTab, analysis, assistantMessages, cloud, confirmedSections, coverLetter, coverLetterIncluded, letterMessages, description, githubScan, fontColor, fontFamily, footerText, globalFontSize, parseMetadata, resumeData, resumeName, resumePresentation, selectedTemplateId, uploadedFileName, useGlobalTextColor, workspaceMode])
 
   // Undo/redo covers content and formatting from every source (format panel, inline edits, NIMBUS).
   const restoreHistorySnapshot = useCallback(snapshot => {
@@ -1491,6 +1466,7 @@ function MainPage() {
   const resetWorkspace = () => {
     setWorkspaceMode('initial')
     setResumeData(null)
+    setCloud(null)
     setPendingUploadFile(null)
     setSelectedTemplateId(null)
     setResumePresentation(createResumePresentation())
@@ -1577,7 +1553,10 @@ function MainPage() {
 
   const confirmDeleteDraft = () => {
     setDeleteConfirmOpen(false)
+    // The dialog says the resume is removed for good, so the saved copy goes too (resetting stops any pending save first).
+    const savedId = cloud?.id ?? null
     resetWorkspace()
+    if (savedId) deleteResume(savedId).catch(error => console.error('[Workspace] Could not delete the saved copy:', error))
   }
 
   const chooseExportFormat = async format => {
@@ -2077,7 +2056,7 @@ function MainPage() {
     </div>}
     <div className="studio-topbar-end">
       <button className="btn btn-ghost btn-icon" type="button" onClick={deleteDraft} aria-label="Delete this draft" title="Delete draft"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4.5h4V6M6 6l.8 10h6.4L14 6" /></svg></button>
-      {isEditorPage && <SaveButton onSave={saveNow} isSaving={isSaving} />}
+      {isEditorPage && <SaveButton status={cloudSave.status} error={cloudSave.error} onSave={cloudSave.saveNow} onKeepMine={cloudSave.keepMine} onUseServer={() => openCloudResumeRef.current(cloud.id).catch(error => setWorkspaceError(error.message || 'Could not load the other version.'))} />}
       {isEditorPage && <span className="canvas-export-wrap" ref={exportMenuRef}>
         <button className="btn btn-primary" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3.5v9M6 8.5l4 4 4-4M4 16.5h12" /></svg>{exportLoading ? 'Exporting…' : 'Export'}

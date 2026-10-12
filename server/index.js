@@ -59,7 +59,8 @@ app.use('/api/github', smallJson, githubRoutes)
 app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, documentJson, trackAiUsage, resumeRoutes)
 app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
 app.use('/api/jd', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
-app.use('/api/user', smallJson, userRoutes)
+// Saved resumes: signed-in users only, scoped to their own uid. Body cap = the 500 KB resume limit plus the request envelope.
+app.use('/api/user', express.json({ limit: '600kb' }), userRoutes)
 
 try {
   initializeFirebaseAdmin()
