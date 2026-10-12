@@ -16,22 +16,30 @@ let firebaseAdminApp
 
 export function initializeFirebaseAdmin() {
   if (firebaseAdminApp) return firebaseAdminApp
-  if (!env.firebase.serviceAccountPath) {
-    throw new FirebaseServerConfigurationError(
-      'Firebase service account configuration is missing or invalid. Set FIREBASE_SERVICE_ACCOUNT_PATH or GOOGLE_APPLICATION_CREDENTIALS in server/.env.local.'
-    )
-  }
-
-  const serviceAccountPath = resolve(env.firebase.serviceAccountPath)
-  if (!existsSync(serviceAccountPath)) {
-    throw new FirebaseServerConfigurationError('The Firebase service account file could not be found.')
-  }
-
   let serviceAccount
-  try {
-    serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'))
-  } catch {
-    throw new FirebaseServerConfigurationError('The Firebase service account file is not valid JSON.')
+  if (env.firebase.serviceAccountJson) {
+    try {
+      serviceAccount = JSON.parse(env.firebase.serviceAccountJson)
+    } catch {
+      throw new FirebaseServerConfigurationError('FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.')
+    }
+  } else {
+    if (!env.firebase.serviceAccountPath) {
+      throw new FirebaseServerConfigurationError(
+        'Firebase service account configuration is missing or invalid. Set FIREBASE_SERVICE_ACCOUNT_PATH, GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT_JSON in server/.env.local.'
+      )
+    }
+
+    const serviceAccountPath = resolve(env.firebase.serviceAccountPath)
+    if (!existsSync(serviceAccountPath)) {
+      throw new FirebaseServerConfigurationError('The Firebase service account file could not be found.')
+    }
+
+    try {
+      serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'))
+    } catch {
+      throw new FirebaseServerConfigurationError('The Firebase service account file is not valid JSON.')
+    }
   }
 
   firebaseAdminApp = getApps().length

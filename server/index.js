@@ -77,7 +77,13 @@ app.use((error, _request, response, _next) => {
   response.status(500).json({ ok: false, error: 'The server could not process this request.' })
 })
 
-app.listen(env.port, () => {
-  console.log(`Resumetrics AI server listening on http://localhost:${env.port}`)
-  if (env.ai.provider === 'mock') console.warn('AI provider is MOCK: every AI answer is canned (RESUMETRICS_AI_PROVIDER=mock). Never use this in production.')
-})
+if (env.ai.provider === 'mock') console.warn('AI provider is MOCK: every AI answer is canned (RESUMETRICS_AI_PROVIDER=mock). Never use this in production.')
+
+// On Vercel the app is exported as a serverless function (api/index.js) instead of listening on a port.
+if (!process.env.VERCEL) {
+  app.listen(env.port, () => {
+    console.log(`Resumetrics AI server listening on http://localhost:${env.port}`)
+  })
+}
+
+export default app
