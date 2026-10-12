@@ -13,7 +13,7 @@ const sessionStorageMock = (() => {
 })()
 global.sessionStorage = sessionStorageMock
 
-// Test: resumeId field is included in workspace snapshot
+// Test: cloud field is included in workspace snapshot
 clearWorkspaceSnapshot()
 sessionStorageMock.clear()
 
@@ -22,55 +22,48 @@ const stateWithResumeId = {
   resumeData: { fullName: 'Test User', email: 'test@example.com' },
   selectedTemplateId: 'modern',
   resumeName: 'My Resume',
-  resumeId: 'test-resume-id-123'
+  cloud: { id: 'test-resume-id-123', revision: 3, savedHash: 'h' }
 }
 
 writeWorkspaceSnapshot(stateWithResumeId)
 const restored1 = readWorkspaceSnapshot()
-assert.equal(restored1.resumeId, 'test-resume-id-123', 'resumeId should be preserved in snapshot')
+assert.deepEqual(restored1.cloud, { id: 'test-resume-id-123', revision: 3, savedHash: 'h' }, 'cloud should be preserved in snapshot')
 assert.equal(restored1.workspaceMode, 'editor-ready')
 assert.equal(restored1.resumeName, 'My Resume')
 
-// Test: resumeId can be null
+// Test: cloud can be null
 clearWorkspaceSnapshot()
 sessionStorageMock.clear()
 
 const stateWithNullResumeId = {
   workspaceMode: 'editor-ready',
   resumeData: { fullName: 'Test User' },
-  resumeId: null
+  cloud: null
 }
 
 writeWorkspaceSnapshot(stateWithNullResumeId)
 const restored2 = readWorkspaceSnapshot()
-assert.equal(restored2.resumeId, null, 'null resumeId should be preserved')
+assert.equal(restored2.cloud, null, 'null cloud should be preserved')
 
-// Test: backward compatibility - missing resumeId defaults to null
+// Test: a snapshot written before the cloud pointer existed has no cloud key, so restored() falls back
+clearWorkspaceSnapshot()
+sessionStorageMock.clear()
+writeWorkspaceSnapshot({ workspaceMode: 'editor-ready', resumeData: { fullName: 'Test User' } })
+assert.equal(restored('cloud', null), null, 'a missing cloud key should fall back to the default')
+
+// Test: restored() helper works with cloud
 clearWorkspaceSnapshot()
 sessionStorageMock.clear()
 
-const stateWithoutResumeId = {
-  workspaceMode: 'editor-ready',
-  resumeData: { fullName: 'Test User' }
-}
-
-writeWorkspaceSnapshot(stateWithoutResumeId)
-const restored3 = readWorkspaceSnapshot()
-assert.equal(restored3.resumeId, null, 'missing resumeId should default to null for backward compatibility')
-
-// Test: restored() helper works with resumeId
-clearWorkspaceSnapshot()
-sessionStorageMock.clear()
-
-writeWorkspaceSnapshot({ resumeId: 'stored-id', workspaceMode: 'initial' })
-assert.equal(restored('resumeId', null), 'stored-id', 'restored() should return stored resumeId')
-assert.equal(restored('resumeId', 'fallback'), 'stored-id', 'restored() should prefer stored value over fallback')
+writeWorkspaceSnapshot({ cloud: 'stored-id', workspaceMode: 'initial' })
+assert.equal(restored('cloud', null), 'stored-id', 'restored() should return stored cloud')
+assert.equal(restored('cloud', 'fallback'), 'stored-id', 'restored() should prefer stored value over fallback')
 
 clearWorkspaceSnapshot()
 sessionStorageMock.clear()
-assert.equal(restored('resumeId', 'fallback-id'), 'fallback-id', 'restored() should return fallback when no snapshot exists')
+assert.equal(restored('cloud', 'fallback-id'), 'fallback-id', 'restored() should return fallback when no snapshot exists')
 
-// Test: resumeId survives photo dropping
+// Test: cloud survives photo dropping
 clearWorkspaceSnapshot()
 sessionStorageMock.clear()
 
@@ -85,14 +78,14 @@ const stateWithLargePhoto = {
       uploaded: true
     }
   },
-  resumeId: 'photo-test-id'
+  cloud: 'photo-test-id'
 }
 
 const result = writeWorkspaceSnapshot(stateWithLargePhoto)
 assert.equal(result.photoDropped, true, 'photo should be dropped when too large')
 
 const restored4 = readWorkspaceSnapshot()
-assert.equal(restored4.resumeId, 'photo-test-id', 'resumeId should survive photo dropping')
+assert.equal(restored4.cloud, 'photo-test-id', 'cloud should survive photo dropping')
 assert.equal(restored4.resumePresentation?.photo?.source, undefined, 'photo source should be dropped')
 assert.equal(restored4.workspaceMode, 'editor-ready', 'other fields should remain intact')
 

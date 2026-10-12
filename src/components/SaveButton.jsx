@@ -1,84 +1,47 @@
 import { useState } from 'react'
 
+const LABELS = {
+  dirty: 'Unsaved changes',
+  saving: 'Saving…',
+  saved: 'All changes saved',
+  offline: 'Offline — will retry',
+  error: 'Couldn’t save',
+  conflict: 'Changed somewhere else'
+}
+
 /**
- * Manual save button component for the resume editor
- * 
- * @param {Object} props
- * @param {Function} props.onSave - Async function to call when saving (should return promise)
- * @param {boolean} props.isSaving - Whether a save is currently in progress (from useFirestoreAutosave)
+ * Cloud save status plus a manual Save. Autosave runs on its own (useResumeAutosave); this shows what it is
+ * doing so a failed save is never silent.
+ *
+ * status:     idle | dirty | saving | saved | offline | error | conflict
+ * onSave:     () => Promise, rejects when saving fails
+ * onKeepMine / onUseServer: the two ways out of a conflict
  */
-export function SaveButton({ onSave, isSaving }) {
-  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'success' | 'error'
-  const [errorMessage, setErrorMessage] = useState('')
-  
-  const handleSave = async () => {
-    // Prevent multiple concurrent save attempts
-    if (isSaving || saveStatus === 'success') return
-    
+export function SaveButton({ status = 'idle', error = null, onSave, onKeepMine, onUseServer }) {
+  const [manualError, setManualError] = useState('')
+  const busy = status === 'saving'
+
+  const save = async () => {
+    setManualError('')
     try {
-      setSaveStatus('idle')
-      setErrorMessage('')
-      
-      // Call the save function (throws on error)
       await onSave()
-      
-      // Show success state
-      setSaveStatus('success')
-      
-      // Reset to idle after 2 seconds
-      setTimeout(() => {
-        setSaveStatus('idle')
-      }, 2000)
-    } catch (error) {
-      // Show error state
-      setSaveStatus('error')
-      setErrorMessage(error.message || 'Save failed')
-      
-      // Reset to idle after 3 seconds
-      setTimeout(() => {
-        setSaveStatus('idle')
-        setErrorMessage('')
-      }, 3000)
+    } catch (failure) {
+      setManualError(failure?.message || 'Couldn’t save.')
     }
   }
-  
-  // Button text based on state
-  let buttonText = 'Save'
-  if (isSaving) {
-    buttonText = 'Saving...'
-  } else if (saveStatus === 'success') {
-    buttonText = 'Saved ✓'
-  } else if (saveStatus === 'error') {
-    buttonText = 'Save failed'
+
+  if (status === 'conflict') {
+    return <span className="save-status is-conflict" role="alert">
+      <span>{error?.kind === 'not_found' ? 'Deleted on another device' : LABELS.conflict}</span>
+      <button className="btn btn-secondary" type="button" onClick={onKeepMine}>{error?.kind === 'not_found' ? 'Recreate mine' : 'Keep mine'}</button>
+      {error?.kind !== 'not_found' && <button className="btn btn-ghost" type="button" onClick={onUseServer}>Use the other</button>}
+    </span>
   }
-  
-  // Button styling based on state
-  const baseClasses = 'px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm'
-  let stateClasses = ''
-  
-  if (isSaving) {
-    stateClasses = 'bg-gray-300 text-gray-600 cursor-not-allowed'
-  } else if (saveStatus === 'success') {
-    stateClasses = 'bg-green-500 text-white cursor-default'
-  } else if (saveStatus === 'error') {
-    stateClasses = 'bg-red-500 text-white hover:bg-red-600 cursor-pointer'
-  } else {
-    stateClasses = 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
-  }
-  
-  return (
-    <div className="flex flex-col items-start">
-      <button
-        onClick={handleSave}
-        disabled={isSaving || saveStatus === 'success'}
-        className={`${baseClasses} ${stateClasses}`}
-        title={saveStatus === 'error' ? errorMessage : 'Save your resume now'}
-      >
-        {buttonText}
-      </button>
-      {saveStatus === 'error' && errorMessage && (
-        <span className="text-xs text-red-500 mt-1">{errorMessage}</span>
-      )}
-    </div>
-  )
+
+  const label = manualError || (status === 'error' && error?.message) || LABELS[status] || ''
+  const bad = Boolean(manualError) || status === 'error' || status === 'offline'
+  return <span className={`save-status${bad ? ' is-bad' : ''}`}>
+    <span className="save-status-label" role="status" aria-live="polite" title={label}>{label}</span>
+    <button className="btn btn-ghost" type="button" disabled={busy} onClick={save} title="Save your resume now">{busy ? 'Saving…' : 'Save'}</button>
+  </span>
 }

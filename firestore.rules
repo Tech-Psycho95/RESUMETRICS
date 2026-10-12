@@ -1,13 +1,12 @@
 rules_version = '2';
 
+// Browsers never read or write Firestore directly. Every request goes through the Express server
+// (server/routes/user.routes.js, github.routes.js), which verifies the Firebase ID token and uses the
+// Admin SDK. The Admin SDK bypasses these rules, so this file only closes the door on the client SDK:
+// the Firebase web config is public, and without this anyone could script writes to their own documents
+// (plan, usage counters, oversized or malformed resumes) and skip the server's validation.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own user document and subcollections
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-    
-    // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
     }

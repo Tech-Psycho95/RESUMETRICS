@@ -1,103 +1,61 @@
 import { getAuth } from 'firebase/auth'
+import { SaveError, saveErrorKind } from '../db/saveError.js'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8787'
+export { SaveError }
 
-/**
- * Get current Firebase ID token for authenticated requests
- */
-async function getIdToken() {
-  const auth = getAuth()
-  const user = auth.currentUser
-  if (!user) throw new Error('User not authenticated')
-  return await user.getIdToken()
-}
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
-/**
- * Make authenticated API request
- */
-async function authenticatedFetch(endpoint, options = {}) {
-  const token = await getIdToken()
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...options.headers
-    }
-  })
-  
-  const data = await response.json()
-  
-  if (!response.ok) {
-    throw new Error(data.error || 'Request failed')
+// keepalive requests (sent while the page is closing) are capped at 64 KB by browsers.
+const KEEPALIVE_LIMIT = 60_000
+
+async function authenticatedFetch(endpoint, { keepalive = false, ...options } = {}) {
+  const user = getAuth().currentUser
+  if (!user) throw new SaveError('auth', 'Sign in to save your work.')
+  let response
+  try {
+    const token = await user.getIdToken()
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      keepalive: keepalive && (options.body?.length ?? 0) < KEEPALIVE_LIMIT,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers }
+    })
+  } catch (error) {
+    throw new SaveError('network', 'Couldn’t reach Resumetrics. Check your connection.', { cause: error })
   }
-  
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new SaveError(saveErrorKind(response.status, data.code), data.error || 'Request failed.', { status: response.status, serverRevision: data.serverRevision })
+  }
   return data
 }
 
-/**
- * Get dashboard summary and recent projects
- */
-export async function getDashboard() {
-  return await authenticatedFetch('/api/user/dashboard')
+/** Create (baseRevision null) or update a resume; resolves { id, revision, updatedAt }. Rejects with SaveError. */
+export async function saveResume(id, baseRevision, fields, { keepalive = false } = {}) {
+  const data = await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ baseRevision, fields }),
+    keepalive
+  })
+  return data.resume
 }
 
-/**
- * Get user settings
- */
+/** Newest first, including each resume's content for the dashboard preview. */
+export async function listResumes() {
+  return (await authenticatedFetch('/api/user/resumes')).resumes
+}
+
+export async function getResume(id) {
+  return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`)).resume
+}
+
+export async function deleteResume(id) {
+  await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
 export async function getSettings() {
-  return await authenticatedFetch('/api/user/settings')
+  return (await authenticatedFetch('/api/user/settings')).settings
 }
 
-/**
- * Update user settings (partial merge)
- */
 export async function updateSettings(settings) {
-  return await authenticatedFetch('/api/user/settings', {
-    method: 'PATCH',
-    body: JSON.stringify({ settings })
-  })
-}
-
-/**
- * Save resume (create or update)
- */
-export async function saveResume(resumeId, data) {
-  return await authenticatedFetch('/api/user/resumes', {
-    method: 'POST',
-    body: JSON.stringify({ resumeId, data })
-  })
-}
-
-/**
- * List all resumes (optionally filtered by type)
- */
-export async function listResumes(type = null) {
-  const query = type ? `?type=${type}` : ''
-  return await authenticatedFetch(`/api/user/resumes${query}`)
-}
-
-/**
- * Get full resume document
- */
-export async function getResume(resumeId) {
-  return await authenticatedFetch(`/api/user/resumes/${resumeId}`)
-}
-
-/**
- * Delete resume
- */
-export async function deleteResume(resumeId) {
-  return await authenticatedFetch(`/api/user/resumes/${resumeId}`, {
-    method: 'DELETE'
-  })
-}
-
-/**
- * Delete all resumes for the current user
- */
-export async function clearAllResumes() {
-  return await authenticatedFetch('/api/user/resumes', {
-    method: 'DELETE'
-  })
+  return (await authenticatedFetch('/api/user/settings', { method: 'PATCH', body: JSON.stringify({ settings }) })).settings
 }
