@@ -30,17 +30,23 @@ const firebaseServiceAccountPath =
   process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim() ||
   ''
 
+// Hosted environments (Vercel) have no key files on disk, so the credentials can also arrive as variable contents.
+const firebaseServiceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim() ?? ''
+const githubPrivateKey = (process.env.GITHUB_PRIVATE_KEY ?? '').replace(/\\n/g, '\n').trim()
+
 export const env = Object.freeze({
   port: Number.parseInt(process.env.PORT ?? '8787', 10),
   webOrigin: process.env.RESUMETRICS_WEB_ORIGIN ?? 'http://localhost:5173',
   firebase: Object.freeze({
-    serviceAccountPath: firebaseServiceAccountPath
+    serviceAccountPath: firebaseServiceAccountPath,
+    serviceAccountJson: firebaseServiceAccountJson
   }),
   github: Object.freeze({
     appId: process.env.GITHUB_APP_ID?.trim() ?? '',
     clientId: process.env.GITHUB_CLIENT_ID?.trim() ?? '',
     clientSecret: process.env.GITHUB_CLIENT_SECRET?.trim() ?? '',
     privateKeyPath: process.env.GITHUB_PRIVATE_KEY_PATH?.trim() ?? '',
+    privateKey: githubPrivateKey,
     appSlug: process.env.GITHUB_APP_SLUG?.trim() ?? 'resumetrics-evidence',
     callbackUrl: process.env.GITHUB_CALLBACK_URL?.trim() ?? 'http://localhost:8787/api/github/callback',
     frontendUrl: process.env.FRONTEND_URL?.trim() ?? process.env.RESUMETRICS_WEB_ORIGIN?.trim() ?? 'http://localhost:5173'
@@ -88,7 +94,7 @@ export function validateGitHubConfiguration() {
   if (!env.github.appId) throw new GitHubConfigurationError('GITHUB_APP_ID is missing. Add it to server/.env.local.')
   if (!env.github.clientId) throw new GitHubConfigurationError('GITHUB_CLIENT_ID is missing. Add it to server/.env.local.')
   if (!env.github.clientSecret) throw new GitHubConfigurationError('GITHUB_CLIENT_SECRET is missing. Add it to server/.env.local.')
-  if (!env.github.privateKeyPath) throw new GitHubConfigurationError('GITHUB_PRIVATE_KEY_PATH is missing. Add it to server/.env.local.')
+  if (!env.github.privateKeyPath && !env.github.privateKey) throw new GitHubConfigurationError('GITHUB_PRIVATE_KEY_PATH (or GITHUB_PRIVATE_KEY) is missing. Add it to server/.env.local.')
   if (!env.github.appSlug) throw new GitHubConfigurationError('GITHUB_APP_SLUG is missing. Add it to server/.env.local.')
   if (!env.github.callbackUrl) throw new GitHubConfigurationError('GITHUB_CALLBACK_URL is missing. Add it to server/.env.local.')
   if (!env.github.frontendUrl) throw new GitHubConfigurationError('FRONTEND_URL is missing. Add it to server/.env.local.')

@@ -8,14 +8,16 @@ let githubApp
 function getGitHubApp() {
   if (githubApp) return githubApp
   validateGitHubConfiguration()
-  const privateKeyPath = resolve(env.github.privateKeyPath)
-  if (!existsSync(privateKeyPath)) throw new GitHubConfigurationError('The GitHub App private key file could not be found.')
+  let privateKey = env.github.privateKey
+  if (!privateKey) {
+    const privateKeyPath = resolve(env.github.privateKeyPath)
+    if (!existsSync(privateKeyPath)) throw new GitHubConfigurationError('The GitHub App private key file could not be found.')
 
-  let privateKey
-  try {
-    privateKey = readFileSync(privateKeyPath, 'utf8')
-  } catch {
-    throw new GitHubConfigurationError('The GitHub App private key could not be read.')
+    try {
+      privateKey = readFileSync(privateKeyPath, 'utf8')
+    } catch {
+      throw new GitHubConfigurationError('The GitHub App private key could not be read.')
+    }
   }
 
   githubApp = new App({ appId: env.github.appId, privateKey })

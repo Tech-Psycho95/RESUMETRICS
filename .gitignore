@@ -51,3 +51,4 @@ service-account/
 *.md
 !README.md
 dashboard-integration-snippet.txt
+.env.vercel
