@@ -9,7 +9,11 @@ import jdRoutes from './routes/jd.routes.js'
 import userRoutes from './routes/user.routes.js'
 import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
-import { enforceDailyTokenBudget, trackAiUsage } from './ai/usage.js'
+import { createMemoryUsageStore, enforceDailyTokenBudget, setUsageStore, trackAiUsage } from './ai/usage.js'
+import { createFirestoreUsageStore, createResilientUsageStore } from './ai/usageStore.js'
+
+// Daily AI usage lives in Firestore (users/{uid}/usage/{day}) so it survives restarts and is shared by every serverless instance.
+setUsageStore(createResilientUsageStore(createFirestoreUsageStore(), createMemoryUsageStore()))
 
 const app = express()
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
