@@ -58,6 +58,21 @@ export async function duplicateResume(id) {
   return data.resume
 }
 
+/** Newest first, without content: [{ id, reason: 'manual' | 'auto' | 'before-restore', name, revision, progress, createdAt }]. */
+export async function listVersions(id) {
+  return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}/versions`)).versions
+}
+
+/** Saves the stored resume as a version; resolves the version, or null when nothing changed since the last one. */
+export async function saveVersion(id) {
+  return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}/versions`, { method: 'POST' })).version
+}
+
+/** Makes a version the current resume (the replaced state is kept as a version). Resolves { id, revision, updatedAt }. */
+export async function restoreVersion(id, versionId) {
+  return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`, { method: 'POST' })).resume
+}
+
 export async function deleteResume(id) {
   await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

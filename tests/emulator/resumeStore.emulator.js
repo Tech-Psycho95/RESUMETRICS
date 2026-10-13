@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict'
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
-import { createResumeStore, ResumeStoreError } from '../../server/db/resumeStore.js'
+import { createResumeStore, MAX_VERSIONS, ResumeStoreError } from '../../server/db/resumeStore.js'
 
 if (!process.env.FIRESTORE_EMULATOR_HOST) {
   console.log('- resumeStore emulator tests skipped (run `npm run test:emulator`)')
@@ -61,6 +61,29 @@ assert.equal(copy.name, 'Renamed (copy)')
 assert.equal(copy.revision, 1)
 assert.equal((await store.duplicateResume(uid, id(1), id(3))).id, id(3))
 assert.equal((await store.listResumes(uid)).length, 3)
+
+// Version history with real server timestamps: manual version, restore (which keeps what it replaced), pruning.
+const first = await store.createVersion(uid, id(1))
+assert.equal(first.reason, 'manual')
+assert.equal(await store.createVersion(uid, id(1)), null, 'nothing changed since the last version')
+await store.saveResume(uid, id(1), { baseRevision: 4, fields: fields({ name: 'After the version' }) })
+const restored = await store.restoreVersion(uid, id(1), first.id)
+assert.equal(restored.revision, 6)
+assert.equal((await store.getResume(uid, id(1))).name, 'Renamed')
+let versions = await store.listVersions(uid, id(1))
+assert.deepEqual(versions.map(version => version.reason), ['before-restore', 'manual'], 'newest first, the replaced state was kept')
+assert.equal(versions[0].name, 'After the version')
+for (let index = 0; index < MAX_VERSIONS + 3; index += 1) {
+  const { revision } = await store.getResume(uid, id(1))
+  await store.saveResume(uid, id(1), { baseRevision: revision, fields: fields({ name: `Edit ${index}` }) })
+  await store.createVersion(uid, id(1))
+}
+versions = await store.listVersions(uid, id(1))
+assert.equal(versions.length, MAX_VERSIONS)
+assert.equal(versions[0].name, `Edit ${MAX_VERSIONS + 2}`)
+assert.equal((await db.collection(`users/${uid}/resumes/${id(1)}/versions`).get()).size, MAX_VERSIONS, 'older versions are deleted')
+await rejects(() => store.restoreVersion(uid, id(1), 'missing-version'), 'not_found')
+await store.renameResume(uid, id(1), 'Renamed')   // back to the name later checks expect
 
 // Another user's namespace is untouched.
 assert.equal((await store.listResumes(`${uid}-other`)).length, 0)

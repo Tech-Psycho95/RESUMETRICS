@@ -6,6 +6,7 @@ import { SettingsError, userStore } from '../db/userStore.js'
 // Ids are made by the browser (crypto.randomUUID) so a retried first save can't create a second document;
 // older Firestore auto ids (20 characters) also match.
 const RESUME_ID = /^[A-Za-z0-9_-]{16,64}$/
+const VERSION_ID = /^[A-Za-z0-9_-]{8,64}$/
 
 const requireAccount = createRequireUser({
   signInMessage: 'Sign in to Resumetrics to save your work.',
@@ -43,6 +44,11 @@ export function createUserRouter({ resumes = resumeStore, users = userStore, aut
 
   router.param('id', (request, response, next, id) => {
     if (!RESUME_ID.test(id)) return response.status(400).json({ ok: false, code: 'invalid', error: 'Invalid resume id.' })
+    return next()
+  })
+
+  router.param('versionId', (request, response, next, versionId) => {
+    if (!VERSION_ID.test(versionId)) return response.status(400).json({ ok: false, code: 'invalid', error: 'Invalid version id.' })
     return next()
   })
 
@@ -109,6 +115,33 @@ export function createUserRouter({ resumes = resumeStore, users = userStore, aut
       return response.status(201).json({ ok: true, resume: await resumes.duplicateResume(request.firebaseUser.uid, request.params.id, newId) })
     } catch (error) {
       return fail(response, error, 'Could not duplicate resume')
+    }
+  })
+
+  router.get('/resumes/:id/versions', async (request, response) => {
+    try {
+      response.set('Cache-Control', 'no-store')
+      return response.json({ ok: true, versions: await resumes.listVersions(request.firebaseUser.uid, request.params.id) })
+    } catch (error) {
+      return fail(response, error, 'Could not load versions')
+    }
+  })
+
+  // Saves the stored resume as a version. 201 with the version, or 200 with version: null when nothing changed.
+  router.post('/resumes/:id/versions', async (request, response) => {
+    try {
+      const version = await resumes.createVersion(request.firebaseUser.uid, request.params.id)
+      return response.status(version ? 201 : 200).json({ ok: true, version })
+    } catch (error) {
+      return fail(response, error, 'Could not save a version')
+    }
+  })
+
+  router.post('/resumes/:id/versions/:versionId/restore', async (request, response) => {
+    try {
+      return response.json({ ok: true, resume: await resumes.restoreVersion(request.firebaseUser.uid, request.params.id, request.params.versionId) })
+    } catch (error) {
+      return fail(response, error, 'Could not restore this version')
     }
   })
 

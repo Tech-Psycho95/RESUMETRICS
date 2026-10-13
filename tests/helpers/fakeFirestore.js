@@ -39,6 +39,7 @@ export function createFakeFirestore() {
         for (const [key, item] of Object.entries(value)) current[key] = item && typeof item === 'object' && '__inc' in item ? (current[key] ?? 0) + item.__inc : item
         docs.set(path, JSON.stringify(current))
       },
+      delete: async () => { stats.writes += 1; docs.delete(path) },
       update: async changes => {
         if (!docs.has(path)) throw Object.assign(new Error('NOT_FOUND'), { code: 5 })
         stats.writes += 1
@@ -57,7 +58,9 @@ export function createFakeFirestore() {
         let rows = [...docs.keys()].filter(key => isChildOf(path, key)).map(snapshotOf)
         if (field) {
           const sortKey = row => { const value = JSON.parse(docs.get(row.ref.path))[field]; return value && typeof value === 'object' && '__ts' in value ? value.__ts : value }
-          rows.sort((a, b) => (sortKey(a) > sortKey(b) ? 1 : -1) * (direction === 'desc' ? -1 : 1))
+          // Like Firestore, ties fall back to the document id in the same direction.
+          const order = (x, y) => (x > y ? 1 : x < y ? -1 : 0)
+          rows.sort((a, b) => (order(sortKey(a), sortKey(b)) || order(a.ref.path, b.ref.path)) * (direction === 'desc' ? -1 : 1))
         }
         if (max) rows = rows.slice(0, max)
         stats.reads += rows.length

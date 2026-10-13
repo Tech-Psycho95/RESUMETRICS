@@ -9,7 +9,7 @@ import { createFakeFirestore } from './helpers/fakeFirestore.js'
 const ID = 'a1b2c3d4-e5f6-4789-8abc-def012345678'
 const db = createFakeFirestore()
 let clock = Date.UTC(2026, 9, 11, 10, 0, 0)
-const resumes = createResumeStore({ getDb: () => db, timestamp: db.timestamp })
+const resumes = createResumeStore({ getDb: () => db, timestamp: db.timestamp, checkpointMs: Infinity })
 const users = createUserStore({ getDb: () => db, now: () => clock })
 
 // Real sign-in middleware with a fake token check: 'alice-token' → alice, 'bob-token' → bob.
@@ -129,6 +129,32 @@ try {
   assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { token: null, body: { newId: COPY } })).status, 401)
   assert.equal((await call('GET', '/resumes')).body.resumes.length, 2)
   await call('DELETE', `/resumes/${COPY}`)
+  await call('DELETE', `/resumes/${ID}`)
+
+  // Version history.
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: null, fields: fields({ name: 'Draft one' }) } })).status, 200)
+  const savedVersion = await call('POST', `/resumes/${ID}/versions`)
+  assert.equal(savedVersion.status, 201)
+  assert.equal(savedVersion.body.version.reason, 'manual')
+  assert.equal(savedVersion.body.version.name, 'Draft one')
+  const unchanged = await call('POST', `/resumes/${ID}/versions`)
+  assert.equal(unchanged.status, 200)
+  assert.equal(unchanged.body.version, null)
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: 1, fields: fields({ name: 'Draft two' }) } })).status, 200)
+  const listed = await call('GET', `/resumes/${ID}/versions`)
+  assert.equal(listed.status, 200)
+  assert.deepEqual(listed.body.versions.map(version => version.id), [savedVersion.body.version.id])
+  assert.equal((await call('GET', `/resumes/${ID}/versions`, { token: 'bob-token' })).body.versions.length, 0)
+  assert.equal((await call('POST', `/resumes/${ID}/versions`, { token: 'bob-token' })).status, 404)
+  assert.equal((await call('POST', `/resumes/${ID}/versions`, { token: null })).status, 401)
+  assert.equal((await call('POST', `/resumes/${ID}/versions/short/restore`)).status, 400)
+  assert.equal((await call('POST', `/resumes/${ID}/versions/does-not-exist/restore`)).status, 404)
+  assert.equal((await call('POST', `/resumes/${ID}/versions/${savedVersion.body.version.id}/restore`, { token: 'bob-token' })).status, 404)
+  const restoredVersion = await call('POST', `/resumes/${ID}/versions/${savedVersion.body.version.id}/restore`)
+  assert.equal(restoredVersion.status, 200)
+  assert.equal(restoredVersion.body.resume.revision, 3)
+  assert.equal((await call('GET', `/resumes/${ID}`)).body.resume.name, 'Draft one')
+  assert.equal((await call('GET', `/resumes/${ID}/versions`)).body.versions.length, 2, 'the replaced draft was kept')
   await call('DELETE', `/resumes/${ID}`)
 
   // The profile is created on first contact with defaults and a free plan, then left alone.

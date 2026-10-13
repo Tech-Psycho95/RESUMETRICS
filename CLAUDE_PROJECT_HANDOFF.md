@@ -151,7 +151,11 @@ The browser never talks to Firestore (`firestore.rules` deny all client access).
 | --- | --- |
 | `users/{uid}` | `profile` (Google name/email/photo), `settings`, `plan: { tier, status }` |
 | `users/{uid}/resumes/{id}` | `name`, `templateId`, `data`, `presentation` (no image bytes), `confirmedSections`, `sourceFileName`, `parseMetadata`, `progress` (0-100), `revision`, `schemaVersion`, `createdAt`, `updatedAt` |
+| `users/{uid}/resumes/{id}/versions/{versionId}` | Frozen copy of a resume: same content fields plus `reason` (`manual`, `auto`, `before-restore`), `revision`, `createdAt`. Newest 20 kept |
+| `users/{uid}/usage/{YYYY-MM-DD}` | Daily AI usage counters (`calls`, `tokensIn`, `tokensOut`, `limitedCalls`) |
 | `githubConnections/{uid}` | GitHub App installation metadata |
+
+Each resume document also remembers `lastVersionAt` and `lastVersionRevision`. A normal save keeps the state it replaces as an `auto` version when the newest version is over 4 hours old (no extra read); saving a version leaves `revision` alone (so an open editor isn't pushed into a conflict), while a restore is a normal change and bumps it. The editor reloads after a restore with a new `loadedAt` so the save queue restarts from the restored revision.
 
 Saves are optimistic-concurrency: `PUT` carries `baseRevision` (null to create) and a stale one returns 409 `conflict` with `serverRevision`. Documents are capped at 500 KB.
 
@@ -163,6 +167,9 @@ Saves are optimistic-concurrency: `PUT` carries `baseRevision` (null to create) 
 | `PUT /api/user/resumes/:id` | Create or update; body `{ baseRevision, fields }` |
 | `PATCH /api/user/resumes/:id` | Rename; body `{ name }`; bumps `revision` |
 | `POST /api/user/resumes/:id/duplicate` | Copy to a client-chosen `newId` (retry-safe); returns 201 |
+| `GET /api/user/resumes/:id/versions` | Version list, newest first (no content), at most 20 |
+| `POST /api/user/resumes/:id/versions` | Save the stored resume as a version; 201, or 200 with `version: null` when nothing changed |
+| `POST /api/user/resumes/:id/versions/:versionId/restore` | Make a version current (new revision); the replaced state is kept as a `before-restore` version |
 | `DELETE /api/user/resumes/:id` | Delete the resume and its subcollections |
 
 Tests: `npm test` uses an in-memory fake (`tests/helpers/fakeFirestore.js`). `npm run test:emulator` runs `tests/emulator/resumeStore.emulator.js` against the real Firestore emulator (needs the Firebase CLI and Java 21+).

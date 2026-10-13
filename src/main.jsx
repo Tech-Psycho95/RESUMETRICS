@@ -26,6 +26,7 @@ import FormatPanel from './components/editor/FormatPanel.jsx'
 import AiRail, { CoverLetterDock, EvidenceDock, TailorDock } from './components/editor/AiRail.jsx'
 import SectionForm from './components/form/SectionForm.jsx'
 import { SaveButton } from './components/SaveButton.jsx'
+import { VersionHistory } from './components/VersionHistory.jsx'
 import { formSectionsFor, hasStartedForm } from './form/sectionProgress.js'
 import { describeResumeElement } from './editor/describeResumeElement.js'
 import useEditorHistory from './editor/useEditorHistory.js'
@@ -1175,7 +1176,7 @@ function MainPage() {
     }
     clearWorkspaceSnapshot()
     // savedHash = what these fields hash to, so opening a resume doesn't immediately save it again.
-    setCloud({ id, uid: currentUser?.uid, revision: saved.revision, savedHash: hashFields(buildResumeFields(state)) })
+    setCloud({ id, uid: currentUser?.uid, revision: saved.revision, savedHash: hashFields(buildResumeFields(state)), loadedAt: Date.now() })
     setResumeData(state.resumeData)
     setResumeName(state.resumeName)
     setSelectedTemplateId(state.selectedTemplateId)
@@ -2101,6 +2102,7 @@ function MainPage() {
     </div>}
     <div className="studio-topbar-end">
       <button className="btn btn-ghost btn-icon" type="button" onClick={deleteDraft} aria-label="Delete this draft" title="Delete draft"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4.5h4V6M6 6l.8 10h6.4L14 6" /></svg></button>
+      {isEditorPage && <VersionHistory resumeId={cloud?.id} enabled={Boolean(cloud?.id) && Number.isInteger(cloud?.revision)} onBeforeChange={cloudSave.saveNow} onRestored={() => openCloudResumeRef.current(cloud.id)} />}
       {isEditorPage && <SaveButton status={cloudSave.status} error={cloudSave.error} onSave={cloudSave.saveNow} onKeepMine={cloudSave.keepMine} onUseServer={() => openCloudResumeRef.current(cloud.id).catch(error => setWorkspaceError(error.message || 'Could not load the other version.'))} />}
       {isEditorPage && <span className="canvas-export-wrap" ref={exportMenuRef}>
         <button className="btn btn-primary" type="button" disabled={exportLoading} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(open => !open)}>

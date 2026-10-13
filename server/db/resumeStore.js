@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getConnectionStore } from '../services/firebaseAdmin.js'
 
@@ -7,6 +8,9 @@ export const SCHEMA_VERSION = 1
 export const MAX_RESUME_BYTES = 500_000
 export const MAX_NAME_LENGTH = 120
 export const LIST_LIMIT = 50
+export const MAX_VERSIONS = 20
+// A normal save also keeps a checkpoint of the previous state when the newest version is this old.
+export const CHECKPOINT_MS = 4 * 60 * 60_000
 
 export class ResumeStoreError extends Error {
   constructor(code, message, extra = {}) {
@@ -91,8 +95,38 @@ export function toApiResume(id, raw) {
   }
 }
 
-export function createResumeStore({ getDb = getConnectionStore, timestamp = () => FieldValue.serverTimestamp(), now = () => new Date() } = {}) {
+/** What the version list shows: no content, so a list of twenty stays small. */
+const versionSummary = (id, raw) => ({ id, reason: raw.reason, name: raw.name, revision: raw.revision, progress: raw.progress ?? 0, createdAt: toIso(raw.createdAt) })
+
+export function createResumeStore({
+  getDb = getConnectionStore,
+  timestamp = () => FieldValue.serverTimestamp(),
+  now = () => new Date(),
+  checkpointMs = CHECKPOINT_MS
+} = {}) {
   const collectionFor = uid => getDb().collection('users').doc(uid).collection('resumes')
+  const versionsFor = (uid, id) => collectionFor(uid).doc(id).collection('versions')
+  // Time-sortable, so ids list in creation order even before createdAt is looked at.
+  const newVersionId = () => `${String(now().getTime()).padStart(13, '0')}-${randomUUID().slice(0, 8)}`
+
+  /** A frozen copy of a stored resume document, in the current shape (legacy documents are converted). */
+  function versionDocument(id, raw, reason) {
+    const api = toApiResume(id, raw)
+    return {
+      name: api.name, templateId: api.templateId, data: api.data, presentation: api.presentation, confirmedSections: api.confirmedSections,
+      sourceFileName: api.sourceFileName, parseMetadata: api.parseMetadata, progress: api.progress, revision: api.revision, reason, createdAt: timestamp()
+    }
+  }
+
+  /** Keeps the newest MAX_VERSIONS. A failure here only leaves a few extra versions, so it never fails the request. */
+  async function pruneVersions(uid, id) {
+    try {
+      const snapshot = await versionsFor(uid, id).orderBy('createdAt', 'desc').limit(MAX_VERSIONS + 20).get()
+      await Promise.all(snapshot.docs.slice(MAX_VERSIONS).map(doc => doc.ref.delete()))
+    } catch (error) {
+      console.error('Could not prune resume versions:', error?.message)
+    }
+  }
 
   /**
    * Create (baseRevision null) or update (baseRevision = the revision the client last saw) in one transaction.
@@ -102,7 +136,9 @@ export function createResumeStore({ getDb = getConnectionStore, timestamp = () =
     const clean = validateResumeFields(fields)
     if (baseRevision !== null && !Number.isInteger(baseRevision)) throw new ResumeStoreError('invalid', 'baseRevision must be a whole number or null.')
     const ref = collectionFor(uid).doc(id)
-    return getDb().runTransaction(async transaction => {
+    let checkpointed = false
+    const saved = await getDb().runTransaction(async transaction => {
+      checkpointed = false   // a retried transaction starts over
       const snapshot = await transaction.get(ref)
       const document = { ...clean, progress: progressOf(clean.data), schemaVersion: SCHEMA_VERSION }
       if (!snapshot.exists) {
@@ -114,10 +150,75 @@ export function createResumeStore({ getDb = getConnectionStore, timestamp = () =
       const existing = snapshot.data()
       const current = Number.isInteger(existing.revision) ? existing.revision : 0
       if (baseRevision !== current) throw new ResumeStoreError('conflict', 'This resume was changed somewhere else.', { serverRevision: current })
+      // When the newest version is old, keep the state being replaced as a checkpoint (no extra read: the
+      // resume document remembers when and at which revision it was last versioned).
+      let versioned = { lastVersionAt: existing.lastVersionAt ?? null, lastVersionRevision: existing.lastVersionRevision ?? null }
+      const since = Date.parse(toIso(existing.lastVersionAt ?? existing.createdAt ?? existing.updatedAt) ?? '')
+      if (Number.isFinite(since) && now().getTime() - since >= checkpointMs && existing.lastVersionRevision !== current) {
+        transaction.set(versionsFor(uid, id).doc(newVersionId()), versionDocument(id, existing, 'auto'))
+        versioned = { lastVersionAt: timestamp(), lastVersionRevision: current }
+        checkpointed = true
+      }
       // A full replace (not merge) also drops fields from the pre-revision format.
-      transaction.set(ref, { ...document, revision: current + 1, createdAt: existing.createdAt ?? timestamp(), updatedAt: timestamp() })
+      transaction.set(ref, { ...document, ...versioned, revision: current + 1, createdAt: existing.createdAt ?? timestamp(), updatedAt: timestamp() })
       return { id, revision: current + 1, updatedAt: now().toISOString() }
     })
+    if (checkpointed) await pruneVersions(uid, id)
+    return saved
+  }
+
+  /**
+   * Saves the stored resume as a version. Resolves null when nothing changed since the newest version.
+   * Does not touch revision, so an open editor isn't pushed into a conflict.
+   */
+  async function createVersion(uid, id) {
+    const ref = collectionFor(uid).doc(id)
+    const versionId = newVersionId()
+    const created = await getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      const existing = snapshot.data()
+      const revision = Number.isInteger(existing.revision) ? existing.revision : 0
+      if (existing.lastVersionRevision === revision) return null
+      const document = versionDocument(id, existing, 'manual')
+      transaction.set(versionsFor(uid, id).doc(versionId), document)
+      transaction.update(ref, { lastVersionAt: timestamp(), lastVersionRevision: revision })
+      return versionSummary(versionId, { ...document, createdAt: now().toISOString() })
+    })
+    if (created) await pruneVersions(uid, id)
+    return created
+  }
+
+  async function listVersions(uid, id) {
+    const snapshot = await versionsFor(uid, id).orderBy('createdAt', 'desc').limit(MAX_VERSIONS).get()
+    return snapshot.docs.map(doc => versionSummary(doc.id, doc.data()))
+  }
+
+  /**
+   * Makes a version the current resume (as a new revision). The state being replaced is kept as a
+   * 'before-restore' version first, so a restore can itself be undone.
+   */
+  async function restoreVersion(uid, id, versionId) {
+    const ref = collectionFor(uid).doc(id)
+    const versionRef = versionsFor(uid, id).doc(versionId)
+    const backupId = newVersionId()
+    const restored = await getDb().runTransaction(async transaction => {
+      const [snapshot, versionSnapshot] = await Promise.all([transaction.get(ref), transaction.get(versionRef)])
+      if (!snapshot.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      if (!versionSnapshot.exists) throw new ResumeStoreError('not_found', 'Version not found.')
+      const clean = validateResumeFields(versionSnapshot.data())
+      const existing = snapshot.data()
+      const current = Number.isInteger(existing.revision) ? existing.revision : 0
+      if (existing.lastVersionRevision !== current) transaction.set(versionsFor(uid, id).doc(backupId), versionDocument(id, existing, 'before-restore'))
+      transaction.set(ref, {
+        ...clean, progress: progressOf(clean.data), schemaVersion: SCHEMA_VERSION,
+        revision: current + 1, lastVersionAt: timestamp(), lastVersionRevision: current,
+        createdAt: existing.createdAt ?? timestamp(), updatedAt: timestamp()
+      })
+      return { id, revision: current + 1, updatedAt: now().toISOString() }
+    })
+    await pruneVersions(uid, id)
+    return restored
   }
 
   /**
@@ -175,7 +276,7 @@ export function createResumeStore({ getDb = getConnectionStore, timestamp = () =
     await getDb().recursiveDelete(collectionFor(uid).doc(id))
   }
 
-  return { saveResume, renameResume, duplicateResume, listResumes, getResume, deleteResume }
+  return { saveResume, renameResume, duplicateResume, createVersion, listVersions, restoreVersion, listResumes, getResume, deleteResume }
 }
 
 export const resumeStore = createResumeStore()

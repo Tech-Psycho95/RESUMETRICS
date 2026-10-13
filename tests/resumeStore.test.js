@@ -16,7 +16,7 @@ const rejects = async (work, code, check = () => {}) => {
 }
 
 const db = createFakeFirestore()
-const store = createResumeStore({ getDb: () => db, timestamp: db.timestamp, now: () => new Date('2026-10-11T10:00:00Z') })
+const store = createResumeStore({ getDb: () => db, timestamp: db.timestamp, now: () => new Date('2026-10-11T10:00:00Z'), checkpointMs: Infinity })
 
 // Create: revision 1, server-side fields set, progress computed.
 const created = await store.saveResume('alice', ID, { baseRevision: null, fields: fields() })
