@@ -93,6 +93,25 @@ export function createUserRouter({ resumes = resumeStore, users = userStore, aut
     }
   })
 
+  router.patch('/resumes/:id', async (request, response) => {
+    try {
+      return response.json({ ok: true, resume: await resumes.renameResume(request.firebaseUser.uid, request.params.id, request.body?.name) })
+    } catch (error) {
+      return fail(response, error, 'Could not rename resume')
+    }
+  })
+
+  // Body: { newId } — chosen by the browser, like a first save, so a retry can't create two copies.
+  router.post('/resumes/:id/duplicate', async (request, response) => {
+    const newId = request.body?.newId
+    if (typeof newId !== 'string' || !RESUME_ID.test(newId)) return response.status(400).json({ ok: false, code: 'invalid', error: 'Invalid resume id.' })
+    try {
+      return response.status(201).json({ ok: true, resume: await resumes.duplicateResume(request.firebaseUser.uid, request.params.id, newId) })
+    } catch (error) {
+      return fail(response, error, 'Could not duplicate resume')
+    }
+  })
+
   router.delete('/resumes/:id', async (request, response) => {
     try {
       await resumes.deleteResume(request.firebaseUser.uid, request.params.id)

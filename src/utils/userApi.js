@@ -48,6 +48,16 @@ export async function getResume(id) {
   return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`)).resume
 }
 
+export async function renameResume(id, name) {
+  return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ name }) })).resume
+}
+
+/** Copies a resume server-side; resolves the new resume (same shape as getResume). */
+export async function duplicateResume(id) {
+  const data = await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}/duplicate`, { method: 'POST', body: JSON.stringify({ newId: crypto.randomUUID() }) })
+  return data.resume
+}
+
 export async function deleteResume(id) {
   await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

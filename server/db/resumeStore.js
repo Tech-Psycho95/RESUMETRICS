@@ -120,6 +120,45 @@ export function createResumeStore({ getDb = getConnectionStore, timestamp = () =
     })
   }
 
+  /**
+   * Renames in one transaction. Counts as a change (revision + 1), so an editor still open on the old revision
+   * gets a conflict instead of silently putting the old name back.
+   */
+  async function renameResume(uid, id, name) {
+    const clean = text(name, MAX_NAME_LENGTH)
+    if (!clean) throw new ResumeStoreError('invalid', 'A resume name is required.')
+    const ref = collectionFor(uid).doc(id)
+    return getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      const existing = snapshot.data()
+      const revision = (Number.isInteger(existing.revision) ? existing.revision : 0) + 1
+      transaction.update(ref, { name: clean, revision, updatedAt: timestamp() })
+      return { id, name: clean, revision, updatedAt: now().toISOString() }
+    })
+  }
+
+  /**
+   * Copies a resume to a new id chosen by the client, so a retried request can't make two copies: when the
+   * new id already exists it is returned as is. The copy starts at revision 1 and is named "<name> (copy)".
+   */
+  async function duplicateResume(uid, id, newId) {
+    if (newId === id) throw new ResumeStoreError('invalid', 'The copy needs its own id.')
+    const sourceRef = collectionFor(uid).doc(id)
+    const copyRef = collectionFor(uid).doc(newId)
+    return getDb().runTransaction(async transaction => {
+      const [source, copy] = await Promise.all([transaction.get(sourceRef), transaction.get(copyRef)])
+      if (copy.exists) return toApiResume(newId, copy.data())
+      if (!source.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      const original = toApiResume(id, source.data())
+      const suffix = ' (copy)'
+      const fields = validateResumeFields({ ...original, name: `${original.name.slice(0, MAX_NAME_LENGTH - suffix.length)}${suffix}` })
+      const stamp = now().toISOString()
+      transaction.set(copyRef, { ...fields, progress: progressOf(fields.data), schemaVersion: SCHEMA_VERSION, revision: 1, createdAt: timestamp(), updatedAt: timestamp() })
+      return toApiResume(newId, { ...fields, progress: progressOf(fields.data), revision: 1, createdAt: stamp, updatedAt: stamp })
+    })
+  }
+
   async function listResumes(uid, { limit = LIST_LIMIT } = {}) {
     const snapshot = await collectionFor(uid).orderBy('updatedAt', 'desc').limit(Math.min(limit, LIST_LIMIT)).get()
     return snapshot.docs.map(doc => toApiResume(doc.id, doc.data()))
@@ -136,7 +175,7 @@ export function createResumeStore({ getDb = getConnectionStore, timestamp = () =
     await getDb().recursiveDelete(collectionFor(uid).doc(id))
   }
 
-  return { saveResume, listResumes, getResume, deleteResume }
+  return { saveResume, renameResume, duplicateResume, listResumes, getResume, deleteResume }
 }
 
 export const resumeStore = createResumeStore()

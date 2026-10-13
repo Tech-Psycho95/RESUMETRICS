@@ -31,7 +31,14 @@ export function createFakeFirestore() {
       id: path.split('/').pop(),
       collection: name => collectionOf(`${path}/${name}`),
       get: async () => { stats.reads += 1; return snapshotOf(path) },
-      set: async value => { stats.writes += 1; docs.set(path, JSON.stringify(value)) },
+      set: async (value, options) => {
+        stats.writes += 1
+        if (!options?.merge) { docs.set(path, JSON.stringify(value)); return }
+        // merge: top-level fields only; { __inc: n } adds to a number like FieldValue.increment
+        const current = docs.has(path) ? JSON.parse(docs.get(path)) : {}
+        for (const [key, item] of Object.entries(value)) current[key] = item && typeof item === 'object' && '__inc' in item ? (current[key] ?? 0) + item.__inc : item
+        docs.set(path, JSON.stringify(current))
+      },
       update: async changes => {
         if (!docs.has(path)) throw Object.assign(new Error('NOT_FOUND'), { code: 5 })
         stats.writes += 1
@@ -65,14 +72,16 @@ export function createFakeFirestore() {
     docs,
     collection: name => collectionOf(name),
     timestamp: () => ({ __ts: (clock += 1000) }),
+    increment: amount => ({ __inc: amount }),
     async runTransaction(work) {
       const pending = []
       const transaction = {
         get: ref => ref.get(),
-        set: (ref, value) => { pending.push([ref, value]) }
+        set: (ref, value) => { pending.push([ref, value]) },
+        update: (ref, changes) => { pending.push([ref, changes, true]) }
       }
       const result = await work(transaction)
-      for (const [ref, value] of pending) await ref.set(value)
+      for (const [ref, value, isUpdate] of pending) await (isUpdate ? ref.update(value) : ref.set(value))
       return result
     },
     async recursiveDelete(ref) {

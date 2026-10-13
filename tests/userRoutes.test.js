@@ -104,6 +104,33 @@ try {
   assert.equal((await call('DELETE', `/resumes/${ID}`)).status, 200)
   assert.equal(db.read(`users/alice/resumes/${ID}`), undefined)
 
+  // Rename and duplicate.
+  const COPY = '99999999-8888-4777-8666-555555555555'
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: null, fields: fields({ name: 'Original' }) } })).status, 200)
+  const renamed = await call('PATCH', `/resumes/${ID}`, { body: { name: ' Renamed ' } })
+  assert.equal(renamed.status, 200)
+  assert.equal(renamed.body.resume.name, 'Renamed')
+  assert.equal(renamed.body.resume.revision, 2)
+  assert.equal((await call('PATCH', `/resumes/${ID}`, { body: { name: '' } })).status, 400)
+  assert.equal((await call('PATCH', `/resumes/${ID}`, { body: {} })).status, 400)
+  assert.equal((await call('PATCH', `/resumes/${ID}`, { token: 'bob-token', body: { name: 'Stolen' } })).status, 404)
+  assert.equal(db.read(`users/alice/resumes/${ID}`).name, 'Renamed')
+  assert.equal((await call('PATCH', '/resumes/short', { body: { name: 'x' } })).status, 400)
+
+  const duplicated = await call('POST', `/resumes/${ID}/duplicate`, { body: { newId: COPY } })
+  assert.equal(duplicated.status, 201)
+  assert.equal(duplicated.body.resume.id, COPY)
+  assert.equal(duplicated.body.resume.name, 'Renamed (copy)')
+  assert.equal(duplicated.body.resume.revision, 1)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { body: { newId: COPY } })).status, 201, 'a retry is fine')
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { body: {} })).status, 400)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { body: { newId: 'a/b' } })).status, 400)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { token: 'bob-token', body: { newId: COPY } })).status, 404)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { token: null, body: { newId: COPY } })).status, 401)
+  assert.equal((await call('GET', '/resumes')).body.resumes.length, 2)
+  await call('DELETE', `/resumes/${COPY}`)
+  await call('DELETE', `/resumes/${ID}`)
+
   // The profile is created on first contact with defaults and a free plan, then left alone.
   const profile = db.read('users/alice')
   assert.equal(profile.profile.displayName, 'Alice')

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createPortal } from 'react-dom'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -31,7 +31,8 @@ import { describeResumeElement } from './editor/describeResumeElement.js'
 import useEditorHistory from './editor/useEditorHistory.js'
 import { useResumeAutosave } from './hooks/useResumeAutosave.js'
 import { buildResumeFields, hashFields, splitSavedPresentation } from './db/resumeFields.js'
-import { listResumes, getResume, deleteResume } from './utils/userApi.js'
+import { listResumes, getResume, deleteResume, renameResume, duplicateResume } from './utils/userApi.js'
+import { getCachedEntry, projectsFor, setCachedProjects, subscribeProjects } from './db/projectsCache.js'
 import './editor-studio.css'
 import './section-form.css'
 import './print.css'
@@ -182,12 +183,6 @@ function updateManualResumeData(resumeData, path, value) {
 
 
 
-const savedProjectsStorageKey = 'resumetrics:saved-projects'
-const placeholderSavedProjects = [
-  { id: 'saved-work-1', name: 'Saved work', resumeData: null },
-  { id: 'saved-work-2', name: 'Saved work', resumeData: null }
-]
-
 function describeSavedProject(project) {
   const updatedAt = Number(project.updatedAt)
   return {
@@ -198,22 +193,16 @@ function describeSavedProject(project) {
   }
 }
 
-function readSavedProjects() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(savedProjectsStorageKey) || 'null')
-    const projects = Array.isArray(stored) ? stored.filter(project => project?.id) : placeholderSavedProjects
-    return projects.map(describeSavedProject)
-  } catch {
-    return placeholderSavedProjects.map(describeSavedProject)
-  }
-}
-
-function storeSavedProjects(projects) {
-  try {
-    localStorage.setItem(savedProjectsStorageKey, JSON.stringify(projects.map(({ id, name, templateId, updatedAt, resumeData, progress }) => ({ id, name, templateId, updatedAt, resumeData, progress }))))
-  } catch {
-    // The dashboard still updates for this visit if browser storage is unavailable.
-  }
+/** A resume from the API, shaped for the dashboard cards. */
+function describeCloudResume(resume) {
+  return describeSavedProject({
+    id: resume.id,
+    name: resume.name,
+    templateId: resume.templateId,
+    updatedAt: Date.parse(resume.updatedAt) || 0,
+    resumeData: resume.data,
+    progress: { building: resume.progress }
+  })
 }
 
 function getResumeHealth(resumeData) {
@@ -410,8 +399,6 @@ function GeneralSettingsPanel() {
   const [savedDetails, setSavedDetails] = useState(readProfileDetails)
   const [details, setDetails] = useState(savedDetails)
   const [detailsNotice, setDetailsNotice] = useState('')
-  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
-  const [privacyNotice, setPrivacyNotice] = useState('')
 
   useEffect(() => { applyAccentShade(shade) }, [shade])
 
@@ -431,14 +418,6 @@ function GeneralSettingsPanel() {
     } catch {
       setDetailsNotice('Your browser blocked saving these details.')
     }
-  }
-
-  const clearSavedProjects = () => {
-    try { localStorage.removeItem(savedProjectsStorageKey) } catch {
-      // Nothing to clear if browser storage is unavailable.
-    }
-    setClearConfirmOpen(false)
-    setPrivacyNotice('Saved projects were removed from this browser.')
   }
 
   return <div className="settings-layout">
@@ -508,14 +487,10 @@ function GeneralSettingsPanel() {
 
       {activeTab === 'privacy' && <>
         <h2>Privacy & Data</h2>
-        <p className="settings-intro">Resumetrics keeps your projects and preferences in this browser. Your Google password is never seen or stored.</p>
-        <div className="settings-block settings-danger-row">
-          <span><b>Clear saved projects</b><small>Removes every saved project from this browser. This can't be undone.</small></span>
-          {clearConfirmOpen
-            ? <span className="settings-confirm"><button type="button" onClick={() => setClearConfirmOpen(false)}>Cancel</button><button className="is-danger" type="button" onClick={clearSavedProjects}>Clear projects</button></span>
-            : <button className="settings-danger-button" type="button" onClick={() => { setClearConfirmOpen(true); setPrivacyNotice('') }}>Clear…</button>}
+        <p className="settings-intro">Your resumes are saved to your Resumetrics account, so they follow you to any device. Only you can open them, and your Google password is never seen or stored.</p>
+        <div className="settings-block">
+          <span><b>Delete a resume</b><small>Pick a project on the dashboard and choose Delete. Deleting removes it from your account for good.</small></span>
         </div>
-        {privacyNotice && <p className="settings-notice" role="status">{privacyNotice}</p>}
       </>}
     </section>
   </div>
@@ -547,9 +522,22 @@ function DashboardPage() {
     }
   }, [updateProjectRail])
 
-  const [savedProjects, setSavedProjects] = useState(readSavedProjects)
+  const uid = currentUser?.uid
+  const [savedProjects, setSavedProjectsState] = useState(() => projectsFor(uid))
+  const projectsRef = useRef(savedProjects)
+  const [loadState, setLoadState] = useState(() => projectsFor(uid).length ? 'ready' : 'loading')   // loading | ready | error
+  const [actionError, setActionError] = useState('')
+  const [busyId, setBusyId] = useState(null)
+  const [renamingId, setRenamingId] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  // Every change goes through here so the sidebar's recent list (projectsCache) stays in step with the cards.
+  const setSavedProjects = useCallback(next => {
+    projectsRef.current = next
+    setSavedProjectsState(next)
+    setCachedProjects(uid, next)
+  }, [uid])
   const selectedProject = savedProjects.find(project => project.id === selectedProjectId) ?? null
   const health = getResumeHealth(selectedProject?.resumeData)
   const previewData = selectedProject?.resumeData ?? null
@@ -560,54 +548,97 @@ function DashboardPage() {
   // Clicking the logo navigates here again with a new location key; reload the dashboard data in place.
   const location = useLocation()
   const pageRef = useRef(null)
+  const [retryCount, setRetryCount] = useState(0)
   useEffect(() => {
     let cancelled = false
 
     async function loadFromCloud() {
+      if (!projectsRef.current.length) setLoadState('loading')
       try {
         const resumes = await listResumes()
         if (cancelled) return
-        setSavedProjects(resumes.map(resume => describeSavedProject({
-          id: resume.id,
-          name: resume.name,
-          templateId: resume.templateId,
-          updatedAt: Date.parse(resume.updatedAt) || 0,
-          resumeData: resume.data,
-          progress: { building: resume.progress }
-        })))
+        setSavedProjects(resumes.map(describeCloudResume))
+        setLoadState('ready')
       } catch (error) {
         console.error('[Dashboard] Could not load saved resumes:', error)
-        if (!cancelled) setSavedProjects(readSavedProjects())
+        if (!cancelled) setLoadState('error')
       }
     }
 
     loadFromCloud()
     setSelectedProjectId(null)
     setConfirmDeleteId(null)
+    setRenamingId(null)
+    setActionError('')
     projectRailRef.current?.scrollTo({ left: 0 })
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) pageRef.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' })
     
     return () => { cancelled = true }
-  }, [location.key])
+  }, [location.key, retryCount, setSavedProjects])
 
   const selectProject = id => {
     setConfirmDeleteId(null)
+    setRenamingId(null)
+    setActionError('')
     setSelectedProjectId(current => current === id ? null : id)
   }
 
   const deleteProject = async id => {
-    const previous = savedProjects
-    const next = previous.filter(project => project.id !== id)
-    setSavedProjects(next)
+    const previous = projectsRef.current
+    setSavedProjects(previous.filter(project => project.id !== id))
     setSelectedProjectId(null)
     setConfirmDeleteId(null)
-    // Placeholder cards ('saved-work-1') were never in the cloud; real ones are deleted there too.
-    if (placeholderSavedProjects.some(project => project.id === id)) { storeSavedProjects(next); return }
+    setActionError('')
     try {
       await deleteResume(id)
     } catch (error) {
       console.error('[Dashboard] Could not delete the resume:', error)
       setSavedProjects(previous)   // it still exists in the cloud, so keep showing it
+      setActionError(error.message || 'Could not delete this resume.')
+    }
+  }
+
+  const startRename = project => {
+    setConfirmDeleteId(null)
+    setActionError('')
+    setRenamingId(project.id)
+    setRenameValue(project.name)
+  }
+
+  const submitRename = async event => {
+    event.preventDefault()
+    const name = renameValue.trim()
+    const project = projectsRef.current.find(item => item.id === renamingId)
+    if (!project || !name) return
+    if (name === project.name) { setRenamingId(null); return }
+    setBusyId(project.id)
+    setActionError('')
+    try {
+      const saved = await renameResume(project.id, name)
+      const renamed = describeSavedProject({ ...project, name: saved.name, updatedAt: Date.parse(saved.updatedAt) || Date.now() })
+      setSavedProjects([renamed, ...projectsRef.current.filter(item => item.id !== project.id)])   // newest first, like the server
+      setRenamingId(null)
+    } catch (error) {
+      console.error('[Dashboard] Could not rename the resume:', error)
+      setActionError(error.message || 'Could not rename this resume.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const duplicateProject = async project => {
+    setBusyId(project.id)
+    setActionError('')
+    try {
+      const copy = describeCloudResume(await duplicateResume(project.id))
+      setSavedProjects([copy, ...projectsRef.current])
+      setSelectedProjectId(copy.id)
+      projectRailRef.current?.scrollTo({ left: 0, behavior: 'smooth' })
+    } catch (error) {
+      console.error('[Dashboard] Could not duplicate the resume:', error)
+      setActionError(error.message || 'Could not duplicate this resume.')
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -667,6 +698,10 @@ function DashboardPage() {
         <h2>Your projects</h2>
         <span>{savedProjects.length} saved</span>
       </div>
+      {(loadState === 'error' || actionError) && <p className="dashboard-projects-notice" role="alert">
+        {actionError || 'Your saved resumes could not be loaded.'}
+        {loadState === 'error' && !actionError && <button type="button" onClick={() => setRetryCount(count => count + 1)}>Try again</button>}
+      </p>}
       <section className="dashboard-project-section" aria-label="Projects">
         <button className="dashboard-project-card is-create" type="button" onClick={() => navigate('/workspace')}>
           <span className="dashboard-project-icon"><Icon name="plus" size={28} /></span>
@@ -676,7 +711,7 @@ function DashboardPage() {
         <div className="dashboard-project-rail" ref={projectRailRef}>
           {savedProjects.length === 0 && <div className="dashboard-project-empty">
             <Icon name="folder" size={22} />
-            <p>No saved projects yet. Resumes you save will show up here.</p>
+            <p>{loadState === 'loading' ? 'Loading your projects…' : loadState === 'error' ? 'Your projects will appear here once they load.' : 'No saved projects yet. Resumes you save will show up here.'}</p>
           </div>}
           {savedProjects.map(project => {
             const projectHealth = getResumeHealth(project.resumeData)
@@ -690,17 +725,25 @@ function DashboardPage() {
                 </span>
                 <span className={`dashboard-project-pill is-${projectHealth.tone}`}>{project.resumeData ? `${projectHealth.completion}%` : 'Empty'}</span>
               </button>
-              {isSelected && <div className="dashboard-project-actions">
-                {confirmDeleteId === project.id
-                  ? <>
-                    <span>Delete this project?</span>
-                    <button className="is-danger" type="button" onClick={() => deleteProject(project.id)}>Delete</button>
-                    <button type="button" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
-                  </>
-                  : <>
-                    <button className="is-primary" type="button" onClick={() => navigate('/workspace', { state: { savedProjectId: project.id } })}><Icon name="create" size={15} />Open</button>
-                    <button className="is-danger" type="button" onClick={() => setConfirmDeleteId(project.id)}><Icon name="trash" size={15} />Delete</button>
-                  </>}
+              {isSelected && <div className="dashboard-project-actions" aria-busy={busyId === project.id}>
+                {renamingId === project.id
+                  ? <form className="dashboard-project-rename" onSubmit={submitRename}>
+                    <input value={renameValue} maxLength={120} aria-label="Resume name" autoFocus onChange={event => setRenameValue(event.target.value)} onKeyDown={event => { if (event.key === 'Escape') setRenamingId(null) }} />
+                    <button className="is-primary" type="submit" disabled={busyId === project.id || !renameValue.trim()}>{busyId === project.id ? 'Saving…' : 'Save'}</button>
+                    <button type="button" onClick={() => setRenamingId(null)}>Cancel</button>
+                  </form>
+                  : confirmDeleteId === project.id
+                    ? <>
+                      <span>Delete this project?</span>
+                      <button className="is-danger" type="button" onClick={() => deleteProject(project.id)}>Delete</button>
+                      <button type="button" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                    </>
+                    : <>
+                      <button className="is-primary is-wide" type="button" onClick={() => navigate('/workspace', { state: { savedProjectId: project.id } })}><Icon name="create" size={15} />Open</button>
+                      <button type="button" disabled={busyId === project.id} onClick={() => startRename(project)}>Rename</button>
+                      <button type="button" disabled={busyId === project.id} onClick={() => duplicateProject(project)}>{busyId === project.id ? 'Copying…' : 'Duplicate'}</button>
+                      <button className="is-danger" type="button" aria-label="Delete" onClick={() => setConfirmDeleteId(project.id)}><Icon name="trash" size={15} /></button>
+                    </>}
               </div>}
             </article>
           })}
@@ -935,7 +978,9 @@ function SidebarLink({ label, path, icon, gate, onGate }) {
 function Shell({ children, immersive = false, dashboard = false, studio = false }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const recentProjects = useMemo(() => readSavedProjects().filter(project => project.resumeData).slice(0, 3), [location.key])
+  const { currentUser: shellUser } = useAuth()
+  const cachedProjects = useSyncExternalStore(subscribeProjects, () => getCachedEntry())
+  const recentProjects = useMemo(() => projectsFor(shellUser?.uid).filter(project => project.resumeData).slice(0, 3), [cachedProjects, shellUser?.uid]) // eslint-disable-line react-hooks/exhaustive-deps
   // "Select a resume first" pop-up for the three career tools. It opens over any page; a page that sends someone
   // here without a resume (a direct visit to a tool) passes location.state.gate.
   const [gateTool, setGateTool] = useState(null)
