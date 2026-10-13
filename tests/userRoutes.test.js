@@ -4,12 +4,14 @@ import { createRequireUser } from '../server/services/firebaseAdmin.js'
 import { createResumeStore } from '../server/db/resumeStore.js'
 import { createUserStore, validateSettingsPatch, SettingsError } from '../server/db/userStore.js'
 import { createUserRouter } from '../server/routes/user.routes.js'
+import { createEvidenceStore } from '../server/db/evidenceStore.js'
 import { createFakeFirestore } from './helpers/fakeFirestore.js'
 
 const ID = 'a1b2c3d4-e5f6-4789-8abc-def012345678'
 const db = createFakeFirestore()
 let clock = Date.UTC(2026, 9, 11, 10, 0, 0)
 const resumes = createResumeStore({ getDb: () => db, timestamp: db.timestamp, checkpointMs: Infinity })
+const evidence = createEvidenceStore({ getDb: () => db, timestamp: db.timestamp })
 const users = createUserStore({ getDb: () => db, now: () => clock })
 
 // Real sign-in middleware with a fake token check: 'alice-token' → alice, 'bob-token' → bob.
@@ -24,7 +26,7 @@ const authenticate = createRequireUser({
 })
 const app = express()
 app.set('env', 'test')   // keep Express from logging the intentional 413
-app.use('/api/user', express.json({ limit: '600kb' }), createUserRouter({ resumes, users, authenticate }))
+app.use('/api/user', express.json({ limit: '600kb' }), createUserRouter({ resumes, users, evidence, authenticate }))
 const server = await new Promise(resolve => { const listening = app.listen(0, '127.0.0.1', () => resolve(listening)) })
 const call = async (method, path, { token = 'alice-token', body } = {}) => {
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/user${path}`, {
@@ -155,6 +157,24 @@ try {
   assert.equal(restoredVersion.body.resume.revision, 3)
   assert.equal((await call('GET', `/resumes/${ID}`)).body.resume.name, 'Draft one')
   assert.equal((await call('GET', `/resumes/${ID}/versions`)).body.versions.length, 2, 'the replaced draft was kept')
+  await call('DELETE', `/resumes/${ID}`)
+
+  // Saved evidence: readable and forgettable by its owner; there is deliberately no route to write it.
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: null, fields: fields() } })).status, 200)
+  assert.deepEqual((await call('GET', `/resumes/${ID}/evidence`)).body.evidence, { github: null })
+  await evidence.saveGitHubEvidence('alice', ID, { result: { repositories: [{ name: 'app', languages: { Go: 10 } }], scanned: 1, accessible: 1, cap: 25, summary: 'Hi.' }, resumeSkills: ['Go'] })
+  const withEvidence = await call('GET', `/resumes/${ID}/evidence`)
+  assert.equal(withEvidence.status, 200)
+  assert.equal(withEvidence.body.evidence.github.repositories[0].name, 'app')
+  assert.equal(withEvidence.body.evidence.github.summary, 'Hi.')
+  assert.deepEqual((await call('GET', `/resumes/${ID}/evidence`, { token: 'bob-token' })).body.evidence, { github: null })
+  assert.equal((await call('GET', `/resumes/${ID}/evidence`, { token: null })).status, 401)
+  assert.equal((await call('PUT', `/resumes/${ID}/evidence/github`, { body: { summary: 'forged' } })).status, 404, 'no way to write evidence from the browser')
+  assert.equal((await call('DELETE', `/resumes/${ID}/evidence/jobMatch`)).status, 400)
+  assert.equal((await call('DELETE', `/resumes/${ID}/evidence/github`, { token: 'bob-token' })).status, 200)
+  assert.ok((await call('GET', `/resumes/${ID}/evidence`)).body.evidence.github, 'bob deleted nothing of alice’s')
+  assert.equal((await call('DELETE', `/resumes/${ID}/evidence/github`)).status, 200)
+  assert.deepEqual((await call('GET', `/resumes/${ID}/evidence`)).body.evidence, { github: null })
   await call('DELETE', `/resumes/${ID}`)
 
   // The profile is created on first contact with defaults and a free plan, then left alone.

@@ -73,6 +73,16 @@ export async function restoreVersion(id, versionId) {
   return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/restore`, { method: 'POST' })).resume
 }
 
+/** The saved GitHub scan for a resume: { github: { scannedAt, resumeSkills, accessible, cap, scanned, summary, repositories } | null }. */
+export async function getEvidence(id) {
+  return (await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}/evidence`)).evidence
+}
+
+/** Forget a saved result (kind: 'github'). The browser can only remove evidence; the server writes it when a scan finishes. */
+export async function deleteEvidence(id, kind) {
+  await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}/evidence/${encodeURIComponent(kind)}`, { method: 'DELETE' })
+}
+
 export async function deleteResume(id) {
   await authenticatedFetch(`/api/user/resumes/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

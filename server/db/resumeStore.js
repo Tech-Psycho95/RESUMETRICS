@@ -8,6 +8,9 @@ export const SCHEMA_VERSION = 1
 export const MAX_RESUME_BYTES = 500_000
 export const MAX_NAME_LENGTH = 120
 export const LIST_LIMIT = 50
+// Ids are made by the browser (crypto.randomUUID) so a retried first save can't create a second document;
+// older Firestore auto ids (20 characters) also match.
+export const RESUME_ID = /^[A-Za-z0-9_-]{16,64}$/
 export const MAX_VERSIONS = 20
 // A normal save also keeps a checkpoint of the previous state when the newest version is this old.
 export const CHECKPOINT_MS = 4 * 60 * 60_000

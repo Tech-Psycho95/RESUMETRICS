@@ -32,7 +32,9 @@ import { describeResumeElement } from './editor/describeResumeElement.js'
 import useEditorHistory from './editor/useEditorHistory.js'
 import { useResumeAutosave } from './hooks/useResumeAutosave.js'
 import { buildResumeFields, hashFields, splitSavedPresentation } from './db/resumeFields.js'
-import { listResumes, getResume, deleteResume, renameResume, duplicateResume } from './utils/userApi.js'
+import { listResumes, getResume, deleteResume, renameResume, duplicateResume, getEvidence, deleteEvidence } from './utils/userApi.js'
+import { scanFromEvidence } from './db/evidenceState.js'
+import { skillsAddedSince } from '../shared/githubEvidenceMath.js'
 import { getCachedEntry, projectsFor, setCachedProjects, subscribeProjects } from './db/projectsCache.js'
 import './editor-studio.css'
 import './section-form.css'
@@ -1162,7 +1164,8 @@ function MainPage() {
   // A ref, not useCallback: it reads state hooks declared further down (history, NIMBUS) and must see the latest of each.
   const openCloudResumeRef = useRef(null)
   openCloudResumeRef.current = async id => {
-    const saved = await getResume(id)
+    // The saved GitHub report comes with the resume; failing to load it must not stop the resume opening.
+    const [saved, evidence] = await Promise.all([getResume(id), getEvidence(id).catch(() => ({ github: null }))])
     const { presentation, style } = splitSavedPresentation(saved.presentation)
     const state = {
       resumeData: ensureResumeElementIds(saved.data || {}),
@@ -1175,6 +1178,8 @@ function MainPage() {
       parseMetadata: saved.parseMetadata ?? null
     }
     clearWorkspaceSnapshot()
+    githubScanAbortRef.current?.abort()
+    setGithubScan(scanFromEvidence(evidence.github))
     // savedHash = what these fields hash to, so opening a resume doesn't immediately save it again.
     setCloud({ id, uid: currentUser?.uid, revision: saved.revision, savedHash: hashFields(buildResumeFields(state)), loadedAt: Date.now() })
     setResumeData(state.resumeData)
@@ -1770,6 +1775,17 @@ function MainPage() {
 
   // GitHub evidence scan, streamed: progress and charts update as each repository finishes.
   const githubScanAbortRef = useRef(null)
+  // Removes the saved report from the account too, so nothing about these repositories stays behind.
+  const forgetGitHubScan = async () => {
+    if (githubScan?.status === 'scanning') return
+    try {
+      if (cloud?.id && Number.isInteger(cloud?.revision)) await deleteEvidence(cloud.id, 'github')
+      setGithubScan(null)
+    } catch (error) {
+      setGithubScan(current => current ? { ...current, error: error?.message || 'Could not remove the saved report.' } : current)
+    }
+  }
+
   const runGitHubScan = async () => {
     if (!currentUser || githubScan?.status === 'scanning') return
     const controller = new AbortController()
@@ -1779,13 +1795,14 @@ function MainPage() {
       const idToken = await currentUser.getIdToken()
       await streamNdjson('/api/github/evidence-scan', {
         headers: { Authorization: `Bearer ${idToken}` },
-        body: { resumeData: resumeDataRef.current ?? resumeData },
+        // resumeId lets the server keep the finished report with this resume (null until the resume has been saved once).
+        body: { resumeData: resumeDataRef.current ?? resumeData, resumeId: Number.isInteger(cloud?.revision) ? cloud.id : null },
         signal: controller.signal,
         onEvent: event => {
           if (event.type === 'start') setGithubScan(current => ({ ...current, total: event.total, accessible: event.accessible, cap: event.cap, resumeSkills: event.resumeSkills }))
           else if (event.type === 'repo') setGithubScan(current => ({ ...current, done: event.done, percent: event.percent, current: event.repo.name, repos: [...current.repos, event.repo] }))
           else if (event.type === 'repo-error') setGithubScan(current => ({ ...current, errors: [...current.errors, event] }))
-          else if (event.type === 'result') setGithubScan(current => ({ ...current, status: 'done', percent: 100, done: event.scanned, repos: event.repositories, summary: event.summary, current: null }))
+          else if (event.type === 'result') setGithubScan(current => ({ ...current, scannedAt: new Date().toISOString(), status: 'done', percent: 100, done: event.scanned, repos: event.repositories, summary: event.summary, current: null }))
           else if (event.type === 'error') setGithubScan(current => ({ ...current, status: 'error', error: event.message }))
         }
       })
@@ -2058,7 +2075,7 @@ function MainPage() {
     <div className="studio tailor-page">
       {hiddenInputs}
       <EvidenceWorkspace
-        github={{ connected: githubConnection.connected, connecting: githubConnecting || githubConnection.loading, login: githubConnection.githubLogin, onConnect: startGitHubConnection, scan: githubScan, onScan: runGitHubScan, onCancel: () => githubScanAbortRef.current?.abort() }}
+        github={{ connected: githubConnection.connected, connecting: githubConnecting || githubConnection.loading, login: githubConnection.githubLogin, onConnect: startGitHubConnection, scan: githubScan, onScan: runGitHubScan, onCancel: () => githubScanAbortRef.current?.abort(), staleSkills: githubScan?.status === 'done' ? skillsAddedSince(githubScan.resumeSkills, resumeData) : [], onForget: forgetGitHubScan }}
         resumeCanvas={resumeCanvas} resumeName={resumeName} templateName={selectedTemplate?.name}
         onBack={() => navigate('/workspace/editor')} onOpenEditor={() => navigate('/workspace/editor')} />
     </div>

@@ -1,5 +1,6 @@
 // Turns scanned repositories into language shares and per-skill evidence. Pure; used by the server while
 // streaming and by the client to re-compute when the user excludes markup languages.
+import { explicitResumeSkills } from './roleAnalysis.js'
 import { languageForSkill, MARKUP_LANGUAGES, skillKey } from './skillTaxonomy.js'
 
 export const WEAK_EVIDENCE_PERCENT = 5
@@ -70,4 +71,18 @@ export function evidenceScore(skills = []) {
   skills.forEach(skill => { counts[skill.status] = (counts[skill.status] ?? 0) + 1 })
   const score = skills.length ? Math.round(skills.reduce((sum, skill) => sum + (EVIDENCE_WEIGHTS[skill.status] ?? 0), 0) / skills.length * 100) : 0
   return { score, counts, backed: counts.strong + counts.moderate, total: skills.length }
+}
+
+const uniqueSkills = values => [...new Map(values.filter(Boolean).map(value => [String(value).trim().toLowerCase(), String(value).trim()])).values()]
+
+/** The skills a GitHub scan checks for a resume: its listed skills, certifications and each project's tech stack (at most 40). */
+export function resumeSkillsOf(resumeData) {
+  const direct = [...Object.values(resumeData?.skills ?? {}).flat(), ...(resumeData?.projects ?? []).flatMap(project => project?.techStack ?? [])]
+  return uniqueSkills([...explicitResumeSkills(resumeData), ...direct].map(skill => String(skill).replace(/\[\/?[bius]\]/g, ''))).slice(0, 40)
+}
+
+/** Skills on the resume now that a saved scan did not check, i.e. why the scan may be out of date. Removed skills don't count. */
+export function skillsAddedSince(scannedSkills, resumeData) {
+  const scanned = new Set((scannedSkills ?? []).map(skillKey))
+  return resumeSkillsOf(resumeData ?? {}).filter(skill => !scanned.has(skillKey(skill)))
 }

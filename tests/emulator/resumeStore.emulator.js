@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { createResumeStore, MAX_VERSIONS, ResumeStoreError } from '../../server/db/resumeStore.js'
+import { createEvidenceStore } from '../../server/db/evidenceStore.js'
 
 if (!process.env.FIRESTORE_EMULATOR_HOST) {
   console.log('- resumeStore emulator tests skipped (run `npm run test:emulator`)')
@@ -85,6 +86,20 @@ assert.equal((await db.collection(`users/${uid}/resumes/${id(1)}/versions`).get(
 await rejects(() => store.restoreVersion(uid, id(1), 'missing-version'), 'not_found')
 await store.renameResume(uid, id(1), 'Renamed')   // back to the name later checks expect
 
+// Saved GitHub evidence: only for a saved resume, replaced by a newer scan, gone with the resume.
+const evidence = createEvidenceStore({ getDb: () => db })
+const scan = overrides => ({ result: { scanned: 1, accessible: 2, cap: 25, summary: 'Hi.', repositories: [{ name: 'app', languages: { Go: 10 }, description: 'never stored' }], ...overrides }, resumeSkills: ['Go'] })
+assert.equal(await evidence.saveGitHubEvidence(uid, id(9), scan()), false, 'no resume, no evidence')
+assert.equal(await evidence.saveGitHubEvidence(uid, id(3), scan()), true)
+let github = (await evidence.getEvidence(uid, id(3))).github
+assert.match(github.scannedAt, /^\d{4}-\d{2}-\d{2}T/)
+assert.equal(github.repositories[0].description, undefined)
+await evidence.saveGitHubEvidence(uid, id(3), scan({ summary: 'Newer.' }))
+assert.equal((await evidence.getEvidence(uid, id(3))).github.summary, 'Newer.')
+await evidence.deleteEvidence(uid, id(3), 'github')
+assert.equal((await evidence.getEvidence(uid, id(3))).github, null)
+await evidence.saveGitHubEvidence(uid, id(3), scan())
+
 // Another user's namespace is untouched.
 assert.equal((await store.listResumes(`${uid}-other`)).length, 0)
 await rejects(() => store.renameResume(`${uid}-other`, id(1), 'Nope'), 'not_found')
@@ -96,6 +111,7 @@ assert.equal((await db.doc(`users/${uid}/resumes/${id(1)}/versions/v1`).get()).e
 await store.deleteResume(uid, id(1))
 await store.deleteResume(uid, id(2))
 await store.deleteResume(uid, id(3))
+assert.equal((await db.doc(`users/${uid}/resumes/${id(3)}/evidence/github`).get()).exists, false, 'evidence goes with its resume')
 assert.equal((await store.listResumes(uid)).length, 0)
 
 console.log('✓ resumeStore emulator tests passed')

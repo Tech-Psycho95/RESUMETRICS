@@ -1,11 +1,9 @@
 import { Router } from 'express'
 import { createRequireUser } from '../services/firebaseAdmin.js'
-import { ResumeStoreError, resumeStore } from '../db/resumeStore.js'
+import { RESUME_ID, ResumeStoreError, resumeStore } from '../db/resumeStore.js'
+import { evidenceStore } from '../db/evidenceStore.js'
 import { SettingsError, userStore } from '../db/userStore.js'
 
-// Ids are made by the browser (crypto.randomUUID) so a retried first save can't create a second document;
-// older Firestore auto ids (20 characters) also match.
-const RESUME_ID = /^[A-Za-z0-9_-]{16,64}$/
 const VERSION_ID = /^[A-Za-z0-9_-]{8,64}$/
 
 const requireAccount = createRequireUser({
@@ -30,7 +28,7 @@ function fail(response, error, fallback) {
   return response.status(500).json({ ok: false, code: 'server', error: `${fallback}.` })
 }
 
-export function createUserRouter({ resumes = resumeStore, users = userStore, authenticate = requireAccount } = {}) {
+export function createUserRouter({ resumes = resumeStore, users = userStore, evidence = evidenceStore, authenticate = requireAccount } = {}) {
   const router = Router()
 
   router.use(authenticate, async (request, response, next) => {
@@ -142,6 +140,25 @@ export function createUserRouter({ resumes = resumeStore, users = userStore, aut
       return response.json({ ok: true, resume: await resumes.restoreVersion(request.firebaseUser.uid, request.params.id, request.params.versionId) })
     } catch (error) {
       return fail(response, error, 'Could not restore this version')
+    }
+  })
+
+  // Saved evidence for a resume ({ github: {...} | null }). Written by the server when a scan finishes, never by the browser.
+  router.get('/resumes/:id/evidence', async (request, response) => {
+    try {
+      response.set('Cache-Control', 'no-store')
+      return response.json({ ok: true, evidence: await evidence.getEvidence(request.firebaseUser.uid, request.params.id) })
+    } catch (error) {
+      return fail(response, error, 'Could not load evidence')
+    }
+  })
+
+  router.delete('/resumes/:id/evidence/:kind', async (request, response) => {
+    try {
+      await evidence.deleteEvidence(request.firebaseUser.uid, request.params.id, request.params.kind)
+      return response.json({ ok: true })
+    } catch (error) {
+      return fail(response, error, 'Could not delete evidence')
     }
   })
 
