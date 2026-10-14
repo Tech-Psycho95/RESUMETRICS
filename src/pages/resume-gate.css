@@ -1,6 +1,6 @@
 /* "Select a resume first" pop-up (PLAN-033): opens from the sidebar over the current page and blurs it. */
 .gate-backdrop { position: fixed; inset: 0; z-index: 200; display: grid; padding: 20px; place-items: center; background: rgba(19, 32, 58, .38); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: gate-fade .16s ease-out; }
-.gate-dialog { position: relative; display: grid; gap: 14px; width: min(480px, 100%); padding: 26px 26px 24px; color: #13203a; background: #fff; border: 1px solid #e0e3ec; border-radius: 18px; box-shadow: 0 24px 60px rgba(19, 32, 58, .28); animation: gate-rise .18s ease-out; }
+.gate-dialog { position: relative; display: grid; gap: 14px; width: min(760px, 100%); padding: 26px 26px 24px; color: #13203a; background: #fff; border: 1px solid #e0e3ec; border-radius: 18px; box-shadow: 0 24px 60px rgba(19, 32, 58, .28); animation: gate-rise .18s ease-out; }
 .gate-dialog h2 { margin: 0; padding-right: 32px; font-size: 22px; font-weight: 650; letter-spacing: -.005em; line-height: 1.2; }
 .gate-text { margin: 0; color: #5d6780; font-size: 14.5px; line-height: 1.55; }
 .gate-text b { color: #13203a; font-weight: 650; }
@@ -33,3 +33,17 @@
 [data-resolved-theme="dark"] .gate-text, [data-resolved-theme="dark"] .gate-empty p { color: #a8b3cb; }
 [data-resolved-theme="dark"] .gate-list li, [data-resolved-theme="dark"] .gate-empty { background: #121a2b; border-color: #303a52; }
 [data-resolved-theme="dark"] .app-shell .sidebar button.sidebar-link:hover { color: #edf1ff; background: #222c45; border-color: #36415c; }
+
+/* Saved resumes as cards, like the dashboard: three show at once, more scroll sideways. */
+.gate-cards { display: flex; gap: 14px; margin: 4px -4px 0; padding: 4px 4px 12px; overflow-x: auto; list-style: none; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
+.gate-cards li { flex: 0 0 calc((100% - 28px) / 3); min-width: 150px; scroll-snap-align: start; }
+.gate-card { width: 100%; display: grid; gap: 12px; padding: 10px 10px 14px; border: 1px solid #e6e9f1; border-radius: 16px; color: inherit; background: #f7f8fc; font: inherit; text-align: left; cursor: pointer; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.gate-card:hover { transform: translateY(-2px); border-color: var(--accent, #5b45e4); box-shadow: 0 14px 28px -16px rgba(19, 32, 58, .35); }
+.gate-card:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent, #5b45e4) 40%, transparent); outline-offset: 2px; }
+.gate-card-paper { position: relative; display: block; height: 170px; overflow: hidden; border: 1px solid #e6e9f1; border-radius: 10px; background: #fff; }
+.gate-card-meta { display: grid; gap: 2px; min-width: 0; padding: 0 4px; }
+.gate-card-meta b { overflow: hidden; font-size: 14.5px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.gate-card-meta small { color: #667089; font-size: 12px; }
+@media (max-width: 560px) { .gate-cards li { flex-basis: 70%; } }
+[data-resolved-theme="dark"] .gate-card { background: #121a2b; border-color: #303a52; }
+[data-resolved-theme="dark"] .gate-card-meta small { color: #98a3c0; }

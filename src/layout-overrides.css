@@ -143,7 +143,7 @@
 
 .dashboard-health-preview { grid-area: preview; position: relative; width: 150px; height: 196px; margin: 0; justify-self: center; }
 .dashboard-health-preview::before { content: ""; position: absolute; inset: 6px -6px -4px 8px; border-radius: 10px; background: var(--dh-glass); box-shadow: 0 8px 20px rgba(52,60,130,.08); transform: rotate(5deg); }
-.dashboard-health-paper { position: absolute; inset: 0; overflow: hidden; padding: 13px 12px; border-radius: 9px; color: #172033; background: #fff; box-shadow: 0 16px 34px rgba(46,52,120,.16); font-size: 5.4px; line-height: 1.4; transform: rotate(-3deg); transition: transform .35s ease; }
+.dashboard-health-paper { position: absolute; inset: 0; overflow: hidden; padding: 0; border-radius: 9px; color: #172033; background: #fff; box-shadow: 0 16px 34px rgba(46,52,120,.16); font-size: 5.4px; line-height: 1.4; transform: rotate(-3deg); transition: transform .35s ease; }
 .dashboard-health:hover .dashboard-health-paper { transform: rotate(0deg) translateY(-2px); }
 .dashboard-health-paper header { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #e6e9f2; }
 .dashboard-health-paper header strong { display: block; overflow: hidden; color: #121a33; font-size: 9.5px; font-weight: 750; letter-spacing: .05em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
@@ -177,7 +177,7 @@
 .dashboard-shell .dashboard-project-card.is-create strong { font-size: 17px; font-weight: 650; letter-spacing: -.03em; }
 .dashboard-shell .dashboard-project-card.is-create small { color: var(--dh-muted); font-size: 12.5px; line-height: 1.4; }
 
-.dashboard-shell .dashboard-project-card.is-saved { flex: 0 0 220px; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; overflow: hidden; }
+.dashboard-shell .dashboard-project-card.is-saved { position: relative; flex: 0 0 220px; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; overflow: hidden; }
 .dashboard-shell .dashboard-project-card.is-saved:hover { transform: translateY(-2px); }
 .dashboard-shell .dashboard-project-card.is-selected { border-color: var(--dh-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dh-accent) 18%, transparent), 0 16px 32px rgba(var(--accent-rgb), .12); }
 .dashboard-project-select { position: relative; width: 100%; display: grid; gap: 12px; padding: 12px 12px 14px; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
@@ -192,7 +192,7 @@
 .dashboard-project-meta { display: grid; gap: 3px; min-width: 0; }
 .dashboard-project-meta strong { overflow: hidden; font-size: 15px; font-weight: 650; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-project-meta small { color: var(--dh-muted); font-size: 12px; }
-.dashboard-project-pill { position: absolute; top: 22px; right: 22px; padding: 4px 9px; border-radius: 999px; color: var(--dh-empty); background: var(--dh-surface); box-shadow: 0 2px 6px rgba(40,55,105,.08); font-size: 12px; font-weight: 700; }
+.dashboard-project-pill { position: absolute; top: 22px; left: 22px; padding: 4px 9px; border-radius: 999px; color: var(--dh-empty); background: var(--dh-surface); box-shadow: 0 2px 6px rgba(40,55,105,.08); font-size: 12px; font-weight: 700; }
 .dashboard-project-pill.is-strong { color: var(--dh-strong); background: color-mix(in srgb, var(--dh-strong) 13%, transparent); }
 .dashboard-project-pill.is-fair { color: var(--dh-fair); background: color-mix(in srgb, var(--dh-fair) 14%, transparent); }
 .dashboard-project-pill.is-weak { color: var(--dh-weak); background: color-mix(in srgb, var(--dh-weak) 12%, transparent); }
@@ -601,3 +601,21 @@
 .settings-shade-text small { color: #64708a; font-size: 12.5px; }
 .settings-shade-check { width: 22px; height: 22px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: var(--accent); }
 @media (max-width: 600px) { .settings-shade-options { grid-template-columns: 1fr; } }
+
+/* Project card: a "..." button in the top corner opens a small menu (rename, export, delete). */
+.dashboard-project-more { position: absolute; top: 18px; right: 18px; z-index: 2; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 9px; color: var(--dh-muted); background: color-mix(in srgb, var(--dh-surface) 88%, transparent); cursor: pointer; transition: background-color .18s ease, color .18s ease; }
+.dashboard-project-more:hover, .dashboard-project-more[aria-expanded="true"] { color: var(--dh-ink); background: var(--dh-soft); }
+.dashboard-project-more:focus-visible { outline: 3px solid color-mix(in srgb, var(--dh-accent) 35%, transparent); outline-offset: 2px; }
+.dashboard-project-menu { position: absolute; top: 52px; right: 14px; z-index: 3; min-width: 150px; display: grid; gap: 2px; padding: 6px; border: 1px solid var(--dh-line); border-radius: 14px; background: var(--dh-surface); box-shadow: 0 18px 36px -14px rgba(23, 32, 51, .28); animation: dashboard-actions-in .16s ease both; }
+.dashboard-project-menu button { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 12px; border: 0; border-radius: 9px; color: var(--dh-ink); background: transparent; font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer; }
+.dashboard-project-menu button:hover { background: var(--dh-soft); }
+.dashboard-project-menu button:disabled { opacity: .5; cursor: default; }
+.dashboard-project-menu button.is-danger { color: var(--dh-weak); }
+.dashboard-project-menu button.is-danger:hover { background: color-mix(in srgb, var(--dh-weak) 10%, var(--dh-surface)); }
+.dashboard-project-menu button:focus-visible { outline: 2px solid color-mix(in srgb, var(--dh-accent) 45%, transparent); outline-offset: -2px; }
+
+/* Live miniature of a saved resume (components/ResumeMiniature.jsx): the real template at A4 width, scaled to the box. */
+.resume-miniature { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: #fff; pointer-events: none; }
+.resume-miniature-sheet { position: absolute; top: 0; left: 0; width: 794px; transform-origin: top left; }
+.dashboard-health-paper-skeleton { padding: 13px 12px; }
+.dashboard-project-paper:has(.resume-miniature) { position: relative; padding: 0; overflow: hidden; background: #fff; }

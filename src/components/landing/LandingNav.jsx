@@ -21,7 +21,6 @@ export default function LandingNav() {
       {nav.map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}
     </nav>
     <div className="lp-nav-actions">
-      <button type="button" className="lp-nav-signin" onClick={() => navigate('/login')}>Sign in</button>
       <button type="button" className="lp-btn lp-btn-small lp-nav-cta" onClick={() => navigate('/login')}>Start free</button>
       <button type="button" className="lp-nav-menu" aria-expanded={open} aria-label={open ? 'Close menu' : 'Open menu'} onClick={() => setOpen(value => !value)}><LandingIcon name={open ? 'close' : 'menu'} size={20} /></button>
     </div>

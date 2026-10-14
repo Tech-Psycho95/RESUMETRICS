@@ -21,8 +21,8 @@ trademarks of their respective owners.
 
 ## React Bits
 
-The landing page uses five components from React Bits (https://reactbits.dev):
-GhostFibers, ElectricLogo, CircularCarousel, PeekRating and FolderFloat, in their
+The landing page uses two components from React Bits (https://reactbits.dev):
+GhostFibers and ElectricLogo, in their
 JS + CSS variants under `src/components/reactbits/`. Changes from the published code
 are marked "Resumetrics:" in the files. React Bits is distributed under the MIT
 License with the Commons Clause (https://github.com/DavidHDev/react-bits).

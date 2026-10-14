@@ -4,8 +4,7 @@ import { BotEngine } from '../../vendor/bloub/bot/engine.ts'
 import { RAYON } from '../../vendor/bloub/bot/repere.ts'
 import { SHAPE_BY_ID } from '../../vendor/bloub/bot/skins.ts'
 import { prefersReducedMotion } from './useLenis.js'
-import LandingIcon from './LandingIcon.jsx'
-import { nimbusPowers, nimbusPrompts } from './landingContent.js'
+import { nimbusPowers } from './landingContent.js'
 
 // The NIMBUS cloud from the app (src/components/BloubAIIcon.jsx), drawn as light: ElectricLogo traces the engine's own
 // cloud body, and the engine's eyes are outlined on top in the same places, looking where the editor's NIMBUS would.
@@ -100,7 +99,7 @@ function NimbusCloud() {
   const box = outline?.box
   const fit = box ? Math.min(size.width * LOGO_SCALE / box.width, size.height * LOGO_SCALE / box.height) : 0
   return <div className="lp-cloud-float" ref={boxRef}>
-    {outline && <ElectricLogo src={outline.src} color="#f3e6ff" glowColor="#8f6bff" scale={LOGO_SCALE} strands={5} crackle={1.3} flicker={0.5} speed={2} glow={1.2} thickness={1.6} />}
+    {outline && <ElectricLogo className="lp-cloud-bolt" src={outline.src} color="#a4ba1b" glowColor="#709400" scale={LOGO_SCALE} strands={5} crackle={1.3} flicker={0.5} speed={2} glow={1.2} thickness={1.6} />}
     {fit > 0 && <svg className="lp-cloud-eyes" aria-hidden="true" viewBox={`${box.x} ${box.y} ${box.width} ${box.height}`}
       style={{ width: box.width * fit, height: box.height * fit, left: (size.width - box.width * fit) / 2, top: (size.height - box.height * fit) / 2 }}>
       {frame.eyes.map((eye, index) => <path key={index} d={eye.d} transform={eye.matrix} opacity={eye.alpha} vectorEffect="non-scaling-stroke" />)}
@@ -109,8 +108,6 @@ function NimbusCloud() {
 }
 
 export default function NimbusSection() {
-  const [active, setActive] = useState(0)
-  const prompt = nimbusPrompts[active]
   return <section className="lp-nimbus" id="nimbus" data-cine aria-labelledby="lp-nimbus-title">
     <div className="lp-nimbus-top">
       <div className="lp-nimbus-cloud" aria-hidden="true">
@@ -119,21 +116,6 @@ export default function NimbusSection() {
       <div className="lp-nimbus-intro">
         <h2 className="lp-title" id="lp-nimbus-title">Meet <span className="lp-nimbus-word">NIMBUS</span>, your writing partner</h2>
         <p>NIMBUS lives beside your resume in the editor. Ask in plain words and it edits the page in front of you: deeper summaries, sharper bullets, new sections, whole cover letters. It is built around one rule: it never writes anything you did not tell it.</p>
-      </div>
-    </div>
-
-    <div className="lp-nimbus-demo">
-      <div className="lp-nimbus-asks" role="tablist" aria-label="Example requests">
-        {nimbusPrompts.map((item, index) => <button key={item.ask} type="button" role="tab" aria-selected={active === index} className={active === index ? 'is-active' : ''} onClick={() => setActive(index)}>
-          <LandingIcon name={index === nimbusPrompts.length - 1 ? 'shield' : 'spark'} size={15} />{item.ask}
-        </button>)}
-      </div>
-      <div className="lp-nimbus-chat" role="tabpanel" aria-live="polite">
-        <span className="lp-nimbus-label">Example conversation</span>
-        <p className="lp-bubble is-user" key={`ask-${active}`}>{prompt.ask}</p>
-        <p className={`lp-bubble is-nimbus${active === nimbusPrompts.length - 1 ? ' is-guard' : ''}`} key={`reply-${active}`}>
-          <b>NIMBUS</b>{prompt.reply}
-        </p>
       </div>
     </div>
 

@@ -10,19 +10,12 @@ export const stats = [
 ]
 
 export const nimbusPowers = [
-  ['Writes from your facts', 'Every edit is checked against your resume. If a new number, employer or date appears that you never gave, the change is refused.'],
-  ['Knows what you selected', 'Click a bullet or a section and ask. NIMBUS works on exactly that part of the page.'],
-  ['Shows its plan', 'Bigger requests are split into steps you can watch land on the page one by one.'],
-  ['Asks when it is unsure', 'If a request could mean two things, NIMBUS offers choices or asks a short question instead of guessing.'],
-  ['Words, not formatting', 'NIMBUS writes and rewrites content. Fonts, colours and spacing stay in your hands in the format panel.'],
-  ['Also writes your letters', 'The same assistant drafts and tightens cover letters from your resume and the job post.']
-]
-
-export const nimbusPrompts = [
-  { ask: 'Deepen my summary', reply: 'I rewrote your summary to open with the analytics dashboard used by 12,000 weekly users, then your 38% page-load win.' },
-  { ask: 'Make the billing bullet stronger', reply: 'Changed it to lead with the result: “Cut payment errors by 61% by rewriting the billing service with typed APIs.”' },
-  { ask: 'Add my hackathon win to achievements', reply: 'Added “Winner, Smart India Hackathon 2023 (software edition)” to Achievements, as you wrote it.' },
-  { ask: 'Make my SQL experience 10 years', reply: 'I can’t add that: your resume shows SQL work from 2020 onwards. I can make your SQL experience stand out instead.' }
+  ['Writes from your facts', 'Every edit is checked against your resume before it lands. If a new number, employer, date or skill appears that you never gave, the change is refused, so nothing on your page is invented.'],
+  ['Knows what you selected', 'Click a bullet, a section or a single line and ask. NIMBUS works on exactly that part of the page and leaves the rest of your resume untouched.'],
+  ['Shows its plan', 'Bigger requests, like adding a section or rewriting for a role, are split into steps. You watch each one land on the page and can stop whenever you like.'],
+  ['Asks when it is unsure', 'If a request could mean two things, NIMBUS offers choices or asks one short question instead of guessing, so you get the version you meant.'],
+  ['Words, not formatting', 'NIMBUS writes and rewrites content. Fonts, colours and spacing stay in your hands in the format panel, so your design never changes by surprise.'],
+  ['Also writes your letters', 'The same assistant drafts and tightens cover letters from your resume and the job post, using only what your resume says about you.']
 ]
 
 // Real screens from the app (scripts/landing-shots/capture.mjs), in the order someone meets them.
@@ -42,4 +35,4 @@ export const screens = [
 
 export const advantages = ['Never invents facts', 'Proof from your code', 'One-click job fixes', 'Jobs that fit you', '24 real templates', 'Private by default', 'Priced in rupees', 'Nothing gets lost']
 
-export const nav = [['NIMBUS', '#nimbus'], ['Inside the app', '#inside'], ['Templates', '#templates'], ['Why Resumetrics', '#why']]
+export const nav = [['NIMBUS', '#nimbus'], ['Inside the app', '#inside']]

@@ -7,6 +7,7 @@ import { onScroll, prefersReducedMotion } from './useLenis.js'
 
 const A4 = { width: 794, height: 1123 }
 const TEMPLATE_ID = 'gengar'
+const FONT = 'Sora, sans-serif'   // a geometric Google font from the app's own catalogue
 // The page is written between these points of the scene's scroll (keep in step with .lp-ink in landing-page.css).
 const WRITE_START = 0.03
 const WRITE_SPAN = 0.84
@@ -31,7 +32,7 @@ export default function ResumeWriter() {
 
   const template = getResumeTemplate(TEMPLATE_ID)
   const Template = template.component
-  const presentation = { ...resolveResumePresentation(template, {}), photo: template.defaultTheme.photo }
+  const presentation = { ...resolveResumePresentation(template, { fontFamily: FONT }), photo: template.defaultTheme.photo }
 
   // Tag the innermost elements in reading order, and crop the paper to where the content ends (once fonts settle).
   useLayoutEffect(() => {
@@ -82,8 +83,8 @@ export default function ResumeWriter() {
   return <section className="lp-writer" id="write" ref={sceneRef} aria-label="A resume being written in a Resumetrics template">
     <div className="lp-writer-stage">
       <div className="lp-writer-copy">
-        <h2 className="lp-title">A real resume, written as you scroll.</h2>
-        <p className="lp-writer-intro">This is the {template.name} template from the app, filling in with a sample resume exactly the way it renders in the editor.</p>
+        <h2 className="lp-title">A resume that is built to stay.</h2>
+        <p className="lp-writer-intro">Honest wording, a clean design and proof from your own work, so your resume keeps holding up long after you send it.</p>
         <div className={`lp-progress${done ? ' is-done' : ''}`}>
           <div className="lp-progress-ring" role="progressbar" aria-label="Resume progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
             <svg viewBox="0 0 120 120" aria-hidden="true">

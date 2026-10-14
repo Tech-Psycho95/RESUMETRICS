@@ -5,9 +5,6 @@ import ResumeWriter from '../components/landing/ResumeWriter.jsx'
 import StatsBand from '../components/landing/StatsBand.jsx'
 import NimbusSection from '../components/landing/NimbusSection.jsx'
 import ScreenSlider from '../components/landing/ScreenSlider.jsx'
-import TemplateCarousel from '../components/landing/TemplateCarousel.jsx'
-import RatingStamp from '../components/landing/RatingStamp.jsx'
-import WhyFolder from '../components/landing/WhyFolder.jsx'
 import { BigCta, LandingFooter } from '../components/landing/ClosingSections.jsx'
 import useLenis from '../components/landing/useLenis.js'
 import useRevealOnScroll from '../components/landing/useRevealOnScroll.js'
@@ -34,9 +31,6 @@ export default function LandingPage() {
       <StatsBand />
       <NimbusSection />
       <ScreenSlider />
-      <TemplateCarousel />
-      <RatingStamp />
-      <WhyFolder />
       <BigCta />
     </main>
     <LandingFooter />
