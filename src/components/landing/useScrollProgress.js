@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { prefersReducedMotion } from './useLenis.js'
+import { onScroll, prefersReducedMotion } from './useLenis.js'
 
 // Writes --p (0..1) on the element: how far the page has scrolled through it.
 // mode 'pin': 0 when its top reaches the viewport top, 1 when its bottom reaches the viewport bottom.
@@ -9,9 +9,7 @@ export default function useScrollProgress(ref, mode = 'pin') {
     const element = ref.current
     if (!element) return undefined
     if (prefersReducedMotion()) { element.style.setProperty('--p', mode === 'pin' ? '1' : '.5'); return undefined }
-    let frameId = 0
     const update = () => {
-      frameId = 0
       const rect = element.getBoundingClientRect()
       const viewport = window.innerHeight
       const progress = mode === 'pin'
@@ -19,10 +17,9 @@ export default function useScrollProgress(ref, mode = 'pin') {
         : (viewport - rect.top) / (viewport + rect.height)
       element.style.setProperty('--p', Math.min(1, Math.max(0, progress)).toFixed(4))
     }
-    const schedule = () => { if (!frameId) frameId = requestAnimationFrame(update) }
     update()
-    window.addEventListener('scroll', schedule, { passive: true })
-    window.addEventListener('resize', schedule)
-    return () => { window.removeEventListener('scroll', schedule); window.removeEventListener('resize', schedule); cancelAnimationFrame(frameId) }
+    const off = onScroll(update)
+    window.addEventListener('resize', update)
+    return () => { off(); window.removeEventListener('resize', update) }
   }, [ref, mode])
 }
