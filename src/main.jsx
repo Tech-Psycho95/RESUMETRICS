@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createPortal } from 'react-dom'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -32,10 +32,10 @@ import { describeResumeElement } from './editor/describeResumeElement.js'
 import useEditorHistory from './editor/useEditorHistory.js'
 import { useResumeAutosave } from './hooks/useResumeAutosave.js'
 import { buildResumeFields, hashFields, splitSavedPresentation } from './db/resumeFields.js'
-import { listResumes, getResume, deleteResume, renameResume, duplicateResume, getEvidence, deleteEvidence } from './utils/userApi.js'
+import { listResumes, getResume, deleteResume, renameResume, getEvidence, deleteEvidence } from './utils/userApi.js'
 import { scanFromEvidence } from './db/evidenceState.js'
 import { skillsAddedSince } from '../shared/githubEvidenceMath.js'
-import { getCachedEntry, projectsFor, setCachedProjects, subscribeProjects } from './db/projectsCache.js'
+import { projectsFor, setCachedProjects } from './db/projectsCache.js'
 import './editor-studio.css'
 import './section-form.css'
 import './print.css'
@@ -47,7 +47,7 @@ import { templatePreviewResumeData } from './data/templatePreviewData.js'
 import { createBlankResumeData } from './data/resumeData.js'
 import { applyResumeEditPlan } from './utils/applyResumeEditPlan.js'
 import { applyResumeEditingOperations, getPathValue } from './editor/resumeEditingEngine.js'
-import { clearWorkspaceSnapshot, readWorkspaceSnapshot, restored, writeWorkspaceSnapshot } from './workspace/workspacePersistence.js'
+import { clearWorkspaceSnapshot, restored, writeWorkspaceSnapshot } from './workspace/workspacePersistence.js'
 import { toggleMarkInRange } from './editor/inlineMarks.js'
 import { getTemplateSectionPlan } from './components/templates/ResumeTemplateLayout.jsx'
 import { buildResumeElementRegistry, ensureResumeElementIds } from './editor/resumeElementRegistry.js'
@@ -67,6 +67,7 @@ import { readProfilePhoto } from './utils/readProfilePhoto.js'
 import { applyNimbusOperations } from './nimbus/applyNimbusOperations.js'
 import { MIN_READABLE_BASE_SIZE } from '../shared/nimbusPlan.js'
 import useNimbusTurns, { settleLayout } from './nimbus/useNimbusTurns.js'
+import ResumeMiniature from './components/ResumeMiniature.jsx'
 import ResumeGateDialog, { gateTools } from './pages/ResumeGate.jsx'
 import CoverLetterPage from './coverLetter/CoverLetterPage.jsx'
 import LetterStudio, { LetterPrintPage, initialLetterMessages } from './coverLetter/LetterStudio.jsx'
@@ -103,7 +104,6 @@ const navUtilityItems = [
   ['Settings', '/settings', 'settings'],
   ['Help & support', '/help', 'help']
 ]
-const recentProjectColors = ['#7c5cff', '#e0559a', '#1fa37a', '#e59a1a', '#3b82f6']
 
 const safeFileName = value => (value || 'untitled-resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled-resume'
 const githubResumeSnapshotKey = 'resumetrics:pending-github-evidence-resume'
@@ -213,6 +213,7 @@ function describeCloudResume(resume) {
     templateId: resume.templateId,
     updatedAt: Date.parse(resume.updatedAt) || 0,
     resumeData: resume.data,
+    presentation: resume.presentation,
     progress: { building: resume.progress }
   })
 }
@@ -303,6 +304,7 @@ function Icon({ name, size = 18 }) {
   if (name === 'create') return <svg {...common}><path d="M4 17.5V20h2.5L18.8 7.7l-2.5-2.5L4 17.5Z" /><path d="m14.8 6.2 2.5 2.5M13 20h7" /></svg>
   if (name === 'evidence') return <svg {...common}><path d="M12 3 19 6v5c0 4.5-3 7.8-7 10-4-2.2-7-5.5-7-10V6l7-3Z" /><path d="m9 12 2 2 4-4" /></svg>
   if (name === 'download') return <svg {...common}><path d="M12 4v10M8 11l4 4 4-4M5 18v2h14v-2" /></svg>
+  if (name === 'more') return <svg {...common}><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none" /></svg>
   if (name === 'trash') return <svg {...common}><path d="M5 7h14M10 4h4l1 3H9l1-3ZM7 7l1 13h8l1-13M10 10v6M14 10v6" /></svg>
   if (name === 'spark') return <svg {...common}><path d="m12 3 1.1 4.1L17 8.5l-3.9 1.4L12 14l-1.1-4.1L7 8.5l3.9-1.4L12 3ZM19 14l.6 2.1L22 17l-2.4.9L19 20l-.6-2.1L16 17l2.4-.9L19 14Z" /></svg>
   if (name === 'appearance') return <svg {...common}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
@@ -543,6 +545,7 @@ function DashboardPage() {
   const [renameValue, setRenameValue] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [menuId, setMenuId] = useState(null)
   const { pro, resumes: allowance, canCreateResume, refresh: refreshPlan } = usePlan()
   const [upgrade, setUpgrade] = useState(null)
   // Every change goes through here so the sidebar's recent list (projectsCache) stays in step with the cards.
@@ -553,8 +556,7 @@ function DashboardPage() {
   }, [uid])
   const selectedProject = savedProjects.find(project => project.id === selectedProjectId) ?? null
   const health = getResumeHealth(selectedProject?.resumeData)
-  const previewData = selectedProject?.resumeData ?? null
-  const previewSkills = Object.values(previewData?.skills ?? {}).flat().filter(Boolean).slice(0, 6)
+  const previewProject = selectedProject ?? savedProjects.find(project => project.resumeData) ?? null   // what the hero shows when nothing is selected
 
   useEffect(() => { updateProjectRail() }, [savedProjects, updateProjectRail])
 
@@ -641,24 +643,32 @@ function DashboardPage() {
     }
   }
 
-  const duplicateProject = async project => {
-    if (!canCreateResume) { setUpgrade(RESUME_LIMIT_REASON); return }
-    setBusyId(project.id)
-    setActionError('')
-    try {
-      const copy = describeCloudResume(await duplicateResume(project.id))
-      setSavedProjects([copy, ...projectsRef.current])
-      setSelectedProjectId(copy.id)
-      projectRailRef.current?.scrollTo({ left: 0, behavior: 'smooth' })
-      refreshPlan()
-    } catch (error) {
-      console.error('[Dashboard] Could not duplicate the resume:', error)
-      if (error.kind === 'plan_limit') { setUpgrade(RESUME_LIMIT_REASON); refreshPlan(); return }
-      setActionError(error.message || 'Could not duplicate this resume.')
-    } finally {
-      setBusyId(null)
-    }
+  // Saves the resume as a plain-text file; the print-quality PDF is made from the editor.
+  const exportProject = project => {
+    const data = project.resumeData || {}
+    const dates = item => [item.startDate, item.endDate].filter(Boolean).join(' – ')
+    const list = (title, lines) => (lines.length ? [title.toUpperCase(), ...lines, ''] : [])
+    const text = [
+      data.fullName || project.name, data.headline, [data.email, data.phone, data.location].filter(Boolean).join(' | '), '',
+      ...list('Summary', data.summary ? [data.summary] : []),
+      ...list('Experience', (data.experience || []).flatMap(item => [`${[item.role, item.company].filter(Boolean).join(', ')} (${dates(item)})`, ...(item.bullets || []).map(bullet => `- ${bullet}`)])),
+      ...list('Projects', (data.projects || []).flatMap(item => [item.name, item.description, ...(item.bullets || []).map(bullet => `- ${bullet}`)].filter(Boolean))),
+      ...list('Education', (data.education || []).map(item => `${[item.degree, item.institution].filter(Boolean).join(', ')} (${dates(item)})`)),
+      ...list('Skills', Object.entries(data.skills || {}).filter(([, values]) => values?.length).map(([category, values]) => `${category}: ${values.join(', ')}`)),
+      ...list('Certifications', data.certifications || []),
+      ...list('Achievements', data.achievements || [])
+    ].filter(line => line != null).join('\n')
+    downloadBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), `resumetrics-${safeFileName(project.name)}.txt`)
   }
+
+  // The "..." menu on a card: closes on an outside click or Escape.
+  useEffect(() => {
+    if (!menuId) return undefined
+    const close = event => { if (event.type === 'keydown' ? event.key === 'Escape' : !event.target.closest?.('.dashboard-project-menu, .dashboard-project-more')) setMenuId(null) }
+    document.addEventListener('pointerdown', close)
+    document.addEventListener('keydown', close)
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close) }
+  }, [menuId])
 
   const progressStages = [
     { key: 'building', label: 'Resume building', icon: 'document', value: health.completion },
@@ -690,22 +700,8 @@ function DashboardPage() {
 
         <figure className="dashboard-health-preview" aria-hidden="true">
           <div className="dashboard-health-paper">
-            {previewData
-              ? <>
-                <header><strong>{previewData.fullName || selectedProject.name}</strong>{previewData.headline && <span>{previewData.headline}</span>}</header>
-                <div className="dashboard-health-paper-cols">
-                  <div>
-                    <em>Details</em>
-                    {[previewData.email, previewData.phone, previewData.location].filter(Boolean).map(value => <span key={value}>{value}</span>)}
-                    {previewSkills.length > 0 && <><em>Skills</em>{previewSkills.map(skill => <span key={skill}>{skill}</span>)}</>}
-                  </div>
-                  <div>
-                    {previewData.summary && <><em>Profile</em><p>{previewData.summary}</p></>}
-                    {previewData.experience?.length > 0 && <><em>Experience</em>{previewData.experience.slice(0, 3).map((item, index) => <span key={index}><b>{item?.role || 'Role'}</b>{item?.company && ` · ${item.company}`}</span>)}</>}
-                    {previewData.education?.length > 0 && <><em>Education</em>{previewData.education.slice(0, 2).map((item, index) => <span key={index}>{item?.degree || item?.institution || 'Education'}</span>)}</>}
-                  </div>
-                </div>
-              </>
+            {previewProject?.resumeData
+              ? <ResumeMiniature project={previewProject} />
               : <div className="dashboard-health-paper-skeleton"><i /><i /><i /><i /><i /><i /><i /></div>}
           </div>
           {selectedProject && <span className="dashboard-health-paper-badge">{health.completion}%</span>}
@@ -736,13 +732,18 @@ function DashboardPage() {
             const isSelected = project.id === selectedProjectId
             return <article className={`dashboard-project-card is-saved${isSelected ? ' is-selected' : ''}`} key={project.id}>
               <button className="dashboard-project-select" type="button" aria-pressed={isSelected} onClick={() => selectProject(project.id)}>
-                <span className="dashboard-project-paper" aria-hidden="true"><i /><i /><i /><i /><i /></span>
+                <span className="dashboard-project-paper" aria-hidden="true">{project.resumeData ? <ResumeMiniature project={project} /> : <><i /><i /><i /><i /><i /></>}</span>
                 <span className="dashboard-project-meta">
                   <strong>{project.name}</strong>
                   <small>{project.updatedLabel}</small>
                 </span>
-                <span className={`dashboard-project-pill is-${projectHealth.tone}`}>{project.resumeData ? `${projectHealth.completion}%` : 'Empty'}</span>
               </button>
+              <button className="dashboard-project-more" type="button" aria-label={`Options for ${project.name}`} aria-haspopup="menu" aria-expanded={menuId === project.id} onClick={() => setMenuId(menuId === project.id ? null : project.id)}><Icon name="more" size={18} /></button>
+              {menuId === project.id && <div className="dashboard-project-menu" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setMenuId(null); setSelectedProjectId(project.id); startRename(project) }}><Icon name="create" size={15} />Rename</button>
+                <button type="button" role="menuitem" disabled={!project.resumeData} onClick={() => { setMenuId(null); exportProject(project) }}><Icon name="download" size={15} />Export</button>
+                <button type="button" role="menuitem" className="is-danger" onClick={() => { setMenuId(null); setSelectedProjectId(project.id); setConfirmDeleteId(project.id) }}><Icon name="trash" size={15} />Delete</button>
+              </div>}
               {isSelected && <div className="dashboard-project-actions" aria-busy={busyId === project.id}>
                 {renamingId === project.id
                   ? <form className="dashboard-project-rename" onSubmit={submitRename}>
@@ -759,9 +760,6 @@ function DashboardPage() {
                     </>
                     : <>
                       <button className="is-primary is-wide" type="button" onClick={() => navigate('/workspace', { state: { savedProjectId: project.id } })}><Icon name="create" size={15} />Open</button>
-                      <button type="button" disabled={busyId === project.id} onClick={() => startRename(project)}>Rename</button>
-                      <button type="button" disabled={busyId === project.id} onClick={() => duplicateProject(project)}>{busyId === project.id ? 'Copying…' : 'Duplicate'}</button>
-                      <button className="is-danger" type="button" aria-label="Delete" onClick={() => setConfirmDeleteId(project.id)}><Icon name="trash" size={15} /></button>
                     </>}
               </div>}
             </article>
@@ -782,32 +780,40 @@ function SettingsPage() {
 }
 
 const helpTopics = [
-  { id: 'start', icon: 'rocket', title: 'Getting started', description: 'Create your first resume in a few steps.' },
+  { id: 'start', icon: 'rocket', title: 'Getting started', description: 'Create your first resume and find your way around.' },
   { id: 'import', icon: 'import', title: 'Importing', description: 'Bring in a resume file or your LinkedIn profile.' },
-  { id: 'editing', icon: 'layout', title: 'Templates & editing', description: 'Choose a design and edit any section.' },
-  { id: 'nimbus', icon: 'spark', title: 'NIMBUS & job match', description: 'Write and tailor your resume with AI.' },
+  { id: 'editing', icon: 'layout', title: 'Templates & editing', description: 'Choose from 24 designs and edit any section.' },
+  { id: 'nimbus', icon: 'spark', title: 'NIMBUS & cover letters', description: 'Write and rewrite with an AI that keeps to your facts.' },
+  { id: 'jobs', icon: 'briefcase', title: 'Jobs & tailoring', description: 'Match a resume to a job and track your applications.' },
   { id: 'evidence', icon: 'evidence', title: 'GitHub evidence', description: 'Check your skills against your code.' },
-  { id: 'export', icon: 'download', title: 'Exporting & saving', description: 'Download your resume and keep your work.' }
+  { id: 'export', icon: 'download', title: 'Saving & exporting', description: 'Autosave, version history and downloads.' },
+  { id: 'plans', icon: 'crown', title: 'Plans', description: 'What Free and Pro include.' }
 ]
 
 const helpArticles = [
-  { topic: 'start', question: 'How do I create my first resume?', steps: ['Open Resume builder from the sidebar, or select Create new project on the dashboard.', 'Start from scratch, upload a resume, or import your LinkedIn profile.', 'Pick a template. You will see a live preview of each design.', 'Fill in or review your sections in the editor, then export it.'] },
-  { topic: 'start', question: 'Why do I need to sign in with Google?', answer: 'Signing in keeps your workspace private to you and lets Resumetrics connect services such as GitHub to your account. Your Google password is never seen or stored by Resumetrics.' },
+  { topic: 'start', question: 'What is Resumetrics?', answer: 'Resumetrics is a resume builder with an AI writing partner called NIMBUS. You write or import a resume, choose from 24 templates, edit it in place, tailor it to job posts, check your skills against your GitHub code and download it. NIMBUS only uses facts from your resume or what you tell it, so nothing is invented.' },
+  { topic: 'start', question: 'How do I create my first resume?', steps: ['Open Resume builder from the sidebar, or select Create new project on the dashboard.', 'Start from scratch, upload a resume, or import your LinkedIn profile.', 'Pick a template. You will see a live preview of each design.', 'Fill in or review your sections in the editor. It saves automatically, and you can export whenever you like.'] },
+  { topic: 'start', question: 'What can I do from the sidebar?', answer: 'Resume tools has the Resume builder, Templates and Plan. Career tools has Cover letters, Evidence check, Job tailoring and the Job tracker. Cover letters, Evidence check and Job tailoring work on a saved resume, so each one opens a short list of your saved resumes to choose from.' },
+  { topic: 'start', question: 'What can I do with my projects on the dashboard?', answer: 'Every saved resume shows as a card with a live miniature of the resume in its own template. Select a card to see its progress at the top, then press Open. The ⋮ menu on a card lets you rename it, export it as a text file or delete it.' },
+  { topic: 'start', question: 'Why do I need to sign in with Google?', answer: 'Signing in keeps your resumes private to you and lets them follow you to any device. It also lets Resumetrics connect services such as GitHub to your account. Your Google password is never seen or stored by Resumetrics.' },
   { topic: 'import', question: 'Which files can I import?', answer: 'You can import PDF, DOCX and TXT files. PDFs exported from a word processor work best. Scanned images or photos of a resume may not contain readable text.' },
   { topic: 'import', question: 'What happens after I upload my resume?', answer: 'Resumetrics reads the text in your file and sorts it into sections such as experience, education and skills. You then get a review screen to check everything before choosing a template. Nothing is added that was not in your file.' },
-  { topic: 'editing', question: 'How do I edit text on my resume?', answer: 'In the editor, click any text on the resume to edit it. The Format panel on the right changes fonts, size and colours — highlight words to make just those bold, italic or underlined.' },
-  { topic: 'editing', question: 'Can I add a profile photo?', answer: 'Yes, on templates that support a photo. Upload a JPEG image from the editor, then adjust its position and size.' },
-  { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS writes for you: ask it to deepen your summary, strengthen bullets, add something to a section or change a detail. It only uses facts from your resume or what you tell it. Fonts and colours are changed in the Format panel.' },
-  { topic: 'nimbus', question: 'How do I tailor my resume to a job?', steps: ['Job tailoring is part of Pro. Open it under Career tools in the sidebar and pick a resume.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the changes you want and watch them appear on your resume beside it.'] },
-  { topic: 'nimbus', question: 'How does the job tracker find jobs?', steps: ['The job tracker is part of Pro. Open it under Career tools in the sidebar.', 'It searches with the role, skills and location on your latest resume. Pick another resume or change the role and city at the top.', 'Openings are shown in one row per job board (LinkedIn, Naukri, Indeed and more), ranked by how well your resume matches. Apply opens the posting on that board.', 'Press the heart to save a job, then move it from Saved to Applied, Interview and Offer under My applications.'] },
-  { topic: 'start', question: 'What does the free plan include?', answer: `The free plan includes ${FREE_RESUME_LIMIT} resumes with every template, NIMBUS, cover letters, the evidence check and export. Deleting a resume that is under ${COUNTED_DELETE_PERCENT}% complete frees its slot; a more complete one keeps counting. Pro adds unlimited resumes, job tailoring and the job tracker. See Plan in the sidebar.` },
   { topic: 'import', question: 'How do I start from my LinkedIn profile?', steps: ['On a desktop browser, open LinkedIn and go to Me → View Profile.', 'Choose Resources (or More), then Save to PDF.', 'In Resumetrics, choose Import from LinkedIn, upload that PDF, then pick a template.'] },
-  { topic: 'nimbus', question: 'How do I add a cover letter to my resume?', steps: ['Open Cover letters from the sidebar and pick your resume, or press Open beside "Write a cover letter" in the editor.', 'Paste the job post under Details, then ask NIMBUS to write your letter, or type it on the page.', 'Upload a photo of your signature under Format, then press Add to resume. The letter becomes page 1 and is included when you export.'] },
-  { topic: 'start', question: 'Why does a pop-up ask me to select a resume?', answer: 'Cover letters, Evidence check and Job tailoring each work on one resume. When you click one in the sidebar, a pop-up asks you to pick the resume, or to start or import one first.' },
-  { topic: 'evidence', question: 'Why connect GitHub?', answer: 'In the editor, press Compare next to GitHub evidence. Your 25 most recently updated repositories are scanned and each resume skill is shown with its share of your code; under 5% counts as too little evidence.' },
-  { topic: 'export', question: 'Which formats can I download?', answer: 'Use the Export menu in the editor to download your resume as a PDF, a Word document (DOCX) or plain text (TXT).' },
-  { topic: 'export', question: 'Is my resume saved automatically?', answer: 'Your current draft is kept in this browser tab, even if you refresh. Closing the tab clears it, so export your resume before you leave.' },
-  { topic: 'export', question: 'Where is my data stored, and how do I remove it?', answer: 'Your saved projects and preferences are kept in this browser. You can remove saved projects at any time from Settings → Privacy & Data.' }
+  { topic: 'editing', question: 'How do I edit text on my resume?', answer: 'In the editor, click any text on the resume to edit it. The Format panel changes fonts, size and colours, and you can highlight words to make just those bold, italic or underlined.' },
+  { topic: 'editing', question: 'Can I change the template or font later?', answer: 'Yes. Switching templates keeps all your content, so you never retype anything. There are 24 templates, single and two-column, and a catalogue of 131 fonts in the Format panel. Pick a single-column design with a plain font if the employer uses applicant tracking systems.' },
+  { topic: 'editing', question: 'Can I add a profile photo?', answer: 'Yes, on templates that support a photo. Upload a JPEG image from the editor, then adjust its position and size.' },
+  { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS lives beside your resume in the editor. Ask it to deepen your summary, strengthen a bullet, add a section or change a detail and it edits the page in front of you. Click a bullet or section first and it works on just that part. If a request is unclear it asks a short question, and if it would need a fact you never gave, it refuses instead of inventing one. Fonts and colours are changed in the Format panel.' },
+  { topic: 'nimbus', question: 'How do I add a cover letter to my resume?', steps: ['Open Cover letters from the sidebar and pick a saved resume, or press Open beside "Write a cover letter" in the editor.', 'Paste the job post under Details, then ask NIMBUS to write your letter, or type it on the page.', 'Upload a photo of your signature under Format, then press Add to resume. The letter becomes page 1 and is included when you export.'] },
+  { topic: 'jobs', question: 'How do I tailor my resume to a job?', steps: ['Job tailoring is part of Pro. Open it under Career tools in the sidebar and pick a saved resume.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the changes you want and watch them appear on your resume beside it.'] },
+  { topic: 'jobs', question: 'How does the job tracker find jobs?', steps: ['The job tracker is part of Pro. Open it under Career tools in the sidebar.', 'It searches with the role, skills and location on your latest resume. Pick another resume or change the role and city at the top.', 'Openings are shown in one row per job board (LinkedIn, Naukri, Indeed and more), ranked by how well your resume matches, with the best one marked Highest match. Apply opens the posting on that board.', 'Press the heart to save a job, then move it from Saved to Applied, Interview and Offer under My applications.'] },
+  { topic: 'evidence', question: 'Why connect GitHub?', answer: 'Open Evidence check from the sidebar and pick a resume, or press Compare next to GitHub evidence in the editor. Your 25 most recently updated repositories are scanned and each resume skill is shown with its share of your code; under 5% counts as too little evidence.' },
+  { topic: 'evidence', question: 'Is my latest scan kept?', answer: 'Yes. The latest GitHub scan is saved with each resume, so you can come back to it without scanning again. Scan again whenever you have new work.' },
+  { topic: 'export', question: 'Is my resume saved automatically?', answer: 'Yes. Your resume saves to your account as you type, so it is there on any device you sign in on. The editor shows the save status, and Save forces a save right away.' },
+  { topic: 'export', question: 'Can I go back to an earlier version?', answer: 'Yes. Version history in the editor keeps automatic checkpoints, and you can also save a version yourself. Restoring one brings that version back without losing your newer work, since your current state is checkpointed first.' },
+  { topic: 'export', question: 'Which formats can I download?', answer: 'Use the Export menu in the editor to download your resume as a PDF, a Word document (DOCX) or plain text (TXT). A cover letter added to the resume becomes its first page. On the dashboard, the ⋮ menu on a card exports a resume as a text file.' },
+  { topic: 'export', question: 'Where is my data stored, and how do I remove it?', answer: 'Your resumes, GitHub scans and job applications are stored in your Resumetrics account and only you can open them. To remove a resume, use the ⋮ menu on its card and choose Delete; it is removed from your account for good. See Settings → Privacy & Data for more.' },
+  { topic: 'plans', question: 'What does the free plan include?', answer: `The free plan includes ${FREE_RESUME_LIMIT} resumes with every template, NIMBUS, cover letters, the evidence check and export. Deleting a resume that is under ${COUNTED_DELETE_PERCENT}% complete frees its slot; a more complete one keeps counting.` },
+  { topic: 'plans', question: 'What does Pro add, and what does it cost?', answer: 'Pro adds unlimited resumes, job tailoring and the job tracker. It is ₹299 a month or ₹2,399 a year, or ₹4,999 once for lifetime access. See Plan in the sidebar to compare. Your current plan is shown in Settings.' }
 ]
 
 function HelpPage() {
@@ -866,7 +872,7 @@ function HelpPage() {
 
       <section className="help-contact">
         <span className="help-topic-icon" aria-hidden="true"><Icon name="help" size={22} /></span>
-        <div><b>Still need help?</b><p>Start with a fresh resume to try things out safely, or review your account and data options in Settings.</p></div>
+        <div><b>Still need help?</b><p>Open the resume builder to try things out, or review your account, plan and data options in Settings.</p></div>
         <div className="help-contact-actions">
           <button type="button" onClick={() => navigate('/workspace')}>Open resume builder</button>
           <button type="button" className="is-primary" onClick={() => navigate('/settings')}>Go to Settings</button>
@@ -1008,9 +1014,6 @@ function SidebarLink({ label, path, icon, gate, pro, onGate }) {
 function Shell({ children, immersive = false, dashboard = false, studio = false }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { currentUser: shellUser } = useAuth()
-  const cachedProjects = useSyncExternalStore(subscribeProjects, () => getCachedEntry())
-  const recentProjects = useMemo(() => projectsFor(shellUser?.uid).filter(project => project.resumeData).slice(0, 3), [cachedProjects, shellUser?.uid]) // eslint-disable-line react-hooks/exhaustive-deps
   // "Select a resume first" pop-up for the three career tools. It opens over any page; a page that sends someone
   // here without a resume (a direct visit to a tool) passes location.state.gate.
   const [gateTool, setGateTool] = useState(null)
@@ -1021,12 +1024,17 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
     navigate(location.pathname, { replace: true, state: null })
   }, [location.state]) // eslint-disable-line react-hooks/exhaustive-deps
   const closeGate = useCallback(() => setGateTool(null), [])
-  const sessionResumes = () => {
-    const snapshot = readWorkspaceSnapshot()
-    const template = getResumeTemplate(snapshot?.selectedTemplateId)
-    return snapshot?.resumeData && template ? [{ id: 'session', name: snapshot.resumeName || 'Untitled resume', templateName: template.name, note: 'Open in this session' }] : []
-  }
+  // The saved resumes the career tools can open (the same list as the dashboard).
+  const [gateResumes, setGateResumes] = useState(null)
+  useEffect(() => {
+    if (!gateTool) return undefined
+    let cancelled = false
+    setGateResumes(null)
+    listResumes().then(list => { if (!cancelled) setGateResumes(list.map(describeCloudResume)) }, () => { if (!cancelled) setGateResumes([]) })
+    return () => { cancelled = true }
+  }, [gateTool])
   const openFromGate = path => { setGateTool(null); navigate(path) }
+  const openResumeInTool = resume => { setGateTool(null); navigate('/workspace', { state: { savedProjectId: resume.id, openRoute: gateTools[gateTool].route } }) }
 
   return <div className={`app-shell${immersive ? ' editor-shell' : ''}${dashboard ? ' dashboard-shell' : ''}${studio ? ' studio-shell' : ''}`}>
     {!immersive && <aside className="sidebar">
@@ -1038,15 +1046,6 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
           <span className="sidebar-label">{section.label}</span>
           <nav aria-label={section.label}>{section.items.map(([label, path, icon, gate, pro]) => <SidebarLink key={label} label={label} path={path} icon={icon} gate={gate} pro={pro} onGate={setGateTool} />)}</nav>
         </div>)}
-        {recentProjects.length > 0 && <div className="sidebar-section sidebar-recent">
-          <span className="sidebar-label">Recent resumes</span>
-          <ul>{recentProjects.map((project, index) => <li key={project.id}>
-            <button type="button" onClick={() => navigate('/dashboard')}>
-              <span className="sidebar-recent-mark" style={{ '--recent-color': recentProjectColors[index % recentProjectColors.length] }} aria-hidden="true">{project.name.trim().charAt(0).toUpperCase() || 'R'}</span>
-              <span>{project.name}</span>
-            </button>
-          </li>)}</ul>
-        </div>}
       </div>
       <nav className="sidebar-utility" aria-label="Account">{navUtilityItems.map(([label, path, icon]) => <SidebarLink key={label} label={label} path={path} icon={icon} />)}</nav>
       <div className="sidebar-footer">
@@ -1054,8 +1053,7 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
       </div>
     </aside>}
     <main>{children}</main>
-    {gateTool && <ResumeGateDialog tool={gateTool} resumes={sessionResumes()} onClose={closeGate}
-      onPick={() => openFromGate(gateTools[gateTool].route)} onStart={() => openFromGate('/workspace/templates')} onImport={() => openFromGate('/workspace')} />}
+    {gateTool && <ResumeGateDialog tool={gateTool} resumes={gateResumes} onClose={closeGate} onPick={openResumeInTool} onCreate={() => openFromGate('/dashboard')} />}
   </div>
 }
 
@@ -1191,7 +1189,7 @@ function MainPage() {
   // Opens a saved resume from the cloud into the editor, replacing whatever draft is open.
   // A ref, not useCallback: it reads state hooks declared further down (history, NIMBUS) and must see the latest of each.
   const openCloudResumeRef = useRef(null)
-  openCloudResumeRef.current = async id => {
+  openCloudResumeRef.current = async (id, route = '/workspace/editor') => {
     // The saved GitHub report comes with the resume; failing to load it must not stop the resume opening.
     const [saved, evidence] = await Promise.all([getResume(id), getEvidence(id).catch(() => ({ github: null }))])
     const { presentation, style } = splitSavedPresentation(saved.presentation)
@@ -1233,7 +1231,7 @@ function MainPage() {
     nimbusResetRef.current?.()
     setWorkspaceError('')
     setWorkspaceMode('editor-ready')
-    navigate('/workspace/editor', { replace: true })
+    navigate(route, { replace: true })
   }
 
   // Load a saved project from the dashboard Open button
@@ -1241,7 +1239,7 @@ function MainPage() {
     const projectId = location.state?.savedProjectId
     if (!projectId) return undefined
     let cancelled = false
-    openCloudResumeRef.current(projectId).catch(error => {
+    openCloudResumeRef.current(projectId, location.state?.openRoute || undefined).catch(error => {
       if (cancelled) return
       console.error('[MainPage] Failed to load saved project:', error)
       setWorkspaceError(error.message || 'Could not load this resume. Please try again.')

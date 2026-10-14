@@ -11,7 +11,7 @@ export function BigCta() {
       <p>Start with your old resume, your LinkedIn profile or a blank page. Your first two resumes are free.</p>
       <div className="lp-bigcta-actions">
         <button type="button" className="lp-btn lp-btn-ink lp-btn-lg" onClick={() => navigate('/login')}>Start free</button>
-        <a className="lp-btn lp-btn-outline lp-btn-lg" href="#templates">Browse templates</a>
+        <a className="lp-btn lp-btn-outline lp-btn-lg" href="#inside">See inside the app</a>
       </div>
     </div>
   </section>
@@ -33,9 +33,9 @@ export function LandingFooter() {
         </ul>
       </div>
       <nav className="lp-footer-links" aria-label="Footer">
-        <div><b>Product</b><a href="#nimbus">NIMBUS</a><a href="#inside">Inside the app</a><a href="#templates">Templates</a><a href="#why">Why Resumetrics</a></div>
+        <div><b>Product</b><a href="#nimbus">NIMBUS</a><a href="#inside">Inside the app</a></div>
         <div><b>Tools</b><a href="#tailor">Job tailoring</a><a href="#letter">Cover letters</a><a href="#evidence">Evidence check</a><a href="#jobs">Job tracker</a></div>
-        <div><b>Account</b><button type="button" onClick={() => navigate('/login')}>Sign in</button><button type="button" onClick={() => navigate('/login')}>Start free</button></div>
+        <div><b>Account</b><button type="button" onClick={() => navigate('/login')}>Start free</button></div>
       </nav>
     </div>
     <div className="lp-footer-bottom">
