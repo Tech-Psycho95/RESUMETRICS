@@ -1,0 +1,1100 @@
+{
+ "resumeId": "demo-resume-fullstack-0001",
+ "resumeName": "Full stack resume",
+ "profile": {
+  "role": "Full Stack Developer",
+  "location": "Pune",
+  "remote": false,
+  "datePosted": "month",
+  "skills": [
+   "JavaScript",
+   "TypeScript",
+   "Python",
+   "SQL",
+   "React",
+   "Next.js",
+   "HTML",
+   "CSS",
+   "Tailwind CSS",
+   "Node.js",
+   "Express.js",
+   "REST APIs",
+   "PostgreSQL",
+   "MongoDB",
+   "Redis"
+  ],
+  "years": 2.7,
+  "level": "Junior"
+ },
+ "rows": [
+  {
+   "platform": "linkedin",
+   "name": "LinkedIn",
+   "jobs": [
+    {
+     "key": "0c813b2812d078511d4e4d05",
+     "title": "Full Stack Java Senior Developer / Developer",
+     "company": "Endava",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBADCrV2JK9tlzqnpmCXaDxsb207Qyfv51sv04&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-01T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Job Description Overview We are looking for a skilled and experienced Full Stack Java Senior Developer / Developer to join our development team. The ideal candidate will have a solid background in object-oriented program",
+     "score": 62,
+     "matched": [
+      "JavaScript",
+      "SQL",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Java",
+      "Docker",
+      "Git",
+      "Microservices",
+      "Testing"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/full-stack-java-senior-developer-developer-at-endava-4472515647"
+    },
+    {
+     "key": "e630c0b16358a15394ca8487",
+     "title": "Lead Java Full Stack Developer - 9 to 13 Years- Pune",
+     "company": "FIS",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVh2cM9sRYtgogTddeKfQMmvhtVtaoOrOCxb-j&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-03T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Position Type Full time Type Of Hire Experienced (relevant combo of work and education) Education Desired Bachelor of Computer Engineering Are you curious, self-motivated, and forward-thinking? At FIS you’ll have the opp",
+     "score": 62,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "Next.js",
+      "HTML",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Angular",
+      "Java",
+      "Microservices",
+      "Unit testing",
+      "Agile",
+      "Leadership"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/lead-java-full-stack-developer-9-to-13-years-pune-at-fis-4438192640"
+    },
+    {
+     "key": "c0f929c0d3311d7f4c58b803",
+     "title": ".Net Full stack developer - (.Net Core, Angular, Rest API)",
+     "company": "FIS",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVh2cM9sRYtgogTddeKfQMmvhtVtaoOrOCxb-j&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-09-23T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Position Type Full time Type Of Hire Experienced (relevant combo of work and education) Education Desired Bachelor's Degree Net Full stack developer - (.Net Core, Angular, Rest API) – 5-8 Yrs – Pune Location About The Te",
+     "score": 61,
+     "matched": [
+      "SQL",
+      "CSS",
+      "Tailwind CSS",
+      "REST APIs"
+     ],
+     "missing": [
+      "Angular",
+      "Selenium",
+      "Agile",
+      "Communication"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/net-full-stack-developer-net-core-angular-rest-api-at-fis-4470978643"
+    },
+    {
+     "key": "5a152d243aff2e01796f2f96",
+     "title": "AI Full Stack Engineer, Ontologies & Knowledge Graphs",
+     "company": "Cadence Design Systems (India) Pvt. Ltd.",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://cadence.com&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-06T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Cadence is a pivotal leader in electronic design, building upon more than 30 years of computational software expertise. The company applies its underlying Intelligent System Design strategy to deliver software, hardware ",
+     "score": 60,
+     "matched": [
+      "Python",
+      "REST APIs"
+     ],
+     "missing": [
+      "Teamwork"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/ai-full-stack-engineer-ontologies-knowledge-graphs-at-cadence-design-systems-india-pvt-ltd-4474691827"
+    },
+    {
+     "key": "651cb674f91a17d6c908899e",
+     "title": "Full-Stack Developer",
+     "company": "Fujitsu",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrQMTCRnH6iqRds-1hKrdOGX5yk-5-UHAak_65&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-01T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Job Location: Pune, Noida, Chennai, Hyderabad, Bangalore Location Flexibility: Multiple Locations in Country Req Id: 12548 Posting Start Date: 9/23/26 At Fujitsu, our purpose is to make the world more sustainable by buil",
+     "score": 55,
+     "matched": [
+      "JavaScript",
+      "SQL",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs",
+      "MongoDB"
+     ],
+     "missing": [
+      "Vue.js",
+      "Java",
+      "Cloud platforms",
+      "Git",
+      "CI/CD",
+      "Microservices"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/full-stack-developer-at-fujitsu-4470925675"
+    },
+    {
+     "key": "224518da704f07d263c73c36",
+     "title": "Senior Software Engineer - Full-stack",
+     "company": "Crest Data",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQorUaqCXOX-EKzPnwxZJFoVZnrjHqrr3S9I7ut&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-09-28T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Immediate Joiners/ 30 Days of Notice Period 4+ Years of Experience Strong hands-on DSA Location: Baner, Pune Senior Software Engineer – Full Stack (Python) We are looking for a passionate and experienced Senior Software ",
+     "score": 45,
+     "matched": [
+      "Python",
+      "React"
+     ],
+     "missing": [
+      "Angular",
+      "CI/CD",
+      "Testing",
+      "Agile",
+      "Data modeling"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/senior-software-engineer-full-stack-at-crest-data-4472497606"
+    },
+    {
+     "key": "77acee3c60d92014429e7942",
+     "title": "Full Stack Developer",
+     "company": "KONE",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpvKlWmdvbr7JBkCgGW4MqCnvDdF_6InxxzyRm&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-06T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Founded in 1910, KONE is a global leader that provides elevators, escalators and automatic building doors, as well as solutions for maintenance and modernization that add value to buildings throughout their life cycle. O",
+     "score": 42,
+     "matched": [],
+     "missing": [
+      "Cloud platforms",
+      "Teamwork"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/full-stack-developer-at-kone-4446898716"
+    },
+    {
+     "key": "e5775f9cb8c31451f662f76c",
+     "title": "Senior Software Engineer - FullStack",
+     "company": "Xplor Technologies",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQsTzMyEKxim59x5AllREp2jkT1wVV7lL5gEEWs&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-07T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "At Xplor, we help businesses thrive by making life simple for daily activities with a recurring nature. We do that by offering smart software, payments, and commerce-enabling solutions across five “everyday life” vertica",
+     "score": 32,
+     "matched": [
+      "JavaScript",
+      "Python",
+      "SQL",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs",
+      "PostgreSQL"
+     ],
+     "missing": [
+      "AWS",
+      "Docker",
+      "Git",
+      "GitHub Actions",
+      "CI/CD",
+      "Playwright"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/senior-software-engineer-fullstack-at-xplor-technologies-4475182280"
+    },
+    {
+     "key": "2241fe4418f61ea664cbb5b6",
+     "title": "Dotnet Fullstack Developer Senior (C# & Angular)",
+     "company": "FIS",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVh2cM9sRYtgogTddeKfQMmvhtVtaoOrOCxb-j&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-09-28T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Position Type Full time Type Of Hire Experienced (relevant combo of work and education) Education Desired Bachelor of Engineering Dotnet Full Stack Developer Senior – 6-9 Yrs of experience – Pune Location About The Team ",
+     "score": 28,
+     "matched": [
+      "TypeScript",
+      "SQL",
+      "REST APIs"
+     ],
+     "missing": [
+      "Angular",
+      "Microservices",
+      "Testing",
+      "Agile",
+      "Scrum",
+      "Communication"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/dotnet-fullstack-developer-senior-c%23-angular-at-fis-4472774120"
+    },
+    {
+     "key": "824adc2dcbc09e7147b7c994",
+     "title": "Senior Specialist, Full-Stack Engineer",
+     "company": "BNY",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ0SN2EoGuTXiu8yUNCK_uxCRPbUshqNURL12uG&s=0",
+     "location": "Pimpri-Chinchwad, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-08T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Job Description In this role, you’ll make an impact in the following ways: • Design, develop, test, deploy, and maintain full stack applications that support applied AI solutions, enterprise platform capabilities, and AI",
+     "score": 23,
+     "matched": [],
+     "missing": [
+      "CI/CD",
+      "Automated testing",
+      "Agile"
+     ],
+     "source": "jsearch",
+     "platform": "linkedin",
+     "url": "https://in.linkedin.com/jobs/view/senior-specialist-full-stack-engineer-at-bny-4468273491"
+    }
+   ]
+  },
+  {
+   "platform": "naukri",
+   "name": "Naukri",
+   "jobs": [
+    {
+     "key": "6a9eefdfcd9a76c315f165b6",
+     "title": "Senior Full Stack Developer",
+     "company": "Simplify Healthcare",
+     "logo": "",
+     "location": "Pune",
+     "remote": false,
+     "type": "",
+     "experience": "5–10 years",
+     "postedAt": null,
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "- [x] Corporate(575) - [x] Indian MNC(459) - [x] Startup(106) View More Role category - [x] Software Development(3406) - [x] Quality Assurance and Testing(224) - [x] Data Science & Machine Learning(64) - [x] IT & Informa",
+     "score": null,
+     "matched": [],
+     "missing": [],
+     "source": "web",
+     "platform": "naukri",
+     "url": "https://www.naukri.com/job-listings-senior-full-stack-developer-simplify-healthcare-pune-5-to-10-years-260526026078?src=companyPageJobsMob&xp=19&px=1"
+    }
+   ]
+  },
+  {
+   "platform": "foundit",
+   "name": "Foundit",
+   "jobs": [
+    {
+     "key": "a8b45a74dd17c8bc1fe63ffc",
+     "title": "Full Stack Developer (Python, Golang, React, AWS)",
+     "company": "Info Origin Inc.",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTx4bBbxhpDlRojr7nafIp7SWzzMYKhSrTA8FvC&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-10T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Role: Full Stack Developer / Lead – Full Stack Development Location: Pune, MH Work Mode: Onsite Employment Type: Full-Time Travel Required: No Interview Mode: Video Only Salary: Market Rate / Year Role Overview We are se",
+     "score": 58,
+     "matched": [
+      "JavaScript",
+      "Python",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs",
+      "PostgreSQL"
+     ],
+     "missing": [
+      "Go",
+      "AWS",
+      "Microservices",
+      "Elasticsearch",
+      "Machine learning",
+      "Communication"
+     ],
+     "source": "jsearch",
+     "platform": "foundit",
+     "url": "https://www.foundit.in/job/full-stack-developer-python-golang-react-aws-info-origin-inc-pune-69434526"
+    }
+   ]
+  },
+  {
+   "platform": "internshala",
+   "name": "Internshala",
+   "jobs": [
+    {
+     "key": "988021f52168a025bf51b360",
+     "title": "Full-stack Engineer - Fresher",
+     "company": "Quavento Technonologies",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjwudWdxgNmCqb2cygMk8UiW3lhSkf6SeCRMAG&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-13T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "About the job: Key responsibilities: 1. Design and build production sites and web apps in Next.js, React and TypeScript. 2. Build REST API integrations, including Razor pay, UPI, Ship rocket and WhatsApp Business API. 3.",
+     "score": 67,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "SQL",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Git",
+      "CI/CD",
+      "MySQL",
+      "UI/UX"
+     ],
+     "source": "jsearch",
+     "platform": "internshala",
+     "url": "https://internshala.com/job/detail/fresher-full-stack-engineer-job-in-pune-at-quavento-technonologies1791875318"
+    }
+   ]
+  },
+  {
+   "platform": "wellfound",
+   "name": "Wellfound",
+   "jobs": [
+    {
+     "key": "6b7b9a8aa355dd3ce01dcce0",
+     "title": "Full Stack Developer – Java, Spring Boot & Angular",
+     "company": "Xohani Solutions",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0gYaty20TO0-oDAzmC8GyZV2pnC3lpWxHQXxo&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-09-21T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Experience: 5.5–12 Years Job Location: Pune Hiring Level: Senior Consultant / Manager Interview: Face-to-Face Notice Period: Immediate to 90 Days About the Opportunity We are hiring Full Stack professionals who can work ",
+     "score": 50,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "SQL",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Angular",
+      "Java",
+      "AWS",
+      "Azure",
+      "Cloud platforms",
+      "Docker"
+     ],
+     "source": "jsearch",
+     "platform": "wellfound",
+     "url": "https://wellfound.com/jobs/4748761-full-stack-developer-java-spring-boot-angular"
+    }
+   ]
+  },
+  {
+   "platform": "cutshort",
+   "name": "Cutshort",
+   "jobs": [
+    {
+     "key": "ddd62b736ccb244e0573244d",
+     "title": "FullstackDeveloper (Python / Node.js, React Angular Tier 1collegeible",
+     "company": "Staffnixcom",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRqJSnBYV2k8bo6qepDykQpxF_nqC70zKVKTAFL&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-09T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Mandatory (Experience 1) – Must have 3+ years of experience in Full Stack Development with hands-on experience building and deploying production-grade web applications. 2 Mandatory (Skills 1) – Must have strong hands-on ",
+     "score": 37,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "Python",
+      "SQL",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js"
+     ],
+     "missing": [
+      "Angular",
+      "AWS",
+      "Azure",
+      "Cloud platforms",
+      "Docker",
+      "Kubernetes"
+     ],
+     "source": "jsearch",
+     "platform": "cutshort",
+     "url": "https://cutshort.io/job/FullstackDeveloper-Python-Node-js-React-Angular-Tier-1collegeible-Pune-Staffnixcom-J975QWuR"
+    }
+   ]
+  },
+  {
+   "platform": "shine",
+   "name": "Shine",
+   "jobs": [
+    {
+     "key": "7ec2cf2ea2208733f59f93d7",
+     "title": "Full Stack Developer Python, Node Js, Infrastructure & Ai/ml Pune (India)",
+     "company": "MindOrbit UK",
+     "logo": "",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-07T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Full-stack developer Python, Node.js, infrastructure, and applied AI. India. Remote for now. 3+ years. Full-time. About the role This is enterprise software. You own features from the screen through the API and the data,",
+     "score": 74,
+     "matched": [
+      "JavaScript",
+      "Python",
+      "React",
+      "Next.js",
+      "HTML",
+      "CSS",
+      "Tailwind CSS",
+      "Node.js"
+     ],
+     "missing": [
+      "AWS",
+      "Google Cloud",
+      "Docker",
+      "Kubernetes",
+      "Terraform",
+      "CI/CD"
+     ],
+     "source": "jsearch",
+     "platform": "shine",
+     "url": "https://www.shine.com/jobs/full-stack-developer-python-node-js-infrastructure-ai-ml-pune-india/mindorbit-uk/19733211"
+    }
+   ]
+  },
+  {
+   "platform": "other",
+   "name": "Other job boards",
+   "jobs": [
+    {
+     "key": "58b1260943b69dd72cc41323",
+     "title": "Full-Stack Developer - Next.js / React / Supabase (Pune)",
+     "company": "sirsonite solutions",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://sirsonite.com&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-12T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Full-Stack Developer - Next.js / React / Supabase Job Summary We are looking for a Full-Stack Developer to work on a client-facing digital product and help deliver its first production release. The focus is on building a",
+     "score": 83,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "React",
+      "Next.js",
+      "Tailwind CSS",
+      "Node.js",
+      "Express.js",
+      "PostgreSQL"
+     ],
+     "missing": [
+      "Git",
+      "AI-assisted development"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://in.jobrapido.com/jobpreview/2890130086357368832"
+    },
+    {
+     "key": "da1d6ed70ee446e629b4829f",
+     "title": "Developer - Dot Net Full Stack (Pune)",
+     "company": "AIT Global",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQIkuCdkSqNjNXP8he5UcbCIFJKjAzMCDBhjvS9&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-12T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Developer - .NET Full Stack Experience: 3-6 years Job category: IT Job Type: FullTime Job Location: Pune - Hybrid Number of Positions: 1 We are looking for a .NET Full Stack Developer to design and develop scalable web a",
+     "score": 81,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "SQL",
+      "Next.js",
+      "HTML",
+      "CSS",
+      "Tailwind CSS",
+      "Node.js"
+     ],
+     "missing": [
+      "Angular",
+      "AWS",
+      "Agile"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://in.jobrapido.com/jobpreview/3051367969012580352"
+    },
+    {
+     "key": "130dc18e90750d4a6629cbe9",
+     "title": "Sr Full Stack Developer – (Platform Integration)",
+     "company": "Siemens Healthineers",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://siemens-healthineers.com&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-09T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Join us in pioneering breakthroughs in healthcare. For everyone. Everywhere. Sustainably. Our inspiring and caring environment forms a global community that celebrates diversity and individuality. We encourage you to ste",
+     "score": 72,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "React",
+      "Next.js",
+      "CSS",
+      "Tailwind CSS",
+      "Node.js",
+      "Express.js"
+     ],
+     "missing": [
+      "Angular",
+      "Azure"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://www.mployee.me/jobs/view/sr-full-stack-developer-platform-integration-in-pune-at-siemens-healthineers--jid--447031224823359/s1"
+    },
+    {
+     "key": "2022710c4983c3caf6dadcbd",
+     "title": "Full-Stack Engineer (Node.js & PostgreSQL)",
+     "company": "Yugam Technologies",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://jobleads.com&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-11T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Role Summary Looking for a Full-Stack developer who enjoys architecting secure backend APIs, optimizing database schemas, and wiring together robust web applications. Key Responsibilities • Architect and maintain REST AP",
+     "score": 72,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs",
+      "PostgreSQL"
+     ],
+     "missing": [
+      "AWS",
+      "Docker",
+      "MySQL"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://www.jobleads.com/in/job/full-stack-engineer-node-js-postgresql--pune-district--ed94fcea80acc97aecf2f4d0925131a78"
+    },
+    {
+     "key": "7c20b18cf2d4691d39797b53",
+     "title": "Senior Java Full stack Developer – Assistant Vice President",
+     "company": "Early Career",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://jobs.citi.com&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-08T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "The Applications Development Senior Programmer Analyst is an intermediate level position responsible for participation in the establishment and implementation of new or revised application systems and programs in coordin",
+     "score": 66,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "SQL",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Angular",
+      "Vue.js",
+      "Java",
+      "Testing"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://jobs.citi.com/job/pune/senior-java-full-stack-developer-assistant-vice-president/287/101694114192"
+    },
+    {
+     "key": "74054870f4a13b3b2f47b84d",
+     "title": "Lead Java Full Stack Developer - 9 to 13 Years- Pune",
+     "company": "FIS Global",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuUT4LOgxmcCh-URBiKxaV5sLd0f_SH3e138ux&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-09T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Position Type : Full time Type Of Hire : Experienced (relevant combo of work and education) Education Desired : Bachelor of Computer Engineering Are you curious, self-motivated, and forward-thinking? At FIS you’ll have t",
+     "score": 64,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "Next.js",
+      "HTML",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Angular",
+      "Java",
+      "Unit testing",
+      "Agile",
+      "Leadership",
+      "Teamwork"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://careers.fisglobal.com/us/en/job/FIGLUSJR0303743EXTERNAL/Lead-Java-Full-Stack-Developer-9-to-13-Years-Pune"
+    },
+    {
+     "key": "fc28f8a2071b9fb5eddefcb6",
+     "title": "Senior Full Stack Developer - Angular & Node.js",
+     "company": "Yash Technologies Private Limited",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT49CH2jS5ILxmIgBFa10bSExl-Df16GcxO9XiA&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-10T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "UI Specialist - Angular Job YASH Technologies is a leading technology integrator specializing in helping clients reimagine operating models, enhance competitiveness, optimize costs, foster exceptional stakeholder experie",
+     "score": 63,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "SQL",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs",
+      "PostgreSQL"
+     ],
+     "missing": [
+      "Angular",
+      "Azure",
+      "Docker",
+      "Kubernetes",
+      "Git",
+      "GitHub Actions"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://bebee.com/in/jobs/senior-full-stack-developer-angular-nodejs-yash-technologies-private-limited-pune--techmap_in_1868249017"
+    },
+    {
+     "key": "3cb71f81fd274f1acbaeaa8b",
+     "title": "Full Stack Developer React.js & Node.js",
+     "company": "populace world solutions",
+     "logo": "",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-09T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Position: Full Stack Developer – React.js & Node.js Location: Pune Experience: 6 to 8 Year s Mandatory Skills • 6–8 years of software development experience. • Strong hands-on experience with React.js . • Strong hands-on",
+     "score": 60,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Azure",
+      "Docker",
+      "Git",
+      "GitHub Actions",
+      "CI/CD",
+      "Communication"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://in.jooble.org/jdp/-7767622460722959167"
+    },
+    {
+     "key": "396bd39d757501f1973463ae",
+     "title": "Deputy Manager | Full Stack Developer | Pune | Engineering as a Service/ Operate",
+     "company": "deloitte",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfkkjXMNIx9vDFvwO8j_IqvJ-ypSIC20msGs_D&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-09T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Assistant Manager, Deputy Manager| Full Stack – API/Integration Specialty | 10-12 years | Pune Full Stack – API/Integration Specialty (10+ years) Must Have: Angular, Advance Node.js/Java, Docker, Kubernetes, Azure, Deep ",
+     "score": 56,
+     "matched": [
+      "JavaScript",
+      "React",
+      "Next.js",
+      "CSS",
+      "Tailwind CSS",
+      "Node.js",
+      "Express.js"
+     ],
+     "missing": [
+      "Angular",
+      "Java",
+      "Azure",
+      "Docker",
+      "Kubernetes",
+      "GraphQL"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://southasiacareers.deloitte.com/job/Pune-Deputy-Manager-Full-Stack-Developer-Pune-Engineering-as-a-Service-Operate/60554744/"
+    },
+    {
+     "key": "11cb75bb2821f8657afed86b",
+     "title": "AI Full Stack Developer",
+     "company": "Quest Global",
+     "logo": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZHaMCdGGIK0oanecRqJSp1PlotM6YGnhF9VC2&s=0",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-12T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Job Requirements Role and Responsibility Brief We are looking for a highly motivated Full Stack Developer to join the engineering team. The engineer will be responsible for designing, developing, and maintaining scalable",
+     "score": 52,
+     "matched": [
+      "JavaScript",
+      "Python",
+      "SQL",
+      "React",
+      "Next.js",
+      "Node.js",
+      "Express.js",
+      "REST APIs"
+     ],
+     "missing": [
+      "Java",
+      "AWS",
+      "Azure",
+      "Cloud platforms",
+      "CI/CD",
+      "Microservices"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://careers.quest-global.com/global/en/job/P-122946/AI-Full-Stack-Developer"
+    },
+    {
+     "key": "23485de19f3a58eb0205d070",
+     "title": ".NET Full Stack Architect / Principal Engineer – Azure",
+     "company": "TECH NEXT",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://simplyhired.co.in&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-08T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": ".NET Full Stack Architect / Principal Engineer – Azure Experience: 5–6 Years Location: Hybrid – Pan India Employment Type: C2C / FTE Working Hours: 11:00 AM – 9:00 PM Job Summary We are looking for a strong .NET Full Sta",
+     "score": 44,
+     "matched": [
+      "TypeScript",
+      "SQL",
+      "REST APIs"
+     ],
+     "missing": [
+      "Angular",
+      "Azure",
+      "CI/CD",
+      "Microservices",
+      "Communication",
+      "Leadership"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://www.simplyhired.co.in/job/3XNyfK5AdAGjU1joqwzahxzJQLgssmq2gq0q4z7wgaRA8AJuvhlOXA"
+    },
+    {
+     "key": "6b9543d970f285e02f5d3d52",
+     "title": "Java Full stack developer",
+     "company": "Cognizant",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://cognizant.com&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-13T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": "Job Summary Data Platform Administrator responsible for designing implementing and maintaining scalable microservice based data platforms using modern Java and Angular frameworks in a hybrid work model. Role focuses on s",
+     "score": 42,
+     "matched": [],
+     "missing": [
+      "Angular",
+      "Java",
+      "Microservices",
+      "UI/UX"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://careers.cognizant.com/global-en/jobs/00070747681/java-full-stack-developer/"
+    },
+    {
+     "key": "c1c6c3b10abb622d974bebc9",
+     "title": ".Net Fullstack Developer",
+     "company": "Hilti Panama",
+     "logo": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://careers.hilti.group&size=128",
+     "location": "Pune, Maharashtra",
+     "remote": false,
+     "type": "Full-time",
+     "experience": "",
+     "postedAt": "2026-10-12T00:00:00.000Z",
+     "salary": {
+      "text": "₹9 LPA",
+      "kind": "market",
+      "note": "Typical pay for a Full Stack Developer in Pune (Glassdoor median of 1,112 salaries)"
+     },
+     "snippet": ".Net Fullstack Developer As an Advanced Software Engineer at Hilti, you will work on large-scale digital platforms and complex engineering challenges that support Hilti's global transformation journey. You will independe",
+     "score": 32,
+     "matched": [
+      "JavaScript",
+      "TypeScript",
+      "Next.js",
+      "CSS",
+      "Tailwind CSS",
+      "Node.js",
+      "Express.js"
+     ],
+     "missing": [
+      "Angular",
+      "Docker",
+      "Kubernetes",
+      "Git",
+      "Microservices",
+      "Agile"
+     ],
+     "source": "jsearch",
+     "platform": "other",
+     "url": "https://careers.hilti.group/es-pa/empleos/20914-en/net-fullstack-developer/"
+    }
+   ]
+  }
+ ],
+ "failures": [],
+ "cached": false,
+ "searchedAt": "2026-10-14T07:21:56.953Z"
+}

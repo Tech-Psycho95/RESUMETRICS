@@ -1,0 +1,98 @@
+[
+ {
+  "id": "navy-professional",
+  "name": "Navy Professional"
+ },
+ {
+  "id": "minimal-academic",
+  "name": "Minimal Academic"
+ },
+ {
+  "id": "libre-cv",
+  "name": "Libre CV"
+ },
+ {
+  "id": "simple-hipster",
+  "name": "Simple Hipster"
+ },
+ {
+  "id": "keywords-cv",
+  "name": "Single-page Keywords"
+ },
+ {
+  "id": "elegant-resume",
+  "name": "Elegant Resume"
+ },
+ {
+  "id": "developer-cv",
+  "name": "Developer CV"
+ },
+ {
+  "id": "curve-academic",
+  "name": "CurVe Academic"
+ },
+ {
+  "id": "receive",
+  "name": "ReCeiVe"
+ },
+ {
+  "id": "azurill",
+  "name": "Azurill"
+ },
+ {
+  "id": "bronzor",
+  "name": "Bronzor"
+ },
+ {
+  "id": "chikorita",
+  "name": "Chikorita"
+ },
+ {
+  "id": "ditgar",
+  "name": "Ditgar"
+ },
+ {
+  "id": "ditto",
+  "name": "Ditto"
+ },
+ {
+  "id": "gengar",
+  "name": "Gengar"
+ },
+ {
+  "id": "glalie",
+  "name": "Glalie"
+ },
+ {
+  "id": "kakuna",
+  "name": "Kakuna"
+ },
+ {
+  "id": "lapras",
+  "name": "Lapras"
+ },
+ {
+  "id": "leafish",
+  "name": "Leafish"
+ },
+ {
+  "id": "meowth",
+  "name": "Meowth"
+ },
+ {
+  "id": "onyx",
+  "name": "Onyx"
+ },
+ {
+  "id": "pikachu",
+  "name": "Pikachu"
+ },
+ {
+  "id": "rhyhorn",
+  "name": "Rhyhorn"
+ },
+ {
+  "id": "scizor",
+  "name": "Scizor"
+ }
+]

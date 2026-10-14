@@ -1,31 +1,44 @@
-import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import logo from '../assets/resumetrics-logo.png'
-import CinematicHero from '../components/landing/CinematicHero.jsx'
-import FeatureShowcase from '../components/landing/FeatureShowcase.jsx'
-import FinalCTA from '../components/landing/FinalCTA.jsx'
+import { useEffect, useRef } from 'react'
+import LandingNav from '../components/landing/LandingNav.jsx'
+import GoldHero from '../components/landing/GoldHero.jsx'
+import ResumeWriter from '../components/landing/ResumeWriter.jsx'
+import StatsBand from '../components/landing/StatsBand.jsx'
+import NimbusSection from '../components/landing/NimbusSection.jsx'
+import ScreenSlider from '../components/landing/ScreenSlider.jsx'
+import TemplateCarousel from '../components/landing/TemplateCarousel.jsx'
+import RatingStamp from '../components/landing/RatingStamp.jsx'
+import WhyFolder from '../components/landing/WhyFolder.jsx'
+import { BigCta, LandingFooter } from '../components/landing/ClosingSections.jsx'
 import useLenis from '../components/landing/useLenis.js'
-import '../styles/landing.css'
+import useRevealOnScroll from '../components/landing/useRevealOnScroll.js'
+import useCinematicScroll from '../components/landing/useCinematicScroll.js'
+import '../styles/landing-page.css'
 
 export default function LandingPage() {
-  const navigate = useNavigate()
+  const rootRef = useRef(null)
   useLenis()
+  useRevealOnScroll(rootRef)
+  useCinematicScroll(rootRef)
 
   useEffect(() => {
     const previousTitle = document.title
-    document.title = 'Resumetrics — Build smarter resumes with AI'
+    document.title = 'Resumetrics — The resume your work deserves'
     return () => { document.title = previousTitle }
   }, [])
 
-  return <div className="landing-page">
-    <header className="landing-nav">
-      <a href="#top" className="landing-brand" aria-label="Resumetrics home"><img src={logo} alt="Resumetrics" /></a>
-      <nav className="landing-links" aria-label="Landing page navigation"><a href="#features">Features</a></nav>
-      <button className="landing-nav-cta" type="button" onClick={() => navigate('/login')}>Sign in</button>
-    </header>
-    <CinematicHero />
-    <FeatureShowcase />
-    <FinalCTA />
-    <footer className="landing-footer"><img src={logo} alt="Resumetrics" /><span>Resumes built from your real work.</span></footer>
+  return <div className="lp" ref={rootRef}>
+    <LandingNav />
+    <main className="lp-main">
+      <GoldHero />
+      <ResumeWriter />
+      <StatsBand />
+      <NimbusSection />
+      <ScreenSlider />
+      <TemplateCarousel />
+      <RatingStamp />
+      <WhyFolder />
+      <BigCta />
+    </main>
+    <LandingFooter />
   </div>
 }

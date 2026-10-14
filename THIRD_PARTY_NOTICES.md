@@ -18,3 +18,16 @@ text is preserved in `licenses/REACTIVE_RESUME_MIT.txt`.
 Brand logos in the Links section come from the `simple-icons` package
 (https://simpleicons.org), released under CC0 1.0. Brand names and logos remain
 trademarks of their respective owners.
+
+## React Bits
+
+The landing page uses five components from React Bits (https://reactbits.dev):
+GhostFibers, ElectricLogo, CircularCarousel, PeekRating and FolderFloat, in their
+JS + CSS variants under `src/components/reactbits/`. Changes from the published code
+are marked "Resumetrics:" in the files. React Bits is distributed under the MIT
+License with the Commons Clause (https://github.com/DavidHDev/react-bits).
+
+## Job board logos
+
+The job board icons in `public/boards/` are the boards' own site icons, shown only
+to identify where a posting comes from. They remain trademarks of their owners.
