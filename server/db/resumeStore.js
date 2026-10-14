@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getConnectionStore } from '../services/firebaseAdmin.js'
+import { COUNTED_DELETE_PERCENT, FREE_RESUME_LIMIT, isProPlan } from '../../shared/plans.js'
+import { resumeCompletion } from '../../shared/resumeCompletion.js'
 
 // users/{uid}/resumes/{resumeId}. The browser never talks to Firestore: every read and write comes through
 // the Express routes, which verify the Firebase ID token and then only touch users/{thatUid}/...
@@ -107,7 +109,8 @@ export function createResumeStore({
   now = () => new Date(),
   checkpointMs = CHECKPOINT_MS
 } = {}) {
-  const collectionFor = uid => getDb().collection('users').doc(uid).collection('resumes')
+  const userRef = uid => getDb().collection('users').doc(uid)
+  const collectionFor = uid => userRef(uid).collection('resumes')
   const versionsFor = (uid, id) => collectionFor(uid).doc(id).collection('versions')
   // Time-sortable, so ids list in creation order even before createdAt is looked at.
   const newVersionId = () => `${String(now().getTime()).padStart(13, '0')}-${randomUUID().slice(0, 8)}`
@@ -132,6 +135,34 @@ export function createResumeStore({
   }
 
   /**
+   * Resume slots (shared/plans.js): users/{uid}.resumesCounted goes up with every resume created and down only when
+   * a deleted resume was under COUNTED_DELETE_PERCENT complete. Accounts from before the counter start at their
+   * current number of resumes. Reads only, so it can run before a transaction's writes.
+   */
+  async function readSlots(transaction, uid) {
+    const snapshot = await transaction.get(userRef(uid))
+    const user = snapshot.exists ? snapshot.data() : {}
+    const counted = Number.isInteger(user.resumesCounted) && user.resumesCounted >= 0
+    const used = counted ? user.resumesCounted : (await transaction.get(collectionFor(uid).select())).docs.length
+    return { used, counted, pro: isProPlan(user.plan, now().getTime()) }
+  }
+
+  /** Takes a slot for a new resume, or throws 'plan_limit' on a free account that has used them all. */
+  async function claimSlot(transaction, uid) {
+    const slots = await readSlots(transaction, uid)
+    if (!slots.pro && slots.used >= FREE_RESUME_LIMIT) {
+      throw new ResumeStoreError('plan_limit', `You’ve used the ${FREE_RESUME_LIMIT} resumes on the free plan. Upgrade to Pro for unlimited resumes.`, { limit: FREE_RESUME_LIMIT })
+    }
+    return () => transaction.set(userRef(uid), { resumesCounted: slots.used + 1 }, { merge: true })
+  }
+
+  /** { used, limit } for the plan page and the dashboard; limit is null on Pro. */
+  async function resumeAllowance(uid) {
+    const slots = await getDb().runTransaction(transaction => readSlots(transaction, uid))
+    return { used: slots.used, limit: slots.pro ? null : FREE_RESUME_LIMIT }
+  }
+
+  /**
    * Create (baseRevision null) or update (baseRevision = the revision the client last saw) in one transaction.
    * A stale baseRevision throws 'conflict' and writes nothing, so two tabs or devices can't silently overwrite each other.
    */
@@ -147,7 +178,9 @@ export function createResumeStore({
       if (!snapshot.exists) {
         // Someone deleted it elsewhere: tell the client rather than quietly bringing it back.
         if (baseRevision !== null) throw new ResumeStoreError('not_found', 'This resume was deleted somewhere else.')
+        const takeSlot = await claimSlot(transaction, uid)
         transaction.set(ref, { ...document, revision: 1, createdAt: timestamp(), updatedAt: timestamp() })
+        takeSlot()
         return { id, revision: 1, updatedAt: now().toISOString() }
       }
       const existing = snapshot.data()
@@ -254,11 +287,13 @@ export function createResumeStore({
       const [source, copy] = await Promise.all([transaction.get(sourceRef), transaction.get(copyRef)])
       if (copy.exists) return toApiResume(newId, copy.data())
       if (!source.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      const takeSlot = await claimSlot(transaction, uid)
       const original = toApiResume(id, source.data())
       const suffix = ' (copy)'
       const fields = validateResumeFields({ ...original, name: `${original.name.slice(0, MAX_NAME_LENGTH - suffix.length)}${suffix}` })
       const stamp = now().toISOString()
       transaction.set(copyRef, { ...fields, progress: progressOf(fields.data), schemaVersion: SCHEMA_VERSION, revision: 1, createdAt: timestamp(), updatedAt: timestamp() })
+      takeSlot()
       return toApiResume(newId, { ...fields, progress: progressOf(fields.data), revision: 1, createdAt: stamp, updatedAt: stamp })
     })
   }
@@ -274,12 +309,26 @@ export function createResumeStore({
     return toApiResume(snapshot.id, snapshot.data())
   }
 
-  /** Deleting twice is fine (a retried request must not fail). Also removes the versions subcollection. */
+  /**
+   * Deleting twice is fine (a retried request must not fail). The document and the slot change happen in one
+   * transaction, so a retry can't give a slot back twice; the versions subcollection is removed afterwards.
+   */
   async function deleteResume(uid, id) {
-    await getDb().recursiveDelete(collectionFor(uid).doc(id))
+    const ref = collectionFor(uid).doc(id)
+    await getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) return
+      const slots = await readSlots(transaction, uid)
+      const keepsSlot = resumeCompletion(toApiResume(id, snapshot.data()).data) >= COUNTED_DELETE_PERCENT
+      // The counter is set from the resumes that exist now, so it is written even when the slot is kept.
+      const used = keepsSlot ? slots.used : Math.max(0, slots.used - 1)
+      if (!slots.counted || used !== slots.used) transaction.set(userRef(uid), { resumesCounted: used }, { merge: true })
+      transaction.delete(ref)
+    })
+    await getDb().recursiveDelete(ref)
   }
 
-  return { saveResume, renameResume, duplicateResume, createVersion, listVersions, restoreVersion, listResumes, getResume, deleteResume }
+  return { resumeAllowance, saveResume, renameResume, duplicateResume, createVersion, listVersions, restoreVersion, listResumes, getResume, deleteResume }
 }
 
 export const resumeStore = createResumeStore()

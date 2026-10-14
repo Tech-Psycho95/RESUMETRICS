@@ -23,7 +23,7 @@ import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
 import NimbusChat from './components/nimbus/NimbusChat.jsx'
 import EditorShell from './components/editor/EditorShell.jsx'
 import FormatPanel from './components/editor/FormatPanel.jsx'
-import AiRail, { CoverLetterDock, EvidenceDock, TailorDock } from './components/editor/AiRail.jsx'
+import AiRail, { CoverLetterDock, EvidenceDock } from './components/editor/AiRail.jsx'
 import SectionForm from './components/form/SectionForm.jsx'
 import { SaveButton } from './components/SaveButton.jsx'
 import { VersionHistory } from './components/VersionHistory.jsx'
@@ -73,21 +73,30 @@ import LetterStudio, { LetterPrintPage, initialLetterMessages } from './coverLet
 import { createLetter, letterFromJob, letterToText } from '../shared/letterModel.js'
 import './cover-letter.css'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
+import { resumeCompletion, resumeCompletionParts } from '../shared/resumeCompletion.js'
+import { COUNTED_DELETE_PERCENT, FREE_RESUME_LIMIT } from '../shared/plans.js'
+import { PlanProvider, usePlan } from './context/PlanContext.jsx'
+import UpgradeDialog from './plan/UpgradeDialog.jsx'
+import SubscriptionBlock from './plan/SubscriptionBlock.jsx'
+import PlanPage from './plan/PlanPage.jsx'
+import JobTrackerPage from './jobs/JobTrackerPage.jsx'
 
-// Items without a path are planned features shown as "Soon" until their pages exist.
+// [label, path, icon, gate, pro]. Items with a gate need a resume: they open the "Select a resume first" pop-up over
+// the current page (PLAN-033). Pro items send free accounts to the plan page instead (shared/plans.js).
 const navSections = [
   { label: 'Main menu', items: [
     ['Dashboard', '/dashboard', 'dashboard'],
     ['Resume builder', '/workspace', 'create'],
     ['Templates', '/templates', 'layout'],
-    ['Plan', null, 'crown']
+    ['Plan', '/plan', 'crown']
+  ] },
+  { label: 'Resume tools', items: [
+    ['Cover letters', null, 'mail', 'letter'],
+    ['Evidence check', null, 'evidence', 'evidence']
   ] },
   { label: 'Career tools', items: [
-    // These three need a resume: they do not navigate, they open the "Select a resume first" pop-up over the current page (PLAN-033).
-    ['Job tailoring', null, 'target', 'tailor'],
-    ['Cover letters', null, 'mail', 'letter'],
-    ['Evidence check', null, 'evidence', 'evidence'],
-    ['Job tracker', null, 'briefcase']
+    ['Job tailoring', null, 'target', 'tailor', true],
+    ['Job tracker', '/jobs', 'briefcase', null, true]
   ] }
 ]
 const navUtilityItems = [
@@ -208,6 +217,12 @@ function describeCloudResume(resume) {
   })
 }
 
+// What the upgrade pop-up says when a free account has no resume slots left (shared/plans.js).
+const RESUME_LIMIT_REASON = {
+  title: `You’ve used your ${FREE_RESUME_LIMIT} free resumes`,
+  text: `The free plan includes ${FREE_RESUME_LIMIT} resumes. Pro gives you unlimited resumes plus job tailoring and the job tracker. Deleting a resume that is under ${COUNTED_DELETE_PERCENT}% complete also frees a slot.`
+}
+
 function getResumeHealth(resumeData) {
   const data = resumeData ?? {}
   const has = value => typeof value === 'string' && value.trim().length > 0
@@ -229,18 +244,10 @@ function getResumeHealth(resumeData) {
     { key: 'projects', label: 'Projects', weight: 7, status: rate(count(data.projects) > 0, false), detail: count(data.projects) ? `${count(data.projects)} project${count(data.projects) === 1 ? '' : 's'}` : 'Missing', tip: 'Showcase a project that proves your skills.' },
     { key: 'links', label: 'Links', weight: 5, status: rate(count(data.links) > 0, false), detail: count(data.links) ? `${count(data.links)} link${count(data.links) === 1 ? '' : 's'}` : 'Missing', tip: 'Link your portfolio, GitHub or LinkedIn.' }
   ]
-  const progress = {
-    contact: contactFields / 4,
-    headline: has(data.headline) ? 1 : 0,
-    summary: Math.min(summaryWords / 30, 1),
-    experience: experience.length ? .25 + .75 * Math.min(experienceBullets / (experience.length * 2), 1) : 0,
-    education: count(data.education) ? 1 : 0,
-    skills: Math.min(skillCount / 6, 1),
-    projects: count(data.projects) ? 1 : 0,
-    links: count(data.links) ? 1 : 0
-  }
+  // Shared with the server, which uses the same number to decide whether a deleted resume still counts (shared/plans.js).
+  const progress = resumeCompletionParts(data)
   checks.forEach(check => { check.progress = resumeData ? progress[check.key] : 0 })
-  const completion = resumeData ? Math.round((checks.reduce((total, check) => total + check.progress, 0) / checks.length) * 100) : 0
+  const completion = resumeData ? resumeCompletion(resumeData) : 0
   const tone = !resumeData ? 'empty' : completion >= 80 ? 'strong' : completion >= 50 ? 'fair' : 'weak'
   return {
     completion,
@@ -440,6 +447,7 @@ function GeneralSettingsPanel() {
             <p>Your photo comes from your Google account. Change it in Google to update it here.</p>
           </div>
         </div>
+        <SubscriptionBlock />
         <div className="settings-block settings-field-grid">
           <label className="settings-field"><span><b>Name</b><small>From Google</small></span><input value={displayName} readOnly aria-readonly="true" /></label>
           <label className="settings-field"><span><b>Email address</b><small>Used to sign in</small></span><input value={currentUser?.email || ''} readOnly aria-readonly="true" /></label>
@@ -535,6 +543,8 @@ function DashboardPage() {
   const [renameValue, setRenameValue] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const { pro, resumes: allowance, canCreateResume, refresh: refreshPlan } = usePlan()
+  const [upgrade, setUpgrade] = useState(null)
   // Every change goes through here so the sidebar's recent list (projectsCache) stays in step with the cards.
   const setSavedProjects = useCallback(next => {
     projectsRef.current = next
@@ -569,6 +579,7 @@ function DashboardPage() {
     }
 
     loadFromCloud()
+    refreshPlan()
     setSelectedProjectId(null)
     setConfirmDeleteId(null)
     setRenamingId(null)
@@ -577,7 +588,7 @@ function DashboardPage() {
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) pageRef.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' })
     
     return () => { cancelled = true }
-  }, [location.key, retryCount, setSavedProjects])
+  }, [location.key, retryCount, setSavedProjects]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectProject = id => {
     setConfirmDeleteId(null)
@@ -594,6 +605,7 @@ function DashboardPage() {
     setActionError('')
     try {
       await deleteResume(id)
+      refreshPlan()
     } catch (error) {
       console.error('[Dashboard] Could not delete the resume:', error)
       setSavedProjects(previous)   // it still exists in the cloud, so keep showing it
@@ -630,6 +642,7 @@ function DashboardPage() {
   }
 
   const duplicateProject = async project => {
+    if (!canCreateResume) { setUpgrade(RESUME_LIMIT_REASON); return }
     setBusyId(project.id)
     setActionError('')
     try {
@@ -637,8 +650,10 @@ function DashboardPage() {
       setSavedProjects([copy, ...projectsRef.current])
       setSelectedProjectId(copy.id)
       projectRailRef.current?.scrollTo({ left: 0, behavior: 'smooth' })
+      refreshPlan()
     } catch (error) {
       console.error('[Dashboard] Could not duplicate the resume:', error)
+      if (error.kind === 'plan_limit') { setUpgrade(RESUME_LIMIT_REASON); refreshPlan(); return }
       setActionError(error.message || 'Could not duplicate this resume.')
     } finally {
       setBusyId(null)
@@ -699,14 +714,14 @@ function DashboardPage() {
 
       <div className="dashboard-projects-heading">
         <h2>Your projects</h2>
-        <span>{savedProjects.length} saved</span>
+        <span>{savedProjects.length} saved{!pro && allowance?.limit ? ` · ${Math.min(allowance.used, allowance.limit)} of ${allowance.limit} free resumes used` : ''}</span>
       </div>
       {(loadState === 'error' || actionError) && <p className="dashboard-projects-notice" role="alert">
         {actionError || 'Your saved resumes could not be loaded.'}
         {loadState === 'error' && !actionError && <button type="button" onClick={() => setRetryCount(count => count + 1)}>Try again</button>}
       </p>}
       <section className="dashboard-project-section" aria-label="Projects">
-        <button className="dashboard-project-card is-create" type="button" onClick={() => navigate('/workspace')}>
+        <button className="dashboard-project-card is-create" type="button" onClick={() => (canCreateResume ? navigate('/workspace') : setUpgrade(RESUME_LIMIT_REASON))}>
           <span className="dashboard-project-icon"><Icon name="plus" size={28} /></span>
           <strong>Create new project</strong>
           <small>Start blank or import an existing resume</small>
@@ -738,6 +753,7 @@ function DashboardPage() {
                   : confirmDeleteId === project.id
                     ? <>
                       <span>Delete this project?</span>
+                      {!pro && projectHealth.completion >= COUNTED_DELETE_PERCENT && <small className="dashboard-delete-note" role="note">It’s {projectHealth.completion}% complete, so it will still count as 1 of your {FREE_RESUME_LIMIT} free resumes.</small>}
                       <button className="is-danger" type="button" onClick={() => deleteProject(project.id)}>Delete</button>
                       <button type="button" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
                     </>
@@ -754,6 +770,7 @@ function DashboardPage() {
         {canAdvanceProjects && <button className="dashboard-project-arrow" type="button" aria-label="View more projects" onClick={() => projectRailRef.current?.scrollBy({ left: projectRailRef.current.clientWidth * .82, behavior: 'smooth' })}>→</button>}
       </section>
     </div>
+    {upgrade && <UpgradeDialog title={upgrade.title} text={upgrade.text} onClose={() => setUpgrade(null)} />}
   </Shell>
 }
 
@@ -781,10 +798,12 @@ const helpArticles = [
   { topic: 'editing', question: 'How do I edit text on my resume?', answer: 'In the editor, click any text on the resume to edit it. The Format panel on the right changes fonts, size and colours — highlight words to make just those bold, italic or underlined.' },
   { topic: 'editing', question: 'Can I add a profile photo?', answer: 'Yes, on templates that support a photo. Upload a JPEG image from the editor, then adjust its position and size.' },
   { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS writes for you: ask it to deepen your summary, strengthen bullets, add something to a section or change a detail. It only uses facts from your resume or what you tell it. Fonts and colours are changed in the Format panel.' },
-  { topic: 'nimbus', question: 'How do I tailor my resume to a job?', steps: ['Open Job tailoring from the sidebar, or press Open beside "Tailor to a job" in the editor.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the changes you want and watch them appear on your resume beside it.'] },
+  { topic: 'nimbus', question: 'How do I tailor my resume to a job?', steps: ['Job tailoring is part of Pro. Open it under Career tools in the sidebar and pick a resume.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the changes you want and watch them appear on your resume beside it.'] },
+  { topic: 'nimbus', question: 'How does the job tracker find jobs?', steps: ['The job tracker is part of Pro. Open it under Career tools in the sidebar.', 'It searches with the role, skills and location on your latest resume. Pick another resume or change the role and city at the top.', 'Openings are shown in one row per job board (LinkedIn, Naukri, Indeed and more), ranked by how well your resume matches. Apply opens the posting on that board.', 'Press the heart to save a job, then move it from Saved to Applied, Interview and Offer under My applications.'] },
+  { topic: 'start', question: 'What does the free plan include?', answer: `The free plan includes ${FREE_RESUME_LIMIT} resumes with every template, NIMBUS, cover letters, the evidence check and export. Deleting a resume that is under ${COUNTED_DELETE_PERCENT}% complete frees its slot; a more complete one keeps counting. Pro adds unlimited resumes, job tailoring and the job tracker. See Plan in the sidebar.` },
   { topic: 'import', question: 'How do I start from my LinkedIn profile?', steps: ['On a desktop browser, open LinkedIn and go to Me → View Profile.', 'Choose Resources (or More), then Save to PDF.', 'In Resumetrics, choose Import from LinkedIn, upload that PDF, then pick a template.'] },
   { topic: 'nimbus', question: 'How do I add a cover letter to my resume?', steps: ['Open Cover letters from the sidebar and pick your resume, or press Open beside "Write a cover letter" in the editor.', 'Paste the job post under Details, then ask NIMBUS to write your letter, or type it on the page.', 'Upload a photo of your signature under Format, then press Add to resume. The letter becomes page 1 and is included when you export.'] },
-  { topic: 'start', question: 'Why does a pop-up ask me to select a resume?', answer: 'Job tailoring, Cover letters and Evidence check each work on one resume. When you click one in the sidebar, a pop-up asks you to start or import a resume first. Saved resumes are coming; until then the pop-up also offers the resume you are working on in this session.' },
+  { topic: 'start', question: 'Why does a pop-up ask me to select a resume?', answer: 'Cover letters, Evidence check and Job tailoring each work on one resume. When you click one in the sidebar, a pop-up asks you to pick the resume, or to start or import one first.' },
   { topic: 'evidence', question: 'Why connect GitHub?', answer: 'In the editor, press Compare next to GitHub evidence. Your 25 most recently updated repositories are scanned and each resume skill is shown with its share of your code; under 5% counts as too little evidence.' },
   { topic: 'export', question: 'Which formats can I download?', answer: 'Use the Export menu in the editor to download your resume as a PDF, a Word document (DOCX) or plain text (TXT).' },
   { topic: 'export', question: 'Is my resume saved automatically?', answer: 'Your current draft is kept in this browser tab, even if you refresh. Closing the tab clears it, so export your resume before you leave.' },
@@ -963,13 +982,21 @@ function TemplateGallery({ title = 'Templates', subtitle, previewData = template
 
 function TemplatesPage() {
   const navigate = useNavigate()
+  const { canCreateResume } = usePlan()
+  const [upgrade, setUpgrade] = useState(false)
   return <Shell>
-    <TemplateGallery onUse={templateId => navigate('/workspace', { state: { dashboardTemplateId: templateId } })} />
+    <TemplateGallery onUse={templateId => (canCreateResume ? navigate('/workspace', { state: { dashboardTemplateId: templateId } }) : setUpgrade(true))} />
+    {upgrade && <UpgradeDialog title={RESUME_LIMIT_REASON.title} text={RESUME_LIMIT_REASON.text} onClose={() => setUpgrade(false)} />}
   </Shell>
 }
 
-function SidebarLink({ label, path, icon, gate, onGate }) {
+function SidebarLink({ label, path, icon, gate, pro, onGate }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { locked } = usePlan()
+  if (pro && locked) {
+    return <button type="button" className="sidebar-link" onClick={() => navigate('/plan')} title={`${label} is part of Pro`}><Icon name={icon} size={18} /><span>{label}</span><small className="sidebar-pro">PRO</small></button>
+  }
   if (gate) {
     const active = location.pathname === gateTools[gate].route
     return <button type="button" className={`sidebar-link${active ? ' active' : ''}`} aria-haspopup="dialog" onClick={() => onGate(gate)}><Icon name={icon} size={18} /><span>{label}</span></button>
@@ -1009,7 +1036,7 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
       <div className="sidebar-scroll">
         {navSections.map(section => <div className="sidebar-section" key={section.label}>
           <span className="sidebar-label">{section.label}</span>
-          <nav aria-label={section.label}>{section.items.map(([label, path, icon, gate]) => <SidebarLink key={label} label={label} path={path} icon={icon} gate={gate} onGate={setGateTool} />)}</nav>
+          <nav aria-label={section.label}>{section.items.map(([label, path, icon, gate, pro]) => <SidebarLink key={label} label={label} path={path} icon={icon} gate={gate} pro={pro} onGate={setGateTool} />)}</nav>
         </div>)}
         {recentProjects.length > 0 && <div className="sidebar-section sidebar-recent">
           <span className="sidebar-label">Recent resumes</span>
@@ -1036,6 +1063,7 @@ function MainPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { currentUser } = useAuth()
+  const plan = usePlan()
   const uploadInputRef = useRef(null)
   const linkedinUploadInputRef = useRef(null)
   const profilePhotoInputRef = useRef(null)
@@ -1233,13 +1261,15 @@ function MainPage() {
     if (isBuilderPage && workspaceMode !== 'builder') setWorkspaceMode('builder')
     // Career tools without a resume open the "Select a resume first" pop-up over the start page.
     if (isEvidenceRoute && !hasDraft) { navigate('/workspace', { replace: true, state: { gate: 'evidence' } }); return }
+    // Job tailoring is a Pro feature (shared/plans.js); free accounts see the plans instead.
+    if (isTailorRoute && plan.locked) { navigate('/plan', { replace: true }); return }
     if (isTailorRoute && !hasDraft) { navigate('/workspace', { replace: true, state: { gate: 'tailor' } }); return }
     if (isLetterRoute && !hasDraft) { navigate('/workspace', { replace: true, state: { gate: 'letter' } }); return }
     // Old links to the previous select page open the pop-up instead.
     if (isSelectRoute) { navigate('/workspace', { replace: true, state: { gate: location.pathname.split('/').filter(Boolean)[2] } }); return }
     if (isEditorRoute && !hasDraft) navigate('/workspace', { replace: true })
     else if ((isEditorRoute || isTailorRoute || isLetterRoute) && workspaceMode !== 'editor-ready') setWorkspaceMode('editor-ready')
-  }, [hasDraft, isBuilderPage, isBuilderRoute, isEditorRoute, isEvidenceRoute, isTailorRoute, isLetterRoute, isSelectRoute, isScratchResume, location.state, navigate, resumeData, workspaceMode])
+  }, [hasDraft, isBuilderPage, isBuilderRoute, isEditorRoute, isEvidenceRoute, isTailorRoute, isLetterRoute, isSelectRoute, isScratchResume, location.state, navigate, plan.locked, resumeData, workspaceMode])
 
   useEffect(() => {
     resumeDataRef.current = resumeData
@@ -1607,7 +1637,7 @@ function MainPage() {
     // The dialog says the resume is removed for good, so the saved copy goes too (resetting stops any pending save first).
     const savedId = cloud?.id ?? null
     resetWorkspace()
-    if (savedId) deleteResume(savedId).catch(error => console.error('[Workspace] Could not delete the saved copy:', error))
+    if (savedId) deleteResume(savedId).then(plan.refresh, error => console.error('[Workspace] Could not delete the saved copy:', error))
   }
 
   const chooseExportFormat = async format => {
@@ -2022,6 +2052,7 @@ function MainPage() {
         <span className="delete-draft-warning"><Icon name="trash" size={15} /> Draft deletion</span>
         <h2 id="delete-draft-title">Delete this draft?</h2>
         <p id="delete-draft-description">Your resume and its edits will be removed. This action cannot be undone.</p>
+        {!plan.pro && cloud?.id && resumeCompletion(resumeData) >= COUNTED_DELETE_PERCENT && <p className="delete-draft-plan-note" role="note">This resume is {resumeCompletion(resumeData)}% complete, so it will still count as 1 of your {FREE_RESUME_LIMIT} free resumes after you delete it.</p>}
         <div className="linkedin-import-actions"><button className="secondary-button" type="button" onClick={() => setDeleteConfirmOpen(false)}>Keep draft</button><button className="delete-confirm-button" type="button" onClick={confirmDeleteDraft}>Delete draft</button></div>
       </section>
     </div>}
@@ -2087,7 +2118,13 @@ function MainPage() {
     <div className="workspace-grid setup-mode">
       <section className="resume-canvas panel">
         {hiddenInputs}
-        {isStartRoute && ['initial', 'file-selected', 'builder', 'editor-ready'].includes(workspaceMode) && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onFile={selectUploadFile} onCreate={startFromScratch} onImportLinkedIn={() => linkedinUploadInputRef.current?.click()} selectedFile={workspaceMode === 'file-selected' ? pendingUploadFile : null} onRead={readDocument} />}
+        {isStartRoute && !plan.canCreateResume && ['initial', 'file-selected'].includes(workspaceMode) && <div className="flow-error resume-limit" role="status">
+          <span className="upgrade-badge" aria-hidden="true"><Icon name="crown" size={22} /></span>
+          <h3>{RESUME_LIMIT_REASON.title}</h3>
+          <p>{RESUME_LIMIT_REASON.text}</p>
+          <div className="state-actions"><button className="secondary-button" type="button" onClick={() => navigate('/dashboard')}>Back to dashboard</button><button className="primary-button" type="button" onClick={() => navigate('/plan')}>See plans</button></div>
+        </div>}
+        {isStartRoute && (plan.canCreateResume || !['initial', 'file-selected'].includes(workspaceMode)) && ['initial', 'file-selected', 'builder', 'editor-ready'].includes(workspaceMode) && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onFile={selectUploadFile} onCreate={startFromScratch} onImportLinkedIn={() => linkedinUploadInputRef.current?.click()} selectedFile={workspaceMode === 'file-selected' ? pendingUploadFile : null} onRead={readDocument} />}
         {isStartRoute && workspaceMode === 'extracting' && <div className="flow-loading" aria-live="polite"><div className="flow-loading-card"><DotLottieReact className="flow-loading-animation" src="/loading.lottie" loop autoplay mode="bounce" speed={2} aria-label="Extracting resume data" /><h2>{importSource === 'linkedin' ? 'Reading your LinkedIn profile…' : 'Extracting resume details…'}</h2>{pendingUploadFile && <p className="flow-loading-name">{pendingUploadFile.name}</p>}</div></div>}
         {isStartRoute && workspaceMode === 'extraction-review' && resumeData && <ResumeExtractionReview resumeData={resumeData} uploadedFileName={uploadedFileName} parseMetadata={parseMetadata} onContinue={() => navigate('/workspace/templates')} onStartOver={resetWorkspace} />}
         {isStartRoute && workspaceMode === 'error' && <div className="flow-error" role="alert"><span className="flow-error-icon" aria-hidden="true">!</span><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="secondary-button" onClick={resetWorkspace}>Start over</button><button className="primary-button" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
@@ -2179,7 +2216,6 @@ function MainPage() {
   const aiRail = <AiRail
     nimbus={assistantEditor}
     docks={<>
-      <TailorDock score={analysis?.step === 'results' && resumeData ? scoreKeywords(resumeData, analysis.keywords).score : null} onOpen={() => navigate('/workspace/tailor')} />
       <CoverLetterDock included={letterOnResume} started={Boolean(coverLetter)} onOpen={openLetter} />
       <EvidenceDock onCompare={openEvidence} canCompare={hasDraft} connected={githubConnection.connected} />
     </>}
@@ -2232,6 +2268,8 @@ function App() {
     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
     <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
     <Route path="/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
+    <Route path="/plan" element={<ProtectedRoute><Shell><PlanPage /></Shell></ProtectedRoute>} />
+    <Route path="/jobs" element={<ProtectedRoute><Shell><JobTrackerPage /></Shell></ProtectedRoute>} />
     <Route path="/evaluation" element={<Navigate to="/workspace/evidence" replace />} />
   </Routes>
 }
@@ -2240,7 +2278,9 @@ createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <PlanProvider>
+          <App />
+        </PlanProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>

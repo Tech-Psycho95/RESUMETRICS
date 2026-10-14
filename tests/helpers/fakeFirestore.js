@@ -54,6 +54,7 @@ export function createFakeFirestore() {
     const query = (field, direction, max) => ({
       orderBy: (nextField, nextDirection = 'asc') => query(nextField, nextDirection, max),
       limit: count => query(field, direction, count),
+      select: () => query(field, direction, max),   // field masks don't matter in memory
       get: async () => {
         let rows = [...docs.keys()].filter(key => isChildOf(path, key)).map(snapshotOf)
         if (field) {
@@ -80,11 +81,12 @@ export function createFakeFirestore() {
       const pending = []
       const transaction = {
         get: ref => ref.get(),
-        set: (ref, value) => { pending.push([ref, value]) },
-        update: (ref, changes) => { pending.push([ref, changes, true]) }
+        set: (ref, value, options) => { pending.push(['set', ref, value, options]) },
+        update: (ref, changes) => { pending.push(['update', ref, changes]) },
+        delete: ref => { pending.push(['delete', ref]) }
       }
       const result = await work(transaction)
-      for (const [ref, value, isUpdate] of pending) await (isUpdate ? ref.update(value) : ref.set(value))
+      for (const [action, ref, value, options] of pending) await (action === 'update' ? ref.update(value) : action === 'delete' ? ref.delete() : ref.set(value, options))
       return result
     },
     async recursiveDelete(ref) {

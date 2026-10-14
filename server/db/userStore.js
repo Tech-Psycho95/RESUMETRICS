@@ -42,6 +42,20 @@ export function validateSettingsPatch(patch) {
   return clean
 }
 
+const PLAN_TERMS = ['monthly', 'yearly', 'lifetime']
+
+/** Only known fields with known values; payment ids and anything else stored on the plan stay on the server. */
+export function publicPlan(plan) {
+  if (!plan || typeof plan !== 'object' || plan.tier !== 'pro') return { tier: 'free', status: 'active', term: null, source: null, currentPeriodEnd: null }
+  return {
+    tier: 'pro',
+    status: typeof plan.status === 'string' ? plan.status : 'inactive',
+    term: PLAN_TERMS.includes(plan.term) ? plan.term : null,
+    source: typeof plan.source === 'string' ? plan.source : null,
+    currentPeriodEnd: typeof plan.currentPeriodEnd === 'string' ? plan.currentPeriodEnd : null
+  }
+}
+
 export function createUserStore({ getDb = getConnectionStore, now = () => Date.now() } = {}) {
   // uid → last time this server process confirmed the profile. Saves are frequent; the profile barely changes.
   const touched = new Map()
@@ -62,10 +76,13 @@ export function createUserStore({ getDb = getConnectionStore, now = () => Date.n
     }
     const stamp = new Date(now()).toISOString()
     if (!snapshot.exists) {
+      // A plan granted before the first sign-in (scripts/grant-pro.mjs) waits under the verified email address.
+      const email = firebaseUser.email_verified === true ? String(firebaseUser.email || '').toLowerCase() : ''
+      const grant = email ? await getDb().collection('planGrants').doc(email).get() : null
       await ref.set({
         profile: { ...profile, createdAt: stamp, updatedAt: stamp },
         settings: { ...DEFAULT_SETTINGS, notifications: { ...DEFAULT_SETTINGS.notifications } },
-        plan: { tier: 'free', status: 'active' }
+        plan: grant?.exists && grant.data().plan ? grant.data().plan : { tier: 'free', status: 'active' }
       })
     } else {
       const current = snapshot.data().profile ?? {}
@@ -89,7 +106,13 @@ export function createUserStore({ getDb = getConnectionStore, now = () => Date.n
     return getSettings(uid)
   }
 
-  return { ensureProfile, getSettings, updateSettings }
+  /** The plan as the browser may see it (shared/plans.js). Missing or unreadable plans are free. */
+  async function getPlan(uid) {
+    const snapshot = await getDb().collection('users').doc(uid).get()
+    return publicPlan(snapshot.exists ? snapshot.data().plan : null)
+  }
+
+  return { ensureProfile, getSettings, updateSettings, getPlan }
 }
 
 export const userStore = createUserStore()

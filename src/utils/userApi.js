@@ -94,3 +94,34 @@ export async function getSettings() {
 export async function updateSettings(settings) {
   return (await authenticatedFetch('/api/user/settings', { method: 'PATCH', body: JSON.stringify({ settings }) })).settings
 }
+
+/** { plan: { tier, status, term, source, currentPeriodEnd }, pro, resumes: { used, limit } } (limit null on Pro). */
+export async function getPlan() {
+  const { plan, pro, resumes } = await authenticatedFetch('/api/user/plan')
+  return { plan, pro, resumes }
+}
+
+// Job tracker (Pro). A search resolves { search, searchesLeft, searchesPerDay }.
+export async function getLatestJobSearch() {
+  return authenticatedFetch('/api/jobs/latest')
+}
+
+export async function searchJobs({ resumeId, role, location, remote, datePosted }) {
+  return authenticatedFetch('/api/jobs/search', { method: 'POST', body: JSON.stringify({ resumeId, role, location, remote, datePosted }) })
+}
+
+export async function listSavedJobs() {
+  return (await authenticatedFetch('/api/jobs/saved')).jobs
+}
+
+export async function saveJob(key, job) {
+  return (await authenticatedFetch(`/api/jobs/saved/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ job }) })).job
+}
+
+export async function updateSavedJob(key, changes) {
+  return (await authenticatedFetch(`/api/jobs/saved/${encodeURIComponent(key)}`, { method: 'PATCH', body: JSON.stringify(changes) })).job
+}
+
+export async function deleteSavedJob(key) {
+  await authenticatedFetch(`/api/jobs/saved/${encodeURIComponent(key)}`, { method: 'DELETE' })
+}

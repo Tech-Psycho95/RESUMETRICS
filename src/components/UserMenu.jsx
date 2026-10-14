@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { usePlan } from '../context/PlanContext.jsx'
 
 export default function UserMenu() {
   const { currentUser, signOut } = useAuth()
+  const { loading: planLoading, pro } = usePlan()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const menuRef = useRef(null)
@@ -50,7 +52,7 @@ export default function UserMenu() {
     </div>
     <button className="user-menu-trigger" type="button" onClick={() => setOpen(value => !value)} aria-label={open ? 'Close account menu' : 'Open account menu'} aria-expanded={open} aria-controls="user-menu-panel">
       {profilePhoto ? <img className="user-avatar" src={profilePhoto} alt={`${firstName}'s profile`} referrerPolicy="no-referrer" /> : <span className="user-avatar-placeholder">{initials}</span>}
-      <span className="user-menu-label"><strong>{firstName}</strong><small>Google account</small></span>
+      <span className="user-menu-label"><strong>{firstName}</strong><small className={planLoading ? '' : pro ? 'user-plan is-pro' : 'user-plan'}>{planLoading ? 'Google account' : pro ? 'Pro plan' : 'Free plan'}</small></span>
     </button>
   </div>
 }

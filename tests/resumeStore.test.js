@@ -16,6 +16,8 @@ const rejects = async (work, code, check = () => {}) => {
 }
 
 const db = createFakeFirestore()
+// Pro, so this file can create as many resumes as it needs; the free plan's limit is tested in resumeQuota.test.js.
+db.seed('users/alice', { plan: { tier: 'pro', status: 'active', term: 'lifetime' } })
 const store = createResumeStore({ getDb: () => db, timestamp: db.timestamp, now: () => new Date('2026-10-11T10:00:00Z'), checkpointMs: Infinity })
 
 // Create: revision 1, server-side fields set, progress computed.

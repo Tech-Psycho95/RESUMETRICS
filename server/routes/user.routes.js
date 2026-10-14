@@ -3,6 +3,7 @@ import { createRequireUser } from '../services/firebaseAdmin.js'
 import { RESUME_ID, ResumeStoreError, resumeStore } from '../db/resumeStore.js'
 import { evidenceStore } from '../db/evidenceStore.js'
 import { SettingsError, userStore } from '../db/userStore.js'
+import { isProPlan } from '../../shared/plans.js'
 
 const VERSION_ID = /^[A-Za-z0-9_-]{8,64}$/
 
@@ -16,11 +17,11 @@ function isFirestoreUnavailable(error) {
   return Number(error?.code) === 7 && /cloud firestore api|firestore.*(?:disabled|not been used)/i.test(message)
 }
 
-const STATUS = { invalid: 400, not_found: 404, conflict: 409, too_large: 413 }
+const STATUS = { invalid: 400, plan_limit: 403, not_found: 404, conflict: 409, too_large: 413 }
 
 function fail(response, error, fallback) {
   if (error instanceof ResumeStoreError) {
-    return response.status(STATUS[error.code] ?? 400).json({ ok: false, code: error.code, error: error.message, ...(error.serverRevision !== undefined ? { serverRevision: error.serverRevision } : {}) })
+    return response.status(STATUS[error.code] ?? 400).json({ ok: false, code: error.code, error: error.message, ...(error.serverRevision !== undefined ? { serverRevision: error.serverRevision } : {}), ...(error.limit !== undefined ? { limit: error.limit } : {}) })
   }
   if (error instanceof SettingsError) return response.status(400).json({ ok: false, code: 'invalid', error: error.message })
   console.error(`${fallback}:`, error?.message)
@@ -48,6 +49,17 @@ export function createUserRouter({ resumes = resumeStore, users = userStore, evi
   router.param('versionId', (request, response, next, versionId) => {
     if (!VERSION_ID.test(versionId)) return response.status(400).json({ ok: false, code: 'invalid', error: 'Invalid version id.' })
     return next()
+  })
+
+  // The plan and how many resumes it has left: { plan, pro, resumes: { used, limit } } (limit null on Pro).
+  router.get('/plan', async (request, response) => {
+    try {
+      const [plan, allowance] = await Promise.all([users.getPlan(request.firebaseUser.uid), resumes.resumeAllowance(request.firebaseUser.uid)])
+      response.set('Cache-Control', 'no-store')
+      return response.json({ ok: true, plan, pro: isProPlan(plan), resumes: allowance })
+    } catch (error) {
+      return fail(response, error, 'Could not load your plan')
+    }
   })
 
   router.get('/settings', async (request, response) => {

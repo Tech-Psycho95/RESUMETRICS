@@ -83,7 +83,7 @@ await store.deleteEvidence('alice', ID, 'github')
 assert.deepEqual(await store.getEvidence('alice', ID), { github: null })
 await store.saveGitHubEvidence('alice', ID, { result: result(), resumeSkills: [] })
 await resumes.deleteResume('alice', ID)
-assert.equal(db.docs.size, 0, 'deleting the resume deleted its evidence')
+assert.deepEqual([...db.docs.keys()], ['users/alice'], 'deleting the resume deleted its evidence (only the account’s resume count is left)')
 
 // The scan wrapper: events pass through unchanged, the result is kept for a saved resume, failures never break the scan.
 const events = [{ type: 'start', total: 1, resumeSkills: ['React'] }, { type: 'repo', done: 1 }, result()]
