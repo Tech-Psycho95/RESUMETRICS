@@ -1,0 +1,142 @@
+/* Plan page (/plan) and the upgrade pop-up. Colours follow the app accent (Settings → Appearance). */
+.plan-page {
+  --plan-ink: #13203a; --plan-muted: #5d6780; --plan-line: #e3e6ef; --plan-card: #fff; --plan-soft: #f6f7fb;
+  --plan-night: #111828; --plan-night-2: #1b2438;
+  max-width: 1180px; margin: 0 auto; padding-bottom: 40px; color: var(--plan-ink);
+}
+.plan-page .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.plan-head { display: grid; justify-items: center; gap: 14px; margin: 8px auto 44px; max-width: 720px; text-align: center; }
+.plan-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--accent-border); border-radius: 999px; color: var(--accent-ink); background: var(--accent-softer); font-size: 12.5px; font-weight: 650; }
+.plan-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), .16); }
+.plan-head h1 { margin: 0; font-size: clamp(30px, 4.2vw, 48px); font-weight: 650; letter-spacing: -.04em; line-height: 1.05; text-wrap: balance; }
+.plan-head > p { margin: 0; color: var(--plan-muted); font-size: 15.5px; line-height: 1.6; text-wrap: pretty; }
+.plan-status { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid var(--plan-line); border-radius: 999px; background: var(--plan-card); font-size: 13.5px; }
+.plan-status span { padding: 4px 10px; border-radius: 999px; color: var(--accent-ink); background: var(--accent-soft); font-size: 12.5px; font-weight: 600; }
+
+.plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start; }
+.plan-card { position: relative; display: grid; gap: 20px; padding: 26px; border: 1px solid var(--plan-line); border-radius: 24px; background: var(--plan-card); box-shadow: 0 1px 2px rgba(19, 32, 58, .04), 0 18px 40px -24px rgba(19, 32, 58, .25); }
+.plan-card-top { display: grid; gap: 6px; }
+.plan-card h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
+.plan-card-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.plan-tagline { margin: 0; color: var(--plan-muted); font-size: 14px; }
+.plan-price { display: flex; align-items: baseline; gap: 4px; margin: 14px 0 0; font-variant-numeric: tabular-nums; }
+.plan-currency { align-self: flex-start; margin-top: 6px; font-size: 22px; font-weight: 600; }
+.plan-price strong { font-size: 48px; font-weight: 650; letter-spacing: -.045em; line-height: 1; animation: plan-price-in .28s ease-out; }
+.plan-per { margin-left: 4px; color: var(--plan-muted); font-size: 14px; }
+.plan-note { min-height: 20px; margin: 0; color: var(--plan-muted); font-size: 13px; }
+.plan-note em { margin-left: 6px; padding: 2px 8px; border-radius: 999px; color: #0a6446; background: #e2f5ec; font-size: 12px; font-style: normal; font-weight: 700; }
+
+.plan-cta { min-height: 46px; border: 0; border-radius: 14px; color: #fff; background: linear-gradient(135deg, var(--accent-light), var(--accent-strong)); box-shadow: 0 10px 22px -10px rgba(var(--accent-rgb), .7), inset 0 1px 0 rgba(255, 255, 255, .18); font-size: 14.5px; font-weight: 650; transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+.plan-cta:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 0 14px 26px -10px rgba(var(--accent-rgb), .75), inset 0 1px 0 rgba(255, 255, 255, .18); }
+.plan-cta:active:not(:disabled) { transform: translateY(1px); }
+.plan-cta:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .35); outline-offset: 3px; }
+.plan-cta:disabled { opacity: 1; cursor: default; }
+.plan-cta.is-quiet { color: var(--plan-ink); background: var(--plan-soft); box-shadow: inset 0 0 0 1px var(--plan-line); }
+.plan-cta.is-light { color: var(--plan-night); background: #fff; box-shadow: 0 10px 22px -12px rgba(0, 0, 0, .6); }
+.plan-card.is-pro .plan-cta:disabled { color: var(--accent-ink); background: var(--accent-soft); box-shadow: none; }
+.plan-card.is-lifetime .plan-cta:disabled { color: rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+
+.plan-includes { margin: 0 0 -8px; font-size: 13px; font-weight: 650; }
+.plan-features { display: grid; gap: 11px; margin: 0; padding: 18px 0 0; border-top: 1px dashed var(--plan-line); list-style: none; font-size: 14px; line-height: 1.4; }
+.plan-features li { display: flex; gap: 10px; align-items: flex-start; }
+.plan-check { width: 20px; height: 20px; flex: 0 0 auto; padding: 3px; border-radius: 50%; color: var(--accent); background: var(--accent-soft); fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.plan-dash { width: 20px; height: 20px; color: #b3bacb; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+/* Pro: a gradient ring and a soft halo, lifted above its neighbours. */
+.plan-card.is-pro { z-index: 1; margin-top: -14px; padding-top: 34px; border: 2px solid transparent; background: linear-gradient(var(--plan-card), var(--plan-card)) padding-box, linear-gradient(140deg, var(--accent-light), #e0559a 55%, #f0a35e) border-box; }
+.plan-card.is-pro::before { content: ''; position: absolute; inset: 18px -8px -16px; z-index: -1; border-radius: 30px; background: linear-gradient(140deg, rgba(var(--accent-rgb), .5), rgba(224, 85, 154, .35), rgba(240, 163, 94, .35)); filter: blur(28px); opacity: .55; }
+.plan-ribbon { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: 5px 14px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, var(--accent-light), #e0559a); box-shadow: 0 8px 18px -8px rgba(224, 85, 154, .8); font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+
+.plan-toggle { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 999px; background: var(--plan-soft); box-shadow: inset 0 0 0 1px var(--plan-line); }
+.plan-toggle button { position: relative; z-index: 1; min-width: 74px; padding: 6px 12px; border: 0; border-radius: 999px; color: var(--plan-muted); background: transparent; font-size: 12.5px; font-weight: 650; transition: color .2s ease; }
+.plan-toggle button.is-on { color: var(--plan-ink); }
+.plan-toggle button:focus-visible { outline: 2px solid rgba(var(--accent-rgb), .45); outline-offset: 1px; }
+.plan-toggle-thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px; background: var(--plan-card); box-shadow: 0 1px 3px rgba(19, 32, 58, .16); transition: transform .25s cubic-bezier(.3, .7, .3, 1); }
+.plan-toggle-thumb.is-right { transform: translateX(100%); }
+
+/* Lifetime: the night card. */
+.plan-card.is-lifetime { overflow: hidden; color: #f3f5fb; border-color: #232c42; background: radial-gradient(120% 70% at 100% 0%, rgba(var(--accent-rgb), .45), transparent 60%), radial-gradient(90% 60% at 0% 100%, rgba(224, 85, 154, .22), transparent 60%), var(--plan-night); }
+.plan-card.is-lifetime .plan-tagline, .plan-card.is-lifetime .plan-per, .plan-card.is-lifetime .plan-note { color: #aab4c8; }
+.plan-card.is-lifetime .plan-features { border-color: rgba(255, 255, 255, .16); }
+.plan-card.is-lifetime .plan-check { color: #fff; background: rgba(255, 255, 255, .14); }
+
+.plan-notice { display: flex; align-items: center; gap: 12px; max-width: 760px; margin: 28px auto 0; padding: 12px 12px 12px 16px; border: 1px solid var(--accent-border); border-radius: 16px; color: var(--plan-ink); background: var(--accent-softer); font-size: 14px; line-height: 1.5; animation: plan-price-in .25s ease-out; }
+.plan-notice > span { display: grid; width: 24px; height: 24px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: var(--accent); font-size: 13px; font-weight: 700; font-style: italic; }
+.plan-notice .btn { margin-left: auto; }
+
+.plan-compare { margin-top: 56px; padding: 26px; border: 1px solid var(--plan-line); border-radius: 24px; background: var(--plan-card); }
+.plan-compare h2, .plan-faq h2 { margin: 0 0 16px; font-size: 21px; font-weight: 650; letter-spacing: -.02em; }
+.plan-compare table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.plan-compare th, .plan-compare td { padding: 13px 12px; border-bottom: 1px solid var(--plan-line); text-align: left; }
+.plan-compare thead th { color: var(--plan-muted); font-size: 12px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
+.plan-compare tbody th { font-weight: 550; }
+.plan-compare td { width: 22%; font-weight: 650; }
+.plan-compare td:last-child { color: var(--accent-ink); background: rgba(var(--accent-rgb), .04); }
+.plan-compare tbody tr:last-child > * { border-bottom: 0; }
+
+.plan-faq { position: relative; overflow: hidden; margin-top: 22px; padding: 28px; border-radius: 24px; background: linear-gradient(120deg, #fff6e8, #fdeaf3 40%, #ecebff 75%, #e6f3ff); }
+.plan-faq-glow { position: absolute; inset: -40% -10% auto auto; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle, rgba(var(--accent-rgb), .22), transparent 70%); pointer-events: none; }
+.plan-faq h2 { position: relative; }
+.plan-faq details { position: relative; margin-top: 10px; border-radius: 16px; background: rgba(255, 255, 255, .72); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .9); }
+.plan-faq summary { display: flex; justify-content: space-between; gap: 12px; padding: 15px 18px; font-size: 14.5px; font-weight: 650; cursor: pointer; list-style: none; }
+.plan-faq summary::-webkit-details-marker { display: none; }
+.plan-faq summary::after { content: '+'; color: var(--accent); font-size: 18px; line-height: 1; transition: transform .2s ease; }
+.plan-faq details[open] summary::after { transform: rotate(45deg); }
+.plan-faq summary:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .3); outline-offset: -3px; border-radius: 16px; }
+.plan-faq details p { margin: 0; padding: 0 18px 16px; color: var(--plan-muted); font-size: 14px; line-height: 1.6; }
+
+@keyframes plan-price-in { from { opacity: 0; transform: translateY(4px); } }
+
+@media (max-width: 1080px) {
+  .plan-grid { grid-template-columns: minmax(0, 520px); justify-content: center; gap: 30px; }
+  .plan-card.is-pro { margin-top: 0; }
+}
+@media (max-width: 560px) {
+  .plan-head { margin-bottom: 34px; }
+  .plan-card, .plan-compare, .plan-faq { padding: 20px; border-radius: 20px; }
+  .plan-card.is-pro { padding-top: 30px; }
+  .plan-card-title { flex-wrap: wrap; }
+  .plan-compare th, .plan-compare td { padding: 11px 6px; font-size: 13px; }
+  .plan-notice { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .plan-price strong, .plan-notice { animation: none; } .plan-toggle-thumb, .plan-cta { transition: none; } }
+
+/* Upgrade pop-up */
+.upgrade-dialog { justify-items: start; }
+.upgrade-badge { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 14px; color: #fff; background: linear-gradient(140deg, var(--accent-light), #e0559a); box-shadow: 0 10px 22px -10px rgba(224, 85, 154, .8); }
+.upgrade-badge svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+
+/* Pro badge on locked sidebar links */
+.sidebar-link .sidebar-pro { margin-left: auto; padding: 2px 7px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, var(--accent-light), #e0559a); font-size: 10px; font-weight: 750; letter-spacing: .04em; }
+
+[data-resolved-theme="dark"] .plan-page { --plan-ink: #edf1ff; --plan-muted: #a8b3cb; --plan-line: #2c3650; --plan-card: #172033; --plan-soft: #10182a; }
+[data-resolved-theme="dark"] .plan-pill, [data-resolved-theme="dark"] .plan-status span, [data-resolved-theme="dark"] .plan-notice { color: #d9d2ff; background: #221f45; border-color: #3d3a70; }
+[data-resolved-theme="dark"] .plan-check { background: rgba(var(--accent-rgb), .22); color: #c3b9ff; }
+[data-resolved-theme="dark"] .plan-card.is-pro .plan-cta:disabled { color: #d9d2ff; background: #221f45; }
+[data-resolved-theme="dark"] .plan-card.is-lifetime { border-color: #39446a; background: radial-gradient(120% 70% at 100% 0%, rgba(var(--accent-rgb), .5), transparent 60%), radial-gradient(90% 60% at 0% 100%, rgba(224, 85, 154, .25), transparent 60%), #0b1120; }
+[data-resolved-theme="dark"] .plan-compare td:last-child { color: #d9d2ff; }
+[data-resolved-theme="dark"] .plan-note em { color: #8ae0bd; background: #12372b; }
+[data-resolved-theme="dark"] .plan-faq { background: linear-gradient(120deg, #2a2133, #2a1d33 40%, #1e1f45 75%, #172a40); }
+[data-resolved-theme="dark"] .plan-faq details { background: rgba(16, 24, 42, .7); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+
+/* Free-plan notes on the dashboard and in the workspace */
+.dashboard-project-actions .dashboard-delete-note { flex-basis: 100%; order: 3; color: #9a5b10; font-size: 12px; line-height: 1.4; }
+.delete-draft-plan-note { margin: 0; padding: 10px 12px; border-radius: 10px; color: #7a4b05; background: #fff6e5; font-size: 13.5px; line-height: 1.5; }
+.resume-limit .upgrade-badge { margin: 0 auto; }
+[data-resolved-theme="dark"] .dashboard-project-actions .dashboard-delete-note { color: #f2c38b; }
+[data-resolved-theme="dark"] .delete-draft-plan-note { color: #f2c38b; background: #3a2a12; }
+
+/* Settings → Account: the subscription row, and the plan under the name in the sidebar */
+.settings-plan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid #e6e9f1; border-radius: 14px; background: #f7f8fc; }
+.settings-plan-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; color: #4a5570; background: #fff; box-shadow: inset 0 0 0 1px #e0e3ec; font-size: 13px; font-weight: 750; }
+.settings-plan-badge.is-pro { color: #fff; background: linear-gradient(135deg, var(--accent-light), #e0559a); box-shadow: 0 8px 18px -10px rgba(224, 85, 154, .8); }
+.settings-plan-text { display: grid; flex: 1 1 220px; gap: 2px; min-width: 0; }
+.settings-plan-text b { color: #172033; font-size: 14.5px; }
+.settings-plan-text small { color: #64708a; font-size: 13px; line-height: 1.45; }
+.user-menu-label small.user-plan.is-pro { color: var(--accent); font-weight: 650; }
+[data-resolved-theme="dark"] .settings-plan-row { background: #121a2b; border-color: #303a52; }
+[data-resolved-theme="dark"] .settings-plan-badge:not(.is-pro) { color: #c4ccdd; background: #1a2336; box-shadow: inset 0 0 0 1px #303a52; }
+[data-resolved-theme="dark"] .settings-plan-text b { color: #edf1ff; }
+[data-resolved-theme="dark"] .settings-plan-text small { color: #a8b3cb; }
+[data-resolved-theme="dark"] .user-menu-label small.user-plan.is-pro { color: #c9c1ff; }

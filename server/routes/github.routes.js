@@ -4,6 +4,9 @@ import { requireFirebaseUser, FirebaseServerConfigurationError } from '../servic
 import { getGitHubAuthorizationIdentity, getGitHubInstallationUrl, getGitHubUserForAuthorizationCode, getInstallationProfile, getUserRepositories } from '../services/githubApp.js'
 import { getGitHubConnection, removeGitHubConnection, saveGitHubConnection } from '../services/githubConnectionStore.js'
 import { scanGitHubEvidence } from '../github/githubScan.js'
+import { persistScanResult } from '../github/persistScan.js'
+import { evidenceStore } from '../db/evidenceStore.js'
+import { RESUME_ID } from '../db/resumeStore.js'
 import { startNdjson } from '../ai/ndjson.js'
 import { consumeGitHubConnectionState, createGitHubConnectionState, getGitHubConnectionState, githubConnectionStateTtlMs } from '../services/githubState.js'
 
@@ -240,9 +243,13 @@ router.get('/repos', requireFirebaseUser, async (request, response) => {
 
 // Streamed evidence scan of the most recently pushed repositories (live progress for the evidence screen).
 router.post('/evidence-scan', requireFirebaseUser, async (request, response) => {
-  const { resumeData } = request.body ?? {}
+  const { resumeData, resumeId = null } = request.body ?? {}
   if (!resumeData || typeof resumeData !== 'object' || Array.isArray(resumeData)) {
     return response.status(400).json({ ok: false, error: 'A structured resume is required before GitHub evidence can be scanned.' })
+  }
+  // resumeId says which saved resume the result belongs to; without it the scan still runs but isn't kept.
+  if (resumeId !== null && (typeof resumeId !== 'string' || !RESUME_ID.test(resumeId))) {
+    return response.status(400).json({ ok: false, error: 'Invalid resume id.' })
   }
   let connection
   try {
@@ -254,7 +261,8 @@ router.post('/evidence-scan', requireFirebaseUser, async (request, response) => 
   if (!connection.connected) return response.status(409).json({ ok: false, error: 'Connect GitHub before scanning repositories.' })
   const stream = startNdjson(request, response)
   try {
-    for await (const event of scanGitHubEvidence({ installationId: connection.githubInstallationId, resumeData, signal: stream.signal })) {
+    const scan = scanGitHubEvidence({ installationId: connection.githubInstallationId, resumeData, signal: stream.signal })
+    for await (const event of persistScanResult(scan, { uid: request.firebaseUser.uid, resumeId, store: evidenceStore })) {
       if (stream.closed) return
       stream.send(event)
     }

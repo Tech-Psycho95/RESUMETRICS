@@ -90,3 +90,5 @@
 @media (prefers-reduced-motion: reduce) {
   .ev-progress-track span, .ev-share-track span, .lang-donut-segment, .ev-expand .tw-icon { transition: none; }
 }
+.ev-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ev-stale { margin: 12px 0 0; }

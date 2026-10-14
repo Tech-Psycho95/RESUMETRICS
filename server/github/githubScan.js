@@ -1,6 +1,6 @@
 import { env } from '../config/env.js'
-import { explicitResumeSkills, knownSkillsIn } from '../../shared/roleAnalysis.js'
-import { languageTotals, skillEvidence } from '../../shared/githubEvidenceMath.js'
+import { knownSkillsIn } from '../../shared/roleAnalysis.js'
+import { languageTotals, resumeSkillsOf, skillEvidence } from '../../shared/githubEvidenceMath.js'
 import { skillsFromManifest } from '../../shared/skillTaxonomy.js'
 import { normalizeResumeData } from '../services/resumeData.js'
 import { runStructuredTask } from '../ai/runTask.js'
@@ -23,11 +23,6 @@ async function withBackoff(call, signal) {
     await new Promise(resolve => setTimeout(resolve, wait))
     return call()
   }
-}
-
-function resumeSkillsOf(resumeData) {
-  const direct = [...Object.values(resumeData.skills ?? {}).flat(), ...(resumeData.projects ?? []).flatMap(project => project.techStack ?? [])]
-  return unique([...explicitResumeSkills(resumeData), ...direct].map(skill => String(skill).replace(/\[\/?[bius]\]/g, ''))).slice(0, 40)
 }
 
 const githubApi = {

@@ -9,7 +9,7 @@ Resumetrics is a browser-based resume creation and evidence review app. Its main
 1. Visit the public landing page and sign in with Google.
 2. Open the protected dashboard/workspace and either create a blank resume or import a PDF, DOCX, or text resume.
 3. Review extracted content, choose a template, and edit the resume in the workspace editor.
-4. Optionally ask NIMBUS (the AI assistant) to make a constrained content/style change, compare the resume with a job description, import a LinkedIn profile export, or connect GitHub for repository evidence.
+4. Optionally ask NIMBUS (the AI assistant) to make a constrained content/style change, compare the resume with a job description, or connect GitHub for repository evidence.
 5. Export the edited resume.
 
 The product goal is to keep resume claims tied to source facts and verifiable evidence. AI prompts repeatedly instruct the model to treat resume/profile/job-description text as untrusted source material and not to invent facts.
@@ -20,7 +20,7 @@ The product goal is to keep resume claims tied to source facts and verifiable ev
 - Client authentication: Firebase Web SDK; Google provider popup sign-in.
 - Backend: Node.js ES modules, Express 5, JSON APIs on port `8787` by default.
 - AI: Groq SDK, server-side only. `server/config/env.js` currently allows provider `groq`; model is configured by environment.
-- Authenticated persistence: Firebase Admin verifies Firebase ID tokens and uses Firestore for GitHub connection metadata.
+- Authenticated persistence: Firebase Admin verifies Firebase ID tokens and uses Firestore for the user profile and settings, saved resumes and GitHub connection metadata (see the Firestore data model under section 7).
 - GitHub integration: Octokit GitHub App support. Per-installation tokens are generated on demand; they are not persisted.
 - Resume parsing/import: browser-side `pdfjs-dist` and Mammoth extract PDF/DOCX text and page structure; server chunks source text and sends chunks to AI for structured extraction, with deterministic fallback.
 - Exports/dependencies: `jspdf` and `docx` are present. The export menu offers PDF, DOCX and TXT. The unreachable PPTX export and `pptxgenjs` were removed (its `image-size` dependency had high-severity advisories).
@@ -41,7 +41,7 @@ Vite serves the client at `http://localhost:5173` and proxies `/api` to `http://
 
 ## 3. Repository map
 
-- `src/main.jsx` — application composition, route definitions, workspace state machine, resume import/edit/export flow, assistant calls, role analysis, LinkedIn and GitHub evidence orchestration, settings/dashboard/evaluation UI. This is the main feature integration point and is comparatively large; inspect the relevant function and nearby state before editing.
+- `src/main.jsx` — application composition, route definitions, workspace state machine, resume import/edit/export flow, assistant calls, role analysis, GitHub evidence orchestration, settings/dashboard/evaluation UI. This is the main feature integration point and is comparatively large; inspect the relevant function and nearby state before editing.
 - `src/pages/` — public landing page and login page.
 - `src/components/` — workspace, assistant, profile photo, import/review, evidence components, and template components.
 - `src/components/landing/` — landing-page sections and scroll/motion helpers.
@@ -77,7 +77,7 @@ Current React routes are declared at the bottom of `src/main.jsx`:
 
 `ProtectedRoute.jsx` waits for auth initialization, redirects unauthenticated users to login, and preserves the intended destination through router state. `AuthContext.jsx` exposes `currentUser`, `loading`, `error`, `isConfigured`, `signInWithGoogle`, and `signOut`.
 
-The workspace uses an in-memory `workspaceMode` state (for example `initial`, `file-selected`, `extracting`, `extraction-review`, `template-selection`, `editor-ready`) rather than a backend resume CRUD system. A few cross-screen/temporary items are held in `sessionStorage`: LinkedIn imported profile (24-hour freshness), pending GitHub resume snapshot (15 minutes), evidence comparison request (30 minutes). Appearance is stored in `localStorage` as `resumetrics-appearance`. Do not assume resumes are automatically saved to Firestore or survive a page/session reload.
+The workspace uses an in-memory `workspaceMode` state (for example `initial`, `file-selected`, `extracting`, `extraction-review`, `template-selection`, `editor-ready`) for the editing flow. Resumes are saved to Firestore through the `/api/user/resumes` API (autosave via `src/db/saveQueue.js` and `useResumeAutosave`), and the dashboard lists, opens, renames, duplicates and deletes them from there. The only temporary items held in `sessionStorage` are the pending GitHub resume snapshot (15 minutes; it bridges the GitHub authorisation redirect) and the draft mirror below. The latest GitHub evidence report is kept with the resume in Firestore (see the data model under section 7). Appearance is stored in `localStorage` as `resumetrics-appearance`. The unsaved draft is also mirrored to `sessionStorage` by `workspacePersistence.js` so a reload does not lose it. `localStorage` no longer holds any resumes.
 
 ## 5. Resume data and template model
 
@@ -113,11 +113,7 @@ The browser sends a natural-language instruction plus full structured resume/wor
 
 ### Job-description role alignment
 
-The client previews a deterministic skill-aware match (`shared/roleAnalysis.js`) and calls `POST /api/resume/analyze`. Server derives matched/missing skills and a score deterministically, then uses Groq for concise summary/recommendations. If AI fails, the API still returns deterministic skill fallback. LinkedIn profile analysis can include additional extracted profile signals. This is guidance based on extracted text/skills, not a complete ATS simulation.
-
-### LinkedIn evidence
-
-There is no LinkedIn OAuth integration. User downloads their own LinkedIn PDF or supplies a DOCX export through `LinkedInImportDialog`; browser extracts text and calls the same resume extraction endpoint. Parsed profile is kept temporarily in session storage and compared against resume skills and optionally a job description. This is an imported-file workflow, not live LinkedIn API access.
+The client previews a deterministic skill-aware match (`shared/roleAnalysis.js`) and calls `POST /api/resume/analyze`. Server derives matched/missing skills and a score deterministically, then uses Groq for concise summary/recommendations. If AI fails, the API still returns deterministic skill fallback. This is guidance based on extracted text/skills, not a complete ATS simulation.
 
 ### GitHub evidence
 
@@ -140,8 +136,42 @@ All endpoints are mounted under `/api` in `server/index.js`:
 | `POST /api/github/complete-authorization` | Firebase ID token + matching cookie state | Exchange one-time GitHub OAuth code server-side and associate authorized installation |
 | `GET /api/github/status` | Firebase ID token | Check stored connection and whether installation still exists |
 | `GET /api/github/repos` | Firebase ID token | List sanitized repositories for connected installation |
-| `POST /api/github/evidence-analysis` | Firebase ID token | Analyze authorized repository evidence against structured resume |
+| `POST /api/github/evidence-scan` | Firebase ID token | Streamed (NDJSON) scan of the most recently pushed repositories against the resume's skills; body `{ resumeData, resumeId? }`. With a saved `resumeId`, the server keeps the finished report as that resume's GitHub evidence |
 | `DELETE /api/github/disconnect` | Firebase ID token | Remove stored Resumetrics connection metadata |
+
+### Firestore data model and user API
+
+The browser never talks to Firestore (`firestore.rules` deny all client access). Everything goes through `/api/user`, which verifies the Firebase ID token and only touches `users/{thatUid}/...` through the Admin SDK (`server/db/userStore.js`, `server/db/resumeStore.js`).
+
+| Path | Contents |
+| --- | --- |
+| `users/{uid}` | `profile` (Google name/email/photo), `settings`, `plan: { tier, status }` |
+| `users/{uid}/resumes/{id}` | `name`, `templateId`, `data`, `presentation` (no image bytes), `confirmedSections`, `sourceFileName`, `parseMetadata`, `progress` (0-100), `revision`, `schemaVersion`, `createdAt`, `updatedAt` |
+| `users/{uid}/resumes/{id}/evidence/github` | Latest GitHub scan for that resume: `scannedAt`, `resumeSkills` checked, `scanned`/`accessible`/`cap`, `summary`, and per repository only name, URL, push date, stars, flags, language bytes, skill matches and file names. No descriptions, topics or README text. Written only by the server; removed with the resume |
+| `users/{uid}/resumes/{id}/versions/{versionId}` | Frozen copy of a resume: same content fields plus `reason` (`manual`, `auto`, `before-restore`), `revision`, `createdAt`. Newest 20 kept |
+| `users/{uid}/usage/{YYYY-MM-DD}` | Daily AI usage counters (`calls`, `tokensIn`, `tokensOut`, `limitedCalls`) |
+| `githubConnections/{uid}` | GitHub App installation metadata |
+
+Each resume document also remembers `lastVersionAt` and `lastVersionRevision`. A normal save keeps the state it replaces as an `auto` version when the newest version is over 4 hours old (no extra read); saving a version leaves `revision` alone (so an open editor isn't pushed into a conflict), while a restore is a normal change and bumps it. The editor reloads after a restore with a new `loadedAt` so the save queue restarts from the restored revision.
+
+Saves are optimistic-concurrency: `PUT` carries `baseRevision` (null to create) and a stale one returns 409 `conflict` with `serverRevision`. Documents are capped at 500 KB.
+
+| Method + path | Purpose |
+| --- | --- |
+| `GET`, `PATCH /api/user/settings` | Read or patch settings (whitelisted keys only) |
+| `GET /api/user/resumes` | Newest first (max 50), including content for dashboard previews |
+| `GET /api/user/resumes/:id` | One resume |
+| `PUT /api/user/resumes/:id` | Create or update; body `{ baseRevision, fields }` |
+| `PATCH /api/user/resumes/:id` | Rename; body `{ name }`; bumps `revision` |
+| `POST /api/user/resumes/:id/duplicate` | Copy to a client-chosen `newId` (retry-safe); returns 201 |
+| `GET /api/user/resumes/:id/versions` | Version list, newest first (no content), at most 20 |
+| `POST /api/user/resumes/:id/versions` | Save the stored resume as a version; 201, or 200 with `version: null` when nothing changed |
+| `POST /api/user/resumes/:id/versions/:versionId/restore` | Make a version current (new revision); the replaced state is kept as a `before-restore` version |
+| `GET /api/user/resumes/:id/evidence` | Saved evidence `{ github: {...} \| null }` |
+| `DELETE /api/user/resumes/:id/evidence/github` | Forget the saved GitHub report (there is deliberately no route to write evidence) |
+| `DELETE /api/user/resumes/:id` | Delete the resume and its subcollections |
+
+Tests: `npm test` uses an in-memory fake (`tests/helpers/fakeFirestore.js`). `npm run test:emulator` runs `tests/emulator/resumeStore.emulator.js` against the real Firestore emulator (needs the Firebase CLI and Java 21+).
 
 GitHub routes authenticate with `Authorization: Bearer <Firebase ID token>`. AI and resume endpoints currently do not require Firebase auth, even though workspace UI is route-protected. Do not assume API authentication is global.
 
@@ -220,8 +250,7 @@ The README is useful for broad product intent and setup, but some specifics are 
 
 - Current routes include `/dashboard`, `/settings`, and nested `/workspace/editor`; the README's old route table lists a simpler `/workspace` and does not cover all current routes.
 - Current central template registry exposes four templates (`Navy Professional`, `Simple Hipster`, `CurVe Academic`, `ReCeiVe`), not the five templates named in README.
-- Current resume API includes `POST /api/resume/edit`; LinkedIn is a client-upload/import and comparison path, not a listed standalone server route.
-- README tree and feature notes do not fully reflect the current editor engine/element registry, LinkedIn import, dashboard/settings, or complete GitHub setup/authorization paths.
+- README tree and feature notes do not fully reflect the current editor engine/element registry, LinkedIn import, dashboard/settings, or complete GitHub setup/authorization paths. (There is no LinkedIn import in the current code.)
 - README's sample says GitHub callback `http://localhost:5173/workspace`; `server/.env.example` currently also uses the frontend URL, while backend defaults in `server/config/env.js` point to `/api/github/callback` on port 8787. Match the GitHub App's configured Redirect URI to the actual chosen flow and environment; inspect latest code/config before changing this because both frontend-forwarded and backend callback behaviors exist.
 
 Use implementation files as source of truth for current behavior, and update README alongside user-visible architecture changes.

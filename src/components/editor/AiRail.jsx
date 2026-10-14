@@ -16,16 +16,7 @@ export function CoverLetterDock({ included, started, onOpen }) {
   </div>
 }
 
-/** Dock row linking to the Job tailoring page, with the last match score. */
-export function TailorDock({ score, onOpen }) {
-  return <div className="rail-evidence rail-tailor">
-    <svg className="rail-evidence-logo" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" strokeWidth="1.6" /><circle cx="10" cy="10" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="m13 7 4-4M17 3h-2.6M17 3v2.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-    <span><b>Tailor to a job</b><small>{Number.isFinite(score) ? `Last match ${score}%` : 'Match against a job description'}</small></span>
-    <button type="button" className="btn btn-secondary btn-sm" onClick={onOpen}>Open</button>
-  </div>
-}
-
-/** Left container: NIMBUS, with links to Job tailoring and GitHub evidence at the bottom. */
+/** Left container: NIMBUS, with links to the cover letter and GitHub evidence at the bottom. Job tailoring lives under Career tools in the sidebar. */
 export default function AiRail({ nimbus, docks }) {
   return <div className="ai-rail">
     <div className="ai-rail-body">

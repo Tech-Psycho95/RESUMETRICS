@@ -31,7 +31,15 @@ export function createFakeFirestore() {
       id: path.split('/').pop(),
       collection: name => collectionOf(`${path}/${name}`),
       get: async () => { stats.reads += 1; return snapshotOf(path) },
-      set: async value => { stats.writes += 1; docs.set(path, JSON.stringify(value)) },
+      set: async (value, options) => {
+        stats.writes += 1
+        if (!options?.merge) { docs.set(path, JSON.stringify(value)); return }
+        // merge: top-level fields only; { __inc: n } adds to a number like FieldValue.increment
+        const current = docs.has(path) ? JSON.parse(docs.get(path)) : {}
+        for (const [key, item] of Object.entries(value)) current[key] = item && typeof item === 'object' && '__inc' in item ? (current[key] ?? 0) + item.__inc : item
+        docs.set(path, JSON.stringify(current))
+      },
+      delete: async () => { stats.writes += 1; docs.delete(path) },
       update: async changes => {
         if (!docs.has(path)) throw Object.assign(new Error('NOT_FOUND'), { code: 5 })
         stats.writes += 1
@@ -46,11 +54,14 @@ export function createFakeFirestore() {
     const query = (field, direction, max) => ({
       orderBy: (nextField, nextDirection = 'asc') => query(nextField, nextDirection, max),
       limit: count => query(field, direction, count),
+      select: () => query(field, direction, max),   // field masks don't matter in memory
       get: async () => {
         let rows = [...docs.keys()].filter(key => isChildOf(path, key)).map(snapshotOf)
         if (field) {
           const sortKey = row => { const value = JSON.parse(docs.get(row.ref.path))[field]; return value && typeof value === 'object' && '__ts' in value ? value.__ts : value }
-          rows.sort((a, b) => (sortKey(a) > sortKey(b) ? 1 : -1) * (direction === 'desc' ? -1 : 1))
+          // Like Firestore, ties fall back to the document id in the same direction.
+          const order = (x, y) => (x > y ? 1 : x < y ? -1 : 0)
+          rows.sort((a, b) => (order(sortKey(a), sortKey(b)) || order(a.ref.path, b.ref.path)) * (direction === 'desc' ? -1 : 1))
         }
         if (max) rows = rows.slice(0, max)
         stats.reads += rows.length
@@ -65,14 +76,17 @@ export function createFakeFirestore() {
     docs,
     collection: name => collectionOf(name),
     timestamp: () => ({ __ts: (clock += 1000) }),
+    increment: amount => ({ __inc: amount }),
     async runTransaction(work) {
       const pending = []
       const transaction = {
         get: ref => ref.get(),
-        set: (ref, value) => { pending.push([ref, value]) }
+        set: (ref, value, options) => { pending.push(['set', ref, value, options]) },
+        update: (ref, changes) => { pending.push(['update', ref, changes]) },
+        delete: ref => { pending.push(['delete', ref]) }
       }
       const result = await work(transaction)
-      for (const [ref, value] of pending) await ref.set(value)
+      for (const [action, ref, value, options] of pending) await (action === 'update' ? ref.update(value) : action === 'delete' ? ref.delete() : ref.set(value, options))
       return result
     },
     async recursiveDelete(ref) {

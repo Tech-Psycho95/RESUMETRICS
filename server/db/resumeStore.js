@@ -1,5 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getConnectionStore } from '../services/firebaseAdmin.js'
+import { COUNTED_DELETE_PERCENT, FREE_RESUME_LIMIT, isProPlan } from '../../shared/plans.js'
+import { resumeCompletion } from '../../shared/resumeCompletion.js'
 
 // users/{uid}/resumes/{resumeId}. The browser never talks to Firestore: every read and write comes through
 // the Express routes, which verify the Firebase ID token and then only touch users/{thatUid}/...
@@ -7,6 +10,12 @@ export const SCHEMA_VERSION = 1
 export const MAX_RESUME_BYTES = 500_000
 export const MAX_NAME_LENGTH = 120
 export const LIST_LIMIT = 50
+// Ids are made by the browser (crypto.randomUUID) so a retried first save can't create a second document;
+// older Firestore auto ids (20 characters) also match.
+export const RESUME_ID = /^[A-Za-z0-9_-]{16,64}$/
+export const MAX_VERSIONS = 20
+// A normal save also keeps a checkpoint of the previous state when the newest version is this old.
+export const CHECKPOINT_MS = 4 * 60 * 60_000
 
 export class ResumeStoreError extends Error {
   constructor(code, message, extra = {}) {
@@ -91,8 +100,67 @@ export function toApiResume(id, raw) {
   }
 }
 
-export function createResumeStore({ getDb = getConnectionStore, timestamp = () => FieldValue.serverTimestamp(), now = () => new Date() } = {}) {
-  const collectionFor = uid => getDb().collection('users').doc(uid).collection('resumes')
+/** What the version list shows: no content, so a list of twenty stays small. */
+const versionSummary = (id, raw) => ({ id, reason: raw.reason, name: raw.name, revision: raw.revision, progress: raw.progress ?? 0, createdAt: toIso(raw.createdAt) })
+
+export function createResumeStore({
+  getDb = getConnectionStore,
+  timestamp = () => FieldValue.serverTimestamp(),
+  now = () => new Date(),
+  checkpointMs = CHECKPOINT_MS
+} = {}) {
+  const userRef = uid => getDb().collection('users').doc(uid)
+  const collectionFor = uid => userRef(uid).collection('resumes')
+  const versionsFor = (uid, id) => collectionFor(uid).doc(id).collection('versions')
+  // Time-sortable, so ids list in creation order even before createdAt is looked at.
+  const newVersionId = () => `${String(now().getTime()).padStart(13, '0')}-${randomUUID().slice(0, 8)}`
+
+  /** A frozen copy of a stored resume document, in the current shape (legacy documents are converted). */
+  function versionDocument(id, raw, reason) {
+    const api = toApiResume(id, raw)
+    return {
+      name: api.name, templateId: api.templateId, data: api.data, presentation: api.presentation, confirmedSections: api.confirmedSections,
+      sourceFileName: api.sourceFileName, parseMetadata: api.parseMetadata, progress: api.progress, revision: api.revision, reason, createdAt: timestamp()
+    }
+  }
+
+  /** Keeps the newest MAX_VERSIONS. A failure here only leaves a few extra versions, so it never fails the request. */
+  async function pruneVersions(uid, id) {
+    try {
+      const snapshot = await versionsFor(uid, id).orderBy('createdAt', 'desc').limit(MAX_VERSIONS + 20).get()
+      await Promise.all(snapshot.docs.slice(MAX_VERSIONS).map(doc => doc.ref.delete()))
+    } catch (error) {
+      console.error('Could not prune resume versions:', error?.message)
+    }
+  }
+
+  /**
+   * Resume slots (shared/plans.js): users/{uid}.resumesCounted goes up with every resume created and down only when
+   * a deleted resume was under COUNTED_DELETE_PERCENT complete. Accounts from before the counter start at their
+   * current number of resumes. Reads only, so it can run before a transaction's writes.
+   */
+  async function readSlots(transaction, uid) {
+    const snapshot = await transaction.get(userRef(uid))
+    const user = snapshot.exists ? snapshot.data() : {}
+    const counted = Number.isInteger(user.resumesCounted) && user.resumesCounted >= 0
+    const used = counted ? user.resumesCounted : (await transaction.get(collectionFor(uid).select())).docs.length
+    return { used, counted, pro: isProPlan(user.plan, now().getTime()) }
+  }
+
+  /** Takes a slot for a new resume, or throws 'plan_limit' on a free account that has used them all. */
+  async function claimSlot(transaction, uid) {
+    const slots = await readSlots(transaction, uid)
+    if (!slots.pro && slots.used >= FREE_RESUME_LIMIT) {
+      throw new ResumeStoreError('plan_limit', `You’ve used the ${FREE_RESUME_LIMIT} resumes on the free plan. Upgrade to Pro for unlimited resumes.`, { limit: FREE_RESUME_LIMIT })
+    }
+    return () => transaction.set(userRef(uid), { resumesCounted: slots.used + 1 }, { merge: true })
+  }
+
+  /** { used, limit } for the plan page and the dashboard; limit is null on Pro. */
+  async function resumeAllowance(uid) {
+    const slots = await getDb().runTransaction(transaction => readSlots(transaction, uid))
+    return { used: slots.used, limit: slots.pro ? null : FREE_RESUME_LIMIT }
+  }
 
   /**
    * Create (baseRevision null) or update (baseRevision = the revision the client last saw) in one transaction.
@@ -102,21 +170,131 @@ export function createResumeStore({ getDb = getConnectionStore, timestamp = () =
     const clean = validateResumeFields(fields)
     if (baseRevision !== null && !Number.isInteger(baseRevision)) throw new ResumeStoreError('invalid', 'baseRevision must be a whole number or null.')
     const ref = collectionFor(uid).doc(id)
-    return getDb().runTransaction(async transaction => {
+    let checkpointed = false
+    const saved = await getDb().runTransaction(async transaction => {
+      checkpointed = false   // a retried transaction starts over
       const snapshot = await transaction.get(ref)
       const document = { ...clean, progress: progressOf(clean.data), schemaVersion: SCHEMA_VERSION }
       if (!snapshot.exists) {
         // Someone deleted it elsewhere: tell the client rather than quietly bringing it back.
         if (baseRevision !== null) throw new ResumeStoreError('not_found', 'This resume was deleted somewhere else.')
+        const takeSlot = await claimSlot(transaction, uid)
         transaction.set(ref, { ...document, revision: 1, createdAt: timestamp(), updatedAt: timestamp() })
+        takeSlot()
         return { id, revision: 1, updatedAt: now().toISOString() }
       }
       const existing = snapshot.data()
       const current = Number.isInteger(existing.revision) ? existing.revision : 0
       if (baseRevision !== current) throw new ResumeStoreError('conflict', 'This resume was changed somewhere else.', { serverRevision: current })
+      // When the newest version is old, keep the state being replaced as a checkpoint (no extra read: the
+      // resume document remembers when and at which revision it was last versioned).
+      let versioned = { lastVersionAt: existing.lastVersionAt ?? null, lastVersionRevision: existing.lastVersionRevision ?? null }
+      const since = Date.parse(toIso(existing.lastVersionAt ?? existing.createdAt ?? existing.updatedAt) ?? '')
+      if (Number.isFinite(since) && now().getTime() - since >= checkpointMs && existing.lastVersionRevision !== current) {
+        transaction.set(versionsFor(uid, id).doc(newVersionId()), versionDocument(id, existing, 'auto'))
+        versioned = { lastVersionAt: timestamp(), lastVersionRevision: current }
+        checkpointed = true
+      }
       // A full replace (not merge) also drops fields from the pre-revision format.
-      transaction.set(ref, { ...document, revision: current + 1, createdAt: existing.createdAt ?? timestamp(), updatedAt: timestamp() })
+      transaction.set(ref, { ...document, ...versioned, revision: current + 1, createdAt: existing.createdAt ?? timestamp(), updatedAt: timestamp() })
       return { id, revision: current + 1, updatedAt: now().toISOString() }
+    })
+    if (checkpointed) await pruneVersions(uid, id)
+    return saved
+  }
+
+  /**
+   * Saves the stored resume as a version. Resolves null when nothing changed since the newest version.
+   * Does not touch revision, so an open editor isn't pushed into a conflict.
+   */
+  async function createVersion(uid, id) {
+    const ref = collectionFor(uid).doc(id)
+    const versionId = newVersionId()
+    const created = await getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      const existing = snapshot.data()
+      const revision = Number.isInteger(existing.revision) ? existing.revision : 0
+      if (existing.lastVersionRevision === revision) return null
+      const document = versionDocument(id, existing, 'manual')
+      transaction.set(versionsFor(uid, id).doc(versionId), document)
+      transaction.update(ref, { lastVersionAt: timestamp(), lastVersionRevision: revision })
+      return versionSummary(versionId, { ...document, createdAt: now().toISOString() })
+    })
+    if (created) await pruneVersions(uid, id)
+    return created
+  }
+
+  async function listVersions(uid, id) {
+    const snapshot = await versionsFor(uid, id).orderBy('createdAt', 'desc').limit(MAX_VERSIONS).get()
+    return snapshot.docs.map(doc => versionSummary(doc.id, doc.data()))
+  }
+
+  /**
+   * Makes a version the current resume (as a new revision). The state being replaced is kept as a
+   * 'before-restore' version first, so a restore can itself be undone.
+   */
+  async function restoreVersion(uid, id, versionId) {
+    const ref = collectionFor(uid).doc(id)
+    const versionRef = versionsFor(uid, id).doc(versionId)
+    const backupId = newVersionId()
+    const restored = await getDb().runTransaction(async transaction => {
+      const [snapshot, versionSnapshot] = await Promise.all([transaction.get(ref), transaction.get(versionRef)])
+      if (!snapshot.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      if (!versionSnapshot.exists) throw new ResumeStoreError('not_found', 'Version not found.')
+      const clean = validateResumeFields(versionSnapshot.data())
+      const existing = snapshot.data()
+      const current = Number.isInteger(existing.revision) ? existing.revision : 0
+      if (existing.lastVersionRevision !== current) transaction.set(versionsFor(uid, id).doc(backupId), versionDocument(id, existing, 'before-restore'))
+      transaction.set(ref, {
+        ...clean, progress: progressOf(clean.data), schemaVersion: SCHEMA_VERSION,
+        revision: current + 1, lastVersionAt: timestamp(), lastVersionRevision: current,
+        createdAt: existing.createdAt ?? timestamp(), updatedAt: timestamp()
+      })
+      return { id, revision: current + 1, updatedAt: now().toISOString() }
+    })
+    await pruneVersions(uid, id)
+    return restored
+  }
+
+  /**
+   * Renames in one transaction. Counts as a change (revision + 1), so an editor still open on the old revision
+   * gets a conflict instead of silently putting the old name back.
+   */
+  async function renameResume(uid, id, name) {
+    const clean = text(name, MAX_NAME_LENGTH)
+    if (!clean) throw new ResumeStoreError('invalid', 'A resume name is required.')
+    const ref = collectionFor(uid).doc(id)
+    return getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      const existing = snapshot.data()
+      const revision = (Number.isInteger(existing.revision) ? existing.revision : 0) + 1
+      transaction.update(ref, { name: clean, revision, updatedAt: timestamp() })
+      return { id, name: clean, revision, updatedAt: now().toISOString() }
+    })
+  }
+
+  /**
+   * Copies a resume to a new id chosen by the client, so a retried request can't make two copies: when the
+   * new id already exists it is returned as is. The copy starts at revision 1 and is named "<name> (copy)".
+   */
+  async function duplicateResume(uid, id, newId) {
+    if (newId === id) throw new ResumeStoreError('invalid', 'The copy needs its own id.')
+    const sourceRef = collectionFor(uid).doc(id)
+    const copyRef = collectionFor(uid).doc(newId)
+    return getDb().runTransaction(async transaction => {
+      const [source, copy] = await Promise.all([transaction.get(sourceRef), transaction.get(copyRef)])
+      if (copy.exists) return toApiResume(newId, copy.data())
+      if (!source.exists) throw new ResumeStoreError('not_found', 'Resume not found.')
+      const takeSlot = await claimSlot(transaction, uid)
+      const original = toApiResume(id, source.data())
+      const suffix = ' (copy)'
+      const fields = validateResumeFields({ ...original, name: `${original.name.slice(0, MAX_NAME_LENGTH - suffix.length)}${suffix}` })
+      const stamp = now().toISOString()
+      transaction.set(copyRef, { ...fields, progress: progressOf(fields.data), schemaVersion: SCHEMA_VERSION, revision: 1, createdAt: timestamp(), updatedAt: timestamp() })
+      takeSlot()
+      return toApiResume(newId, { ...fields, progress: progressOf(fields.data), revision: 1, createdAt: stamp, updatedAt: stamp })
     })
   }
 
@@ -131,12 +309,26 @@ export function createResumeStore({ getDb = getConnectionStore, timestamp = () =
     return toApiResume(snapshot.id, snapshot.data())
   }
 
-  /** Deleting twice is fine (a retried request must not fail). Also removes the versions subcollection. */
+  /**
+   * Deleting twice is fine (a retried request must not fail). The document and the slot change happen in one
+   * transaction, so a retry can't give a slot back twice; the versions subcollection is removed afterwards.
+   */
   async function deleteResume(uid, id) {
-    await getDb().recursiveDelete(collectionFor(uid).doc(id))
+    const ref = collectionFor(uid).doc(id)
+    await getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) return
+      const slots = await readSlots(transaction, uid)
+      const keepsSlot = resumeCompletion(toApiResume(id, snapshot.data()).data) >= COUNTED_DELETE_PERCENT
+      // The counter is set from the resumes that exist now, so it is written even when the slot is kept.
+      const used = keepsSlot ? slots.used : Math.max(0, slots.used - 1)
+      if (!slots.counted || used !== slots.used) transaction.set(userRef(uid), { resumesCounted: used }, { merge: true })
+      transaction.delete(ref)
+    })
+    await getDb().recursiveDelete(ref)
   }
 
-  return { saveResume, listResumes, getResume, deleteResume }
+  return { resumeAllowance, saveResume, renameResume, duplicateResume, createVersion, listVersions, restoreVersion, listResumes, getResume, deleteResume }
 }
 
 export const resumeStore = createResumeStore()

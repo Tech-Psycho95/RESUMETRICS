@@ -34,7 +34,7 @@ const verdictFor = (score, backed, total) => {
 /**
  * GitHub evidence (PLAN-032) in the same shell as Job tailoring: bar, sidebar (score + skills),
  * workspace (start states, hero, Skills / Languages / Repositories) and a preview (resume | scan activity).
- * github: { connected, connecting, login, onConnect, scan, onScan, onCancel }
+ * github: { connected, connecting, login, onConnect, scan, onScan, onCancel, staleSkills, onForget }
  */
 export default function EvidenceWorkspace({ github, resumeCanvas, resumeName, templateName, onBack, onOpenEditor }) {
   useEffect(() => { loadResumeFont('Figtree') }, [])
@@ -106,7 +106,7 @@ export default function EvidenceWorkspace({ github, resumeCanvas, resumeName, te
           lead="We'll read the languages, dependency files (package.json, requirements.txt and similar) and READMEs of your 25 most recently updated repositories, then compare them with the skills on your resume."
           points={['Takes about a minute', `Skills with under ${WEAK_EVIDENCE_PERCENT}% of your code count as too little evidence`, 'Nothing on your resume changes']} error={scan?.error} />}
         {stage === 'report' && <>
-          <EvidenceHero scan={scan} summary={summary} scanning={scanning} />
+          <EvidenceHero scan={scan} summary={summary} scanning={scanning} staleSkills={github.staleSkills ?? []} onScan={github.onScan} onForget={github.onForget} />
           {scan.error && <p className="tw-note" role="alert">{scan.error}</p>}
           <div className="tw-tabs" role="tablist" aria-label="Evidence">
             {[['skills', 'shield', 'Skills'], ['languages', 'chart', 'Languages'], ['repos', 'repo', 'Repositories']].map(([id, icon, label]) =>
@@ -146,7 +146,7 @@ function StartCard({ title, lead, points, action, onAction, disabled, error }) {
   </section>
 }
 
-function EvidenceHero({ scan, summary, scanning }) {
+function EvidenceHero({ scan, summary, scanning, staleSkills = [], onScan, onForget }) {
   const verdict = verdictFor(summary.score, summary.backed, summary.total)
   const weak = summary.counts.weak + summary.counts.mentioned
   return <section className="tw-hero" aria-labelledby="ev-hero-title">
@@ -161,7 +161,10 @@ function EvidenceHero({ scan, summary, scanning }) {
             <span className="ev-progress-text"><span className="tw-spinner" aria-hidden="true" />Reading {scan.current || 'your repositories'} · {scan.done} of {scan.total || 25}</span>
             <span className="ev-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={scan.percent} aria-label="Scan progress"><span style={{ width: `${scan.percent}%` }} /></span>
           </div>
-          : <p className="ev-done">{scan.status === 'cancelled' ? `Stopped after ${scan.done} of ${scan.total} repositories, so this is a partial result.` : `${scan.done} repositories read.`}</p>}
+          : <>
+            <p className="ev-done">{scan.status === 'cancelled' ? `Stopped after ${scan.done} of ${scan.total} repositories, so this is a partial result.` : `${scan.done} repositories read${scan.scannedAt ? `, ${relativeDate(scan.scannedAt) === 'today' ? 'today' : relativeDate(scan.scannedAt)}` : ''}.`}{onForget && scan.scannedAt && <> <button type="button" className="ev-link" onClick={onForget}>Forget this report</button></>}</p>
+            {staleSkills.length > 0 && <p className="tw-note ev-stale" role="status">{staleSkills.length === 1 ? `${staleSkills[0]} was added` : `${staleSkills.slice(0, 3).join(', ')}${staleSkills.length > 3 ? ` and ${staleSkills.length - 3} more were` : ' were'} added`} to your resume after this scan, so {staleSkills.length === 1 ? 'it isn’t' : 'they aren’t'} checked here. {onScan && <button type="button" className="ev-link" onClick={onScan}>Scan again</button>}</p>}
+          </>}
       </div>
     </div>
   </section>

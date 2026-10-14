@@ -4,12 +4,14 @@ import { createRequireUser } from '../server/services/firebaseAdmin.js'
 import { createResumeStore } from '../server/db/resumeStore.js'
 import { createUserStore, validateSettingsPatch, SettingsError } from '../server/db/userStore.js'
 import { createUserRouter } from '../server/routes/user.routes.js'
+import { createEvidenceStore } from '../server/db/evidenceStore.js'
 import { createFakeFirestore } from './helpers/fakeFirestore.js'
 
 const ID = 'a1b2c3d4-e5f6-4789-8abc-def012345678'
 const db = createFakeFirestore()
 let clock = Date.UTC(2026, 9, 11, 10, 0, 0)
-const resumes = createResumeStore({ getDb: () => db, timestamp: db.timestamp })
+const resumes = createResumeStore({ getDb: () => db, timestamp: db.timestamp, checkpointMs: Infinity })
+const evidence = createEvidenceStore({ getDb: () => db, timestamp: db.timestamp })
 const users = createUserStore({ getDb: () => db, now: () => clock })
 
 // Real sign-in middleware with a fake token check: 'alice-token' → alice, 'bob-token' → bob.
@@ -24,7 +26,7 @@ const authenticate = createRequireUser({
 })
 const app = express()
 app.set('env', 'test')   // keep Express from logging the intentional 413
-app.use('/api/user', express.json({ limit: '600kb' }), createUserRouter({ resumes, users, authenticate }))
+app.use('/api/user', express.json({ limit: '600kb' }), createUserRouter({ resumes, users, evidence, authenticate }))
 const server = await new Promise(resolve => { const listening = app.listen(0, '127.0.0.1', () => resolve(listening)) })
 const call = async (method, path, { token = 'alice-token', body } = {}) => {
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/user${path}`, {
@@ -103,6 +105,77 @@ try {
   assert.equal((await call('DELETE', `/resumes/${ID}`)).status, 200)
   assert.equal((await call('DELETE', `/resumes/${ID}`)).status, 200)
   assert.equal(db.read(`users/alice/resumes/${ID}`), undefined)
+
+  // Rename and duplicate.
+  const COPY = '99999999-8888-4777-8666-555555555555'
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: null, fields: fields({ name: 'Original' }) } })).status, 200)
+  const renamed = await call('PATCH', `/resumes/${ID}`, { body: { name: ' Renamed ' } })
+  assert.equal(renamed.status, 200)
+  assert.equal(renamed.body.resume.name, 'Renamed')
+  assert.equal(renamed.body.resume.revision, 2)
+  assert.equal((await call('PATCH', `/resumes/${ID}`, { body: { name: '' } })).status, 400)
+  assert.equal((await call('PATCH', `/resumes/${ID}`, { body: {} })).status, 400)
+  assert.equal((await call('PATCH', `/resumes/${ID}`, { token: 'bob-token', body: { name: 'Stolen' } })).status, 404)
+  assert.equal(db.read(`users/alice/resumes/${ID}`).name, 'Renamed')
+  assert.equal((await call('PATCH', '/resumes/short', { body: { name: 'x' } })).status, 400)
+
+  const duplicated = await call('POST', `/resumes/${ID}/duplicate`, { body: { newId: COPY } })
+  assert.equal(duplicated.status, 201)
+  assert.equal(duplicated.body.resume.id, COPY)
+  assert.equal(duplicated.body.resume.name, 'Renamed (copy)')
+  assert.equal(duplicated.body.resume.revision, 1)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { body: { newId: COPY } })).status, 201, 'a retry is fine')
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { body: {} })).status, 400)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { body: { newId: 'a/b' } })).status, 400)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { token: 'bob-token', body: { newId: COPY } })).status, 404)
+  assert.equal((await call('POST', `/resumes/${ID}/duplicate`, { token: null, body: { newId: COPY } })).status, 401)
+  assert.equal((await call('GET', '/resumes')).body.resumes.length, 2)
+  await call('DELETE', `/resumes/${COPY}`)
+  await call('DELETE', `/resumes/${ID}`)
+
+  // Version history.
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: null, fields: fields({ name: 'Draft one' }) } })).status, 200)
+  const savedVersion = await call('POST', `/resumes/${ID}/versions`)
+  assert.equal(savedVersion.status, 201)
+  assert.equal(savedVersion.body.version.reason, 'manual')
+  assert.equal(savedVersion.body.version.name, 'Draft one')
+  const unchanged = await call('POST', `/resumes/${ID}/versions`)
+  assert.equal(unchanged.status, 200)
+  assert.equal(unchanged.body.version, null)
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: 1, fields: fields({ name: 'Draft two' }) } })).status, 200)
+  const listed = await call('GET', `/resumes/${ID}/versions`)
+  assert.equal(listed.status, 200)
+  assert.deepEqual(listed.body.versions.map(version => version.id), [savedVersion.body.version.id])
+  assert.equal((await call('GET', `/resumes/${ID}/versions`, { token: 'bob-token' })).body.versions.length, 0)
+  assert.equal((await call('POST', `/resumes/${ID}/versions`, { token: 'bob-token' })).status, 404)
+  assert.equal((await call('POST', `/resumes/${ID}/versions`, { token: null })).status, 401)
+  assert.equal((await call('POST', `/resumes/${ID}/versions/short/restore`)).status, 400)
+  assert.equal((await call('POST', `/resumes/${ID}/versions/does-not-exist/restore`)).status, 404)
+  assert.equal((await call('POST', `/resumes/${ID}/versions/${savedVersion.body.version.id}/restore`, { token: 'bob-token' })).status, 404)
+  const restoredVersion = await call('POST', `/resumes/${ID}/versions/${savedVersion.body.version.id}/restore`)
+  assert.equal(restoredVersion.status, 200)
+  assert.equal(restoredVersion.body.resume.revision, 3)
+  assert.equal((await call('GET', `/resumes/${ID}`)).body.resume.name, 'Draft one')
+  assert.equal((await call('GET', `/resumes/${ID}/versions`)).body.versions.length, 2, 'the replaced draft was kept')
+  await call('DELETE', `/resumes/${ID}`)
+
+  // Saved evidence: readable and forgettable by its owner; there is deliberately no route to write it.
+  assert.equal((await call('PUT', `/resumes/${ID}`, { body: { baseRevision: null, fields: fields() } })).status, 200)
+  assert.deepEqual((await call('GET', `/resumes/${ID}/evidence`)).body.evidence, { github: null })
+  await evidence.saveGitHubEvidence('alice', ID, { result: { repositories: [{ name: 'app', languages: { Go: 10 } }], scanned: 1, accessible: 1, cap: 25, summary: 'Hi.' }, resumeSkills: ['Go'] })
+  const withEvidence = await call('GET', `/resumes/${ID}/evidence`)
+  assert.equal(withEvidence.status, 200)
+  assert.equal(withEvidence.body.evidence.github.repositories[0].name, 'app')
+  assert.equal(withEvidence.body.evidence.github.summary, 'Hi.')
+  assert.deepEqual((await call('GET', `/resumes/${ID}/evidence`, { token: 'bob-token' })).body.evidence, { github: null })
+  assert.equal((await call('GET', `/resumes/${ID}/evidence`, { token: null })).status, 401)
+  assert.equal((await call('PUT', `/resumes/${ID}/evidence/github`, { body: { summary: 'forged' } })).status, 404, 'no way to write evidence from the browser')
+  assert.equal((await call('DELETE', `/resumes/${ID}/evidence/jobMatch`)).status, 400)
+  assert.equal((await call('DELETE', `/resumes/${ID}/evidence/github`, { token: 'bob-token' })).status, 200)
+  assert.ok((await call('GET', `/resumes/${ID}/evidence`)).body.evidence.github, 'bob deleted nothing of alice’s')
+  assert.equal((await call('DELETE', `/resumes/${ID}/evidence/github`)).status, 200)
+  assert.deepEqual((await call('GET', `/resumes/${ID}/evidence`)).body.evidence, { github: null })
+  await call('DELETE', `/resumes/${ID}`)
 
   // The profile is created on first contact with defaults and a free plan, then left alone.
   const profile = db.read('users/alice')

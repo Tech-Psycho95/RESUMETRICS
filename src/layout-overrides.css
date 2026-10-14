@@ -202,6 +202,13 @@
 .dashboard-project-actions button { flex: 1; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--dh-line); border-radius: 10px; color: var(--dh-ink); background: var(--dh-surface); font-size: 13px; font-weight: 650; cursor: pointer; transition: background-color .18s ease, border-color .18s ease, color .18s ease; }
 .dashboard-project-actions button.is-primary { border-color: var(--dh-accent); color: #fff; background: var(--dh-accent); }
 .dashboard-project-actions button.is-primary:hover { filter: brightness(1.08); }
+.dashboard-project-actions button.is-wide { flex: 1 0 100%; }
+.dashboard-project-actions button:disabled { opacity: .55; cursor: default; }
+.dashboard-project-rename { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 8px; }
+.dashboard-project-rename input { flex: 1 0 100%; min-width: 0; min-height: 34px; padding: 0 10px; border: 1px solid var(--dh-line); border-radius: 10px; color: var(--dh-ink); background: var(--dh-surface); font: inherit; font-size: 13px; }
+.dashboard-project-rename input:focus-visible { outline: 3px solid color-mix(in srgb, var(--dh-accent) 35%, transparent); outline-offset: 1px; }
+.dashboard-projects-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--dh-weak) 40%, var(--dh-line)); border-radius: 12px; color: var(--dh-ink); background: color-mix(in srgb, var(--dh-weak) 8%, var(--dh-surface)); font-size: 13px; }
+.dashboard-projects-notice button { min-height: 30px; padding: 0 12px; border: 1px solid var(--dh-line); border-radius: 9px; color: var(--dh-ink); background: var(--dh-surface); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
 .dashboard-project-actions button.is-danger { color: var(--dh-weak); }
 .dashboard-project-actions button.is-danger:hover { border-color: var(--dh-weak); background: color-mix(in srgb, var(--dh-weak) 10%, var(--dh-surface)); }
 .dashboard-project-actions button:focus-visible { outline: 3px solid color-mix(in srgb, var(--dh-accent) 35%, transparent); outline-offset: 2px; }

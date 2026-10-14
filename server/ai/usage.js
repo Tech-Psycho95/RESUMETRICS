@@ -30,9 +30,8 @@ export function secondsUntilNextDay(now = Date.now(), timeZone = env.usage.timeZ
 const EMPTY = Object.freeze({ calls: 0, tokensIn: 0, tokensOut: 0, limitedCalls: 0 })
 
 /**
- * Per-user, per-day AI usage, in memory until the database lands (resets when the server restarts).
- * The database version keeps these two methods and calls the SQL Connect admin operations GetAiUsage and
- * RecordAiUsage (.kiro/steering/database.md, section 8), serialising add() per uid.
+ * Per-user, per-day AI usage in memory (resets when the server restarts). The running server swaps in the
+ * Firestore store (usageStore.js) with this one as the fallback; tests use this one directly.
  */
 export function createMemoryUsageStore() {
   const rows = new Map()

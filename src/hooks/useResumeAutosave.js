@@ -7,8 +7,9 @@ import { saveResume } from '../utils/userApi.js'
  * Saves the open draft to the cloud: 3 s after the last edit (at most 20 s after the first unsaved one), when the
  * tab is hidden or closed, when the editor unmounts and when the connection returns. See src/db/saveQueue.js.
  *
- * cloud:         { id, revision, savedHash } of the open draft (null until it has an id). The caller owns it so it
- *                survives a refresh; this hook reports changes through onCloudChange.
+ * cloud:         { id, revision, savedHash, loadedAt? } of the open draft (null until it has an id). The caller owns it
+ *                so it survives a refresh; this hook reports changes through onCloudChange. A new loadedAt means the
+ *                caller reloaded the same resume from the server (a restore, "use the other"): saving starts over from it.
  * fields:        the current saved shape of the draft (src/db/resumeFields.js buildResumeFields), memoised.
  * enabled:       signed in and the editor is showing a draft.
  * Returns { status, error, lastSavedAt, saveNow, keepMine }.
@@ -20,6 +21,7 @@ export function useResumeAutosave({ cloud, onCloudChange, fields, enabled }) {
   const knownCloudRef = useRef(cloud)
   knownCloudRef.current = cloud
   const queueRef = useRef(null)
+  const loadedRef = useRef(cloud?.loadedAt ?? null)
 
   if (!queueRef.current) {
     queueRef.current = createSaveQueue({
@@ -37,7 +39,11 @@ export function useResumeAutosave({ cloud, onCloudChange, fields, enabled }) {
 
   // Declared before the update effect: when a draft gets its id, the queue must be pointed at it first.
   useEffect(() => {
-    if ((cloud?.id ?? null) !== queue.state.id) queue.target(cloud?.id ? cloud : { id: null })
+    const loadedAt = cloud?.loadedAt ?? null
+    if ((cloud?.id ?? null) !== queue.state.id || loadedAt !== loadedRef.current) {
+      loadedRef.current = loadedAt
+      queue.target(cloud?.id ? cloud : { id: null })
+    }
   }, [cloud, queue])
 
   useEffect(() => {

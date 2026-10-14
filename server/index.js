@@ -7,9 +7,15 @@ import resumeRoutes from './routes/resume.routes.js'
 import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
 import userRoutes from './routes/user.routes.js'
+import jobsRoutes from './routes/jobs.routes.js'
+import { createRequirePro } from './middleware/requirePro.js'
 import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
-import { enforceDailyTokenBudget, trackAiUsage } from './ai/usage.js'
+import { createMemoryUsageStore, enforceDailyTokenBudget, setUsageStore, trackAiUsage } from './ai/usage.js'
+import { createFirestoreUsageStore, createResilientUsageStore } from './ai/usageStore.js'
+
+// Daily AI usage lives in Firestore (users/{uid}/usage/{day}) so it survives restarts and is shared by every serverless instance.
+setUsageStore(createResilientUsageStore(createFirestoreUsageStore(), createMemoryUsageStore()))
 
 const app = express()
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
@@ -58,7 +64,9 @@ app.use('/api/github', smallJson, githubRoutes)
 // Resume import, NIMBUS and job fixes call the AI model: signed-in users only, within their limits.
 app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, documentJson, trackAiUsage, resumeRoutes)
 app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
-app.use('/api/jd', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
+// Job tailoring and the job tracker are Pro features (shared/plans.js).
+app.use('/api/jd', requireUser, createRequirePro({ feature: 'jobTailoring' }), userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
+app.use('/api/jobs', requireUser, createRequirePro({ feature: 'jobTracker' }), smallJson, jobsRoutes)
 // Saved resumes: signed-in users only, scoped to their own uid. Body cap = the 500 KB resume limit plus the request envelope.
 app.use('/api/user', express.json({ limit: '600kb' }), userRoutes)
 

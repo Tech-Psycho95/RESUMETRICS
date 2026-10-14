@@ -16,7 +16,9 @@ const rejects = async (work, code, check = () => {}) => {
 }
 
 const db = createFakeFirestore()
-const store = createResumeStore({ getDb: () => db, timestamp: db.timestamp, now: () => new Date('2026-10-11T10:00:00Z') })
+// Pro, so this file can create as many resumes as it needs; the free plan's limit is tested in resumeQuota.test.js.
+db.seed('users/alice', { plan: { tier: 'pro', status: 'active', term: 'lifetime' } })
+const store = createResumeStore({ getDb: () => db, timestamp: db.timestamp, now: () => new Date('2026-10-11T10:00:00Z'), checkpointMs: Infinity })
 
 // Create: revision 1, server-side fields set, progress computed.
 const created = await store.saveResume('alice', ID, { baseRevision: null, fields: fields() })
@@ -126,6 +128,42 @@ assert.equal(upgraded.createdAt, '2026-10-09T10:00:00.000Z')
 const before = { ...db.stats }
 await store.saveResume('alice', ID, { baseRevision: 3, fields: fields({ name: 'Cost check' }) })
 assert.deepEqual({ reads: db.stats.reads - before.reads, writes: db.stats.writes - before.writes }, { reads: 1, writes: 1 })
+
+// Rename: trimmed, counts as a change (revision + 1), refuses blanks, other users' resumes and deleted ones.
+const renamed = await store.renameResume('alice', ID, '  Backend roles  ')
+assert.deepEqual(renamed, { id: ID, name: 'Backend roles', revision: 5, updatedAt: '2026-10-11T10:00:00.000Z' })
+assert.equal(db.read(`users/alice/resumes/${ID}`).name, 'Backend roles')
+assert.equal(db.read(`users/alice/resumes/${ID}`).data.fullName, 'Ada Lovelace', 'rename leaves the content alone')
+await rejects(() => store.saveResume('alice', ID, { baseRevision: 4, fields: fields() }), 'conflict', error => assert.equal(error.serverRevision, 5))
+await rejects(() => store.renameResume('alice', ID, '   '), 'invalid')
+await rejects(() => store.renameResume('alice', ID, 42), 'invalid')
+await rejects(() => store.renameResume('carol', ID, 'Mine now'), 'not_found')
+await rejects(() => store.renameResume('alice', 'f'.repeat(20), 'Nope'), 'not_found')
+assert.equal((await store.renameResume('alice', ID, 'x'.repeat(500))).name.length, 120)
+
+// Duplicate: a fresh document at revision 1, same content, "(copy)" name, the original untouched.
+const COPY = '99999999-8888-4777-8666-555555555555'
+const original = db.read(`users/alice/resumes/${ID}`)
+const copy = await store.duplicateResume('alice', ID, COPY)
+assert.equal(copy.id, COPY)
+assert.equal(copy.revision, 1)
+assert.equal(copy.name, `${'x'.repeat(120 - ' (copy)'.length)} (copy)`)
+assert.equal(copy.data.fullName, 'Ada Lovelace')
+const copied = db.read(`users/alice/resumes/${COPY}`)
+assert.equal(copied.revision, 1)
+assert.equal(copied.progress, original.progress)
+assert.deepEqual(copied.data, original.data)
+assert.deepEqual(db.read(`users/alice/resumes/${ID}`), original)
+// Retrying with the same new id returns the same copy instead of making another or failing.
+const writesBefore = db.stats.writes
+assert.equal((await store.duplicateResume('alice', ID, COPY)).id, COPY)
+assert.equal(db.stats.writes, writesBefore)
+await rejects(() => store.duplicateResume('alice', ID, ID), 'invalid')
+await rejects(() => store.duplicateResume('alice', 'e'.repeat(20), '0'.repeat(20)), 'not_found')
+await rejects(() => store.duplicateResume('carol', ID, '1'.repeat(20)), 'not_found')
+assert.equal(db.read(`users/carol/resumes/${'1'.repeat(20)}`), undefined)
+await store.deleteResume('alice', COPY)
+await store.renameResume('alice', ID, 'Cost check')
 
 // Delete removes the resume and everything under it, and is safe to repeat.
 db.seed(`users/alice/resumes/${ID}/versions/v1`, { reason: 'manual' })

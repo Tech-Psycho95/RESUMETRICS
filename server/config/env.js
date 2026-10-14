@@ -79,6 +79,15 @@ export const env = Object.freeze({
     userDailyTokens: positiveInt('RESUMETRICS_USER_DAILY_TOKENS', 50_000),
     timeZone: timeZoneOr('RESUMETRICS_USAGE_TIME_ZONE', 'Asia/Kolkata')
   }),
+  // Job tracker (server/jobs). JSearch (OpenWeb Ninja) lists postings from LinkedIn, Glassdoor, Foundit and others;
+  // Tavily fills the boards it misses (LinkedIn job pages, Naukri, Indeed, Internshala). A search is cached so repeats cost nothing.
+  jobs: Object.freeze({
+    jsearchKey: process.env.JSEARCH_API_KEY?.trim() ?? '',
+    jsearchUrl: process.env.JSEARCH_API_URL?.trim() || 'https://api.openwebninja.com/jsearch/search',
+    tavilyKey: process.env.TAVILY_API_KEY?.trim() ?? '',
+    searchesPerDay: positiveInt('RESUMETRICS_JOB_SEARCHES_PER_DAY', 15),
+    cacheHours: positiveInt('RESUMETRICS_JOB_CACHE_HOURS', 6)
+  }),
   // Number of reverse proxies in front of the server (e.g. 1 on Cloud Run or Render), so rate limits see real client IPs.
   trustProxy: Math.max(0, Number.parseInt(process.env.RESUMETRICS_TRUST_PROXY ?? '0', 10) || 0)
 })
