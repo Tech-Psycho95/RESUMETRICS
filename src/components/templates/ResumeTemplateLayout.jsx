@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { adaptResumeForTemplate, linkDisplayLabel } from '../../templates/templateDataAdapter.js'
 import { findFont, loadFontsForPresentation, loadResumeFont } from '../../editor/fontRegistry.js'
+import { applySectionOrder, shapeSections } from '../../editor/sectionSettings.js'
 import { parseMarks, rangeOffsetsWithin, readMarkedText } from '../../editor/inlineMarks.js'
 import { skillGroupLabel } from '../../../shared/skillGroups.js'
 
@@ -307,7 +308,7 @@ const sectionOrderByVariant = {
   'product-startup': ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages']
 }
 
-function buildSections(resumeData, variant, blankPreview = false) {
+function buildSections(resumeData, variant, blankPreview = false, sectionSettings = null) {
   const features = featuresFor(variant)
   const skills = resumeData.allSkills ?? allSkills(resumeData.skills)
   const experience = asArray(resumeData.experience)
@@ -376,11 +377,8 @@ function buildSections(resumeData, variant, blankPreview = false) {
     }] : [])
   ]
   const order = sectionOrderByVariant[variant] ?? sectionOrderByVariant['classic-professional']
-  return sections.filter(section => section.blocks.length).sort((left, right) => {
-    const leftIndex = order.indexOf(left.id)
-    const rightIndex = order.indexOf(right.id)
-    return (leftIndex < 0 ? order.length : leftIndex) - (rightIndex < 0 ? order.length : rightIndex)
-  })
+  // Sections the person hid, renamed or moved (presentation.sections) are applied after the template's own order.
+  return shapeSections(sections.filter(section => section.blocks.length), sectionSettings, order)
 }
 
 // One box per skill. The separators stay in the text (visually hidden) so editing the line still splits on them.
@@ -440,9 +438,9 @@ const plannedSectionTitles = { summary: 'Summary', experience: 'Experience', pro
  * The order and placement of every section exactly as this template draws them.
  * The scratch form is built from this so its structure always matches the page.
  */
-export function getTemplateSectionPlan(variant) {
+export function getTemplateSectionPlan(variant, sectionSettings = null) {
   const order = sectionOrderByVariant[variant] ?? sectionOrderByVariant['classic-professional']
-  const ids = [...order, ...Object.keys(plannedSectionTitles).filter(id => !order.includes(id))]
+  const ids = applySectionOrder([...order, ...Object.keys(plannedSectionTitles).filter(id => !order.includes(id))], sectionSettings?.order)
   // Simple Hipster and ReCeiVe draw one ATS-safe column, so only true column variants have a sidebar.
   const clone = featuresFor(variant)
   const sidebarSide = isReactiveVariant(variant) ? reactiveSidebarPositions[variant] : clone.sidebarSide ?? (visualColumnVariants.has(variant) ? 'left' : 'none')
@@ -609,7 +607,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
       '--template-project-description-carousel-size': `${.86 * Math.max(.78, Math.min(presentation.projectDescriptionScale, 1))}em`
     } : {})
   }
-  const sections = useMemo(() => buildSections(templateResume, variant, blankPreview), [templateResume, variant, blankPreview])
+  const sections = useMemo(() => buildSections(templateResume, variant, blankPreview, presentation?.sections), [templateResume, variant, blankPreview, presentation?.sections])
   const overrides = presentation?.elementOverrides
   const styleContext = useMemo(() => ({ overrides: overrides ?? {}, selectedId: selectedElementId, focusSectionId, features: featuresFor(variant) }), [overrides, selectedElementId, focusSectionId, variant])
   const shellRef = useRef(null)
