@@ -17,7 +17,7 @@ function GoogleMark() {
   </svg>
 }
 
-// Decorative stack of CV sheets: the front sheet writes itself line by line while evidence chips float in.
+// Decorative stack of CV sheets, drawn on the full-screen blue backdrop: the front sheet writes itself line by line while evidence chips float in.
 function ResumeShowcaseArt() {
   return <div className="login-art" aria-hidden="true">
     <div className="login-sheet login-sheet--back" />
@@ -104,12 +104,12 @@ export default function Login() {
   }
 
   return <main className={`login-page login-page--${authStage}`}>
-    <div className="login-shell">
-      <aside className="login-showcase">
-        <ResumeShowcaseArt />
-        <h2 className="login-showcase-title">Build a resume you can stand behind.</h2>
-      </aside>
+    <div className="login-hero">
+      <ResumeShowcaseArt />
+      <h2 className="login-showcase-title">Build a resume you can stand behind.</h2>
+    </div>
 
+    <div className="login-shell">
       <section className={`login-panel${authStage !== 'idle' ? ' login-panel--approved' : ''}`} aria-labelledby={authStage === 'idle' ? 'login-title' : undefined} aria-label={authStage === 'idle' ? undefined : 'Signed in'}>
         {authStage !== 'idle' ? <ApprovalStamp /> : <div className="login-form">
           <img className="login-logo" src={logo} alt="Resumetrics" />
