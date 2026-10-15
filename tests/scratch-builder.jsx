@@ -22,16 +22,18 @@ function ScratchBuilderCheck() {
   const [confirmed, setConfirmed] = useState({})
   const [active, setActive] = useState(null)
   const [continued, setContinued] = useState(false)
+  const [sections, setSections] = useState({})
   return <div className="app-shell editor-shell studio-shell"><main><div className="studio">
     <header className="studio-topbar editor-toolbar"><div className="studio-topbar-start"><b>Fixture · {template.name}</b>{continued && <span data-testid="continued"> — would open the editor</span>}</div></header>
     <div className="build-grid">
       <section className="editor-pane build-form-pane">
         <SectionForm template={template} resumeData={resumeData} onChange={setResumeData} supportsPhoto={template.supportsPhoto} hasPhoto={false}
           onPhotoUpload={() => {}} onPhotoRemove={() => {}} confirmed={confirmed} onConfirm={id => setConfirmed(current => ({ ...current, [id]: true }))}
-          activeSection={active} onActiveSectionChange={setActive} onContinue={() => setContinued(true)} />
+          activeSection={active} onActiveSectionChange={setActive} onContinue={() => setContinued(true)}
+          sectionSettings={sections.hidden || sections.titles || sections.order ? sections : undefined} onSectionSettingsChange={setSections} />
       </section>
       <section className="editor-pane editor-pane-centre"><div className="studio-canvas">
-        <Template resumeData={resumeData} presentation={{ ...resolveResumePresentation(template, {}), photo: { uploadPlaceholder: true, width: 72, height: 72 } }} readOnly blankPreview focusSectionId={active} />
+        <Template resumeData={resumeData} presentation={{ ...resolveResumePresentation(template, {}), sections, photo: { uploadPlaceholder: true, width: 72, height: 72 } }} readOnly blankPreview focusSectionId={active} />
       </div></section>
     </div>
   </div></main></div>

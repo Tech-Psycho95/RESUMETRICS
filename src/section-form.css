@@ -142,3 +142,29 @@
 .section-form :is(input, textarea, select, button):focus-visible { outline: 2px solid var(--accent-ink, #4b3bc4); outline-offset: 2px; }
 .form-tags-box input:focus-visible { outline: 0; }
 @media (prefers-reduced-motion: reduce) { .section-form *, .section-form *::before, .section-form *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* Hide, rename and reorder sections */
+.form-section-card.has-tools { grid-template-areas: "badge icon text open" ". . tools tools"; row-gap: 6px; }
+.form-section-card.has-tools > :nth-child(1) { grid-area: badge; }
+.form-section-card.has-tools > :nth-child(2) { grid-area: icon; }
+.form-section-card.has-tools > :nth-child(3) { grid-area: text; }
+.form-section-card.has-tools > .form-card-tools { grid-area: tools; }
+.form-section-card.has-tools > :is(.form-section-open, .form-section-edit) { grid-area: open; }
+.form-card-tools { display: flex; gap: 4px; min-height: 0; }
+.form-card-tools:empty { display: none; }
+.form-card-tools button { display: grid; place-items: center; min-width: 28px; height: 26px; padding: 0 6px; border: 1px solid var(--form-line); border-radius: 8px; color: #4a5570; background: #fff; font: inherit; font-size: 13px; line-height: 1; cursor: pointer; }
+.form-card-tools button:hover:not(:disabled) { border-color: var(--accent-border); background: var(--accent-softer); }
+.form-card-tools button[aria-pressed="true"] { color: var(--form-error); border-color: #f1c4c1; background: #fff4f3; }
+.form-card-tools button:disabled { opacity: .35; cursor: not-allowed; }
+.form-card-tools button:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .3); outline-offset: 1px; }
+.form-tool-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.form-section-card.is-hidden { border-style: dashed; background: #f7f8fb; }
+.form-section-card.is-hidden .form-section-text b, .form-section-card.is-hidden .form-section-icon { opacity: .55; }
+.form-resume-options { display: grid; gap: 10px; margin: 12px 20px 0; padding: 12px; border: 1px solid var(--form-line); border-radius: 12px; background: #fbfbfe; }
+[data-resolved-theme="dark"] .form-section-card.is-hidden { background: #141b2b; }
+[data-resolved-theme="dark"] .form-card-tools button { color: #c3cbe0; background: #172033; }
+[data-resolved-theme="dark"] .form-resume-options { background: #141b2b; }
+
+/* Multi-line fields grow with what is typed instead of scrolling inside a small box. */
+.form-field textarea.form-autosize { resize: none; overflow: hidden; }
+.form-field textarea.form-autosize.is-capped { overflow-y: auto; }

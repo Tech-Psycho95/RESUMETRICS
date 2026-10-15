@@ -1,31 +1,41 @@
-/* Login: one rounded card â€” a resume-themed showcase on the left, the sign-in form on the right. */
+/* Login: the blue resume showcase fills the whole screen and the sign-in card floats on it with a glowing edge. */
+@property --login-glow-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 .login-page {
   --login-ink: #13203a;
   --login-muted: #64708a;
   --login-accent: #5b45e4;
   --login-accent-dark: #3a2aa8;
   position: relative;
+  isolation: isolate;
   min-height: 100vh;
   width: 100%;
   max-width: none;
   display: grid;
-  place-items: center;
+  grid-template-columns: minmax(0, 1.15fr) minmax(380px, 480px);
+  align-items: center;
+  column-gap: clamp(24px, 5vw, 88px);
   overflow: hidden;
-  padding: 32px 24px;
-  color: var(--login-ink);
-  background: radial-gradient(circle at 15% 10%, #e6e1ff 0, transparent 38%), radial-gradient(circle at 90% 90%, #dcefff 0, transparent 40%), #f3f4fb;
+  padding: clamp(24px, 4vw, 56px) clamp(24px, 6vw, 96px);
+  color: #fff;
+  background: linear-gradient(150deg, #24197a 0%, #4b36d6 42%, #7d6bff 78%, #a99bff 100%);
   font-family: "Google Sans Flex", "Google Sans Text", "Google Sans", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-.login-shell { width: min(1120px, 100%); min-height: min(680px, calc(100vh - 64px)); display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr); gap: 10px; padding: 10px; border: 1px solid #e6e8f2; border-radius: 30px; background: #fff; box-shadow: 0 30px 70px rgba(37, 33, 104, .12); }
+.login-page::before { content: ""; position: absolute; z-index: -1; inset: 0; background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px); background-size: 40px 40px; -webkit-mask-image: radial-gradient(circle at 40% 45%, #000 0, transparent 75%); mask-image: radial-gradient(circle at 40% 45%, #000 0, transparent 75%); }
+.login-page::after { content: ""; position: absolute; z-index: -1; width: min(70vw, 760px); aspect-ratio: 1; top: -22%; right: -12%; border-radius: 50%; background: radial-gradient(circle, rgba(140, 220, 255, .42), transparent 65%); pointer-events: none; }
 
-/* ---------- Showcase (left) ---------- */
-.login-showcase { position: relative; isolation: isolate; display: flex; flex-direction: column; overflow: hidden; padding: 30px 32px 28px; border-radius: 22px; color: #fff; background: linear-gradient(150deg, #24197a 0%, #4b36d6 42%, #7d6bff 78%, #a99bff 100%); }
-.login-showcase::before { content: ""; position: absolute; z-index: -1; inset: 0; background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px); background-size: 34px 34px; -webkit-mask-image: radial-gradient(circle at 55% 40%, #000 0, transparent 70%); mask-image: radial-gradient(circle at 55% 40%, #000 0, transparent 70%); }
-.login-showcase::after { content: ""; position: absolute; z-index: -1; width: 420px; height: 420px; top: -120px; right: -120px; border-radius: 50%; background: radial-gradient(circle, rgba(140, 220, 255, .45), transparent 65%); }
+/* ---------- Showcase (fills the screen behind the card) ---------- */
+.login-hero { position: relative; z-index: 1; display: flex; flex-direction: column; align-self: stretch; min-width: 0; min-height: min(640px, calc(100vh - 112px)); }
+
+/* The sign-in card: white, with a soft halo and a slowly travelling light on its border. */
+.login-shell { position: relative; isolation: isolate; z-index: 1; width: 100%; border-radius: 30px; color: var(--login-ink); box-shadow: 0 0 0 1px rgba(255, 255, 255, .7), 0 0 38px rgba(170, 220, 255, .55), 0 0 100px rgba(150, 130, 255, .5), 0 32px 72px rgba(14, 8, 66, .4); animation: login-glow-pulse 5s ease-in-out infinite; }
+.login-shell::before, .login-shell::after { content: ""; position: absolute; z-index: -1; inset: -2px; border-radius: 32px; background: conic-gradient(from var(--login-glow-angle), rgba(255,255,255,0) 0 52%, #8fe3ff 68%, #ffffff 80%, #c4b5ff 90%, rgba(255,255,255,0) 100%); animation: login-glow-spin 6s linear infinite; pointer-events: none; }
+.login-shell::after { inset: -6px; border-radius: 36px; filter: blur(16px); opacity: .85; }
+@keyframes login-glow-spin { to { --login-glow-angle: 360deg; } }
+@keyframes login-glow-pulse { 0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,.7), 0 0 38px rgba(170,220,255,.5), 0 0 100px rgba(150,130,255,.45), 0 32px 72px rgba(14,8,66,.4); } 50% { box-shadow: 0 0 0 1px rgba(255,255,255,.85), 0 0 52px rgba(170,220,255,.7), 0 0 120px rgba(150,130,255,.62), 0 32px 72px rgba(14,8,66,.4); } }
 
 /* Resume illustration: three stacked sheets; the front one writes itself and evidence chips drift in. */
-.login-art { position: relative; flex: 1; min-height: 300px; margin: 10px 0 24px; }
-.login-showcase-title { max-width: 520px; margin: 0; font-size: clamp(32px, 3.4vw, 46px); font-weight: 650; letter-spacing: -.035em; line-height: 1.08; }
+.login-art { position: relative; flex: 1; min-height: 340px; margin: 0 0 24px; }
+.login-showcase-title { max-width: 560px; color: #fff; margin: 0; font-size: clamp(34px, 4vw, 58px); font-weight: 650; letter-spacing: -.035em; line-height: 1.06; }
 .login-sheet { position: absolute; top: 50%; left: 50%; width: 200px; height: 260px; border-radius: 12px; background: #fff; box-shadow: 0 24px 48px rgba(19, 12, 82, .35); }
 .login-sheet--back { opacity: .35; transform: translate(-50%, -50%) translate(-64px, 8px) rotate(-11deg); }
 .login-sheet--mid { opacity: .6; transform: translate(-50%, -50%) translate(56px, 4px) rotate(8deg); }
@@ -51,7 +61,7 @@
 @keyframes login-chip-in { 0%, 8% { opacity: 0; transform: translateY(10px) scale(.94); } 18%, 84% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-6px) scale(.98); } }
 
 /* ---------- Sign-in panel (right) ---------- */
-.login-panel { display: grid; place-items: center; padding: 40px clamp(24px, 4vw, 56px); }
+.login-panel { position: relative; display: grid; place-items: center; min-height: 540px; padding: 44px clamp(24px, 4vw, 44px); border-radius: 30px; background: #fff; }
 .login-form { width: min(380px, 100%); display: grid; text-align: center; }
 .login-logo { display: block; width: 230px; max-width: 100%; height: 64px; margin: 0 auto 26px; object-fit: contain; }
 .login-form h1 { margin: 0; color: var(--login-ink); font-size: 34px; font-weight: 650; letter-spacing: -.035em; line-height: 1.1; }
@@ -92,26 +102,32 @@
 @keyframes login-approval-tick { to { stroke-dashoffset: 0; } }
 @keyframes login-approval-text { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-/* Leaving: the card lifts and fades into the workspace. */
-.login-page--exiting .login-shell { pointer-events: none; animation: login-shell-leave .65s cubic-bezier(.4, 0, .2, 1) forwards; }
+/* Leaving: the card lifts away and the backdrop fades into the workspace. */
+.login-page--exiting { pointer-events: none; animation: login-page-leave .65s cubic-bezier(.4, 0, .2, 1) forwards; }
+.login-page--exiting .login-shell { animation: login-shell-leave .65s cubic-bezier(.4, 0, .2, 1) forwards; }
+@keyframes login-page-leave { to { opacity: 0; } }
 @keyframes login-shell-leave { to { opacity: 0; transform: translateY(-14px) scale(.985); filter: blur(2px); } }
 
 .auth-loading { min-height: 100vh; display: grid; place-items: center; color: #697386; background: #f6f7fb; }
 
 @media (max-width: 900px) {
-  .login-shell { grid-template-columns: 1fr; min-height: 0; }
-  .login-showcase { padding: 24px; }
-  .login-art { min-height: 210px; }
+  .login-page { grid-template-columns: minmax(0, 1fr); align-content: center; row-gap: 20px; padding: 28px 20px 36px; }
+  .login-hero { min-height: 0; }
+  .login-art { min-height: 270px; margin-bottom: 14px; }
   .login-sheet { width: 160px; height: 208px; }
-  .login-panel { padding: 34px 20px; }
+  .login-showcase-title { max-width: 440px; font-size: clamp(28px, 7vw, 38px); }
+  .login-shell { justify-self: center; max-width: 480px; }
+  .login-panel { min-height: 0; padding: 32px 20px; }
 }
 @media (max-width: 600px) {
-  .login-page { padding: 14px 12px; }
-  .login-shell { padding: 8px; border-radius: 22px; }
+  .login-page { padding: 18px 14px 28px; }
+  .login-shell, .login-panel { border-radius: 24px; }
+  .login-shell::before { border-radius: 26px; }
   .login-chip--ats { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .login-sheet--front, .login-chip, .login-sheet-line, .login-spinner { animation: none; }
+  .login-sheet--front, .login-chip, .login-sheet-line, .login-spinner, .login-shell, .login-shell::before, .login-shell::after { animation: none; }
+  .login-shell::before { --login-glow-angle: 40deg; }
   .login-sheet-line { width: var(--w); }
   .login-chip { opacity: 1; }
   .login-panel--approved, .login-approval-sheet, .login-approval-sheet i, .login-approval-seal, .login-approval-seal-tick, .login-approval h2, .login-approval p, .login-page--exiting .login-shell { animation-duration: .01ms; animation-delay: 0s; }

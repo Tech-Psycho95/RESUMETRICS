@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getTemplateSectionPlan } from '../templates/ResumeTemplateLayout.jsx'
-import { blockingSections, formSectionsFor, isBlankEntry, percentColour, sectionProgress, SUMMARY_MIN } from '../../form/sectionProgress.js'
-import { BulletListField, CustomSectionsEditor, EntryCard, focusFirstMissing, MonthYearField, SkillGroupsEditor, TagField, TextField } from './FormFields.jsx'
+import { blockingSections, formSectionsFor, isBlankEntry, percentColour, sectionInfo, sectionProgress, SUMMARY_MIN } from '../../form/sectionProgress.js'
+import { announce, BulletListField, CustomSectionsEditor, EntryCard, focusFirstMissing, MonthYearField, SkillGroupsEditor, TagField, TextField } from './FormFields.jsx'
 import LanguagePicker from './LanguagePicker.jsx'
 import { templateSectionNotes } from './templateSectionNotes.js'
+import { CONFIGURABLE_SECTIONS, isSectionHidden, MAX_SECTION_TITLE, moveSection, normalizeSectionSettings } from '../../editor/sectionSettings.js'
 
 const list = value => Array.isArray(value) ? value : []
 const emptyEntry = {
@@ -36,11 +37,13 @@ const icons = {
   languages: <path d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm-7-7h14M10 3c2 2 2.8 4.4 2.8 7S12 15 10 17c-2-2-2.8-4.4-2.8-7S8 5 10 3Z" />,
   certifications: <path d="M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-2.5 0-1 5.5L10 16l3.5 1.5-1-5.5" />,
   achievements: <path d="M6 3h8v4a4 4 0 0 1-8 0V3Zm0 1H3.5c0 2.5 1 4 2.8 4.2M14 4h2.5c0 2.5-1 4-2.8 4.2M10 11v3m-3 3h6l-.6-3H7.6L7 17Z" />,
-  customSections: <path d="M4 4h12v12H4V4Zm6 3v6M7 10h6" />
+  customSections: <path d="M4 4h12v12H4V4Zm6 3v6M7 10h6" />,
+  eye: <><path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10Z" /><path d="M10 12.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z" /></>,
+  eyeOff: <><path d="M1.5 10S4.5 4.5 10 4.5 18.5 10 18.5 10 15.5 15.5 10 15.5 1.5 10 1.5 10Z" /><path d="M3 3l14 14" /></>
 }
 
-function SectionIcon({ id }) {
-  return <svg className="form-section-icon" viewBox="0 0 20 20" aria-hidden="true">{icons[id]}</svg>
+function SectionIcon({ id, className = 'form-section-icon' }) {
+  return <svg className={className} viewBox="0 0 20 20" aria-hidden="true">{icons[id]}</svg>
 }
 
 function StatusBadge({ complete, progress }) {
@@ -54,8 +57,23 @@ function StatusBadge({ complete, progress }) {
  * is enabled once the section's mandatory fields are valid. Continuing to the editor is blocked until
  * every mandatory field in every section is filled.
  */
-export default function SectionForm({ template, resumeData, onChange, supportsPhoto, hasPhoto, onPhotoUpload, onPhotoRemove, photoControls, photoError, confirmed, onConfirm, activeSection, onActiveSectionChange, onContinue }) {
-  const sections = useMemo(() => formSectionsFor(getTemplateSectionPlan(template?.id)), [template?.id])
+export default function SectionForm({ template, resumeData, onChange, supportsPhoto, hasPhoto, onPhotoUpload, onPhotoRemove, photoControls, photoError, confirmed, onConfirm, activeSection, onActiveSectionChange, onContinue, sectionSettings, onSectionSettingsChange }) {
+  const sections = useMemo(() => formSectionsFor(getTemplateSectionPlan(template?.id, sectionSettings)), [template?.id, sectionSettings?.order]) // eslint-disable-line react-hooks/exhaustive-deps
+  const canConfigure = Boolean(onSectionSettingsChange)
+  const settings = sectionSettings ?? {}
+  const isHidden = id => canConfigure && isSectionHidden(settings, id)
+  const changeSettings = patch => onSectionSettingsChange(normalizeSectionSettings({ ...settings, ...patch }))
+  const toggleHidden = id => {
+    changeSettings({ hidden: { ...settings.hidden, [id]: !settings.hidden?.[id] } })
+    announce(isHidden(id) ? `${sectionInfo[id].title} will show on your resume` : `${sectionInfo[id].title} is hidden from your resume`)
+  }
+  const shiftSection = (id, delta) => {
+    const order = moveSection(sections, id, delta)
+    if (!order) return
+    changeSettings({ order })
+    announce(`Moved ${sectionInfo[id].title} ${delta < 0 ? 'up' : 'down'}`)
+  }
+  const canShift = (id, delta) => Boolean(moveSection(sections, id, delta))
   const options = { supportsPhoto, hasPhoto }
   const [showMissing, setShowMissing] = useState(false)
   const [openEntries, setOpenEntries] = useState({})
@@ -87,7 +105,8 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
   }, [active?.id, showMissing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const tryContinue = () => {
-    const blocking = blockingSections(sections, resumeData, options)
+    // A section hidden from the resume cannot hold the person back.
+    const blocking = blockingSections(sections.filter(section => !isHidden(section.id)), resumeData, options)
     if (blocking.length) setBlockers(blocking)
     else onContinue()
   }
@@ -208,6 +227,14 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
         <SectionIcon id={active.id} />
         <div><h2>{active.title}</h2><small>{active.required ? 'Required section' : 'Optional section'} · <span className="form-required">*</span> mandatory field</small></div>
       </header>
+      {canConfigure && CONFIGURABLE_SECTIONS.includes(active.id) && <div className="form-resume-options">
+        <label className="form-field" htmlFor="form-section-heading">
+          <span className="form-label">Heading on your resume<span className="form-optional"> (optional)</span></span>
+          <input id="form-section-heading" value={settings.titles?.[active.id] ?? ''} maxLength={MAX_SECTION_TITLE} placeholder={active.title}
+            onChange={event => changeSettings({ titles: { ...settings.titles, [active.id]: event.target.value } })} />
+        </label>
+        <label className="form-check"><input type="checkbox" checked={!isHidden(active.id)} onChange={() => toggleHidden(active.id)} />Show this section on my resume</label>
+      </div>}
       {notes[active.id] && <p className="form-template-note">{notes[active.id]}</p>}
       <div className="form-detail-body" ref={detailRef}>{renderSectionFields(active.id)}</div>
       <footer className="form-detail-footer">
@@ -232,20 +259,26 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
     const sectionState = sectionProgress(section.id, resumeData, options)
     return { ...section, progress: sectionState, complete: Boolean(confirmed[section.id]) && sectionState.valid && !sectionState.empty }
   })
-  const required = states.filter(section => section.required)
+  const required = states.filter(section => section.required && !isHidden(section.id))
   const overall = Math.round(required.reduce((sum, section) => sum + (section.progress.valid ? 100 : section.progress.percent), 0) / Math.max(required.length, 1))
 
   return <div className="section-form is-list">
     <p id="form-live-region" className="visually-hidden" aria-live="polite" />
     <header className="form-list-header">
       <h2>Fill in your resume</h2>
-      <p>Open a section with <b>+</b>. The preview updates as you type.</p>
+      <p>Open a section with <b>+</b>. The preview updates as you type.{canConfigure && <> Use the eye to hide a section and the arrows to reorder.{settings.order?.length > 0 && <> <button type="button" className="form-text-button" onClick={() => changeSettings({ order: undefined })}>Reset order</button></>}</>}</p>
     </header>
     <ul className="form-section-list">{states.map(section => <li key={section.id}>
-      <div className={`form-section-card${section.complete ? ' is-complete' : ''}`}>
+      <div className={`form-section-card${section.complete ? ' is-complete' : ''}${canConfigure ? ' has-tools' : ''}${isHidden(section.id) ? ' is-hidden' : ''}`}>
         <StatusBadge complete={section.complete} progress={section.progress} />
         <SectionIcon id={section.id} />
-        <span className="form-section-text"><b>{section.title}{section.required && <span className="form-required" title="Required section"> *</span>}</b><small>{section.hint}</small></span>
+        <span className="form-section-text"><b>{section.title}{section.required && !isHidden(section.id) && <span className="form-required" title="Required section"> *</span>}</b><small>{isHidden(section.id) ? 'Hidden from your resume' : settings.titles?.[section.id]?.trim() ? `Prints as “${settings.titles[section.id].trim()}”` : section.hint}</small></span>
+        {canConfigure && <span className="form-card-tools">{CONFIGURABLE_SECTIONS.includes(section.id) && <>
+          <button type="button" aria-pressed={isHidden(section.id)} onClick={() => toggleHidden(section.id)} title={isHidden(section.id) ? 'Show on resume' : 'Hide from resume'}
+            aria-label={isHidden(section.id) ? `Show ${section.title} on your resume` : `Hide ${section.title} from your resume`}><SectionIcon className="form-tool-icon" id={isHidden(section.id) ? 'eyeOff' : 'eye'} /></button>
+          <button type="button" disabled={!canShift(section.id, -1)} onClick={() => shiftSection(section.id, -1)} aria-label={`Move ${section.title} up`} title="Move up">↑</button>
+          <button type="button" disabled={!canShift(section.id, 1)} onClick={() => shiftSection(section.id, 1)} aria-label={`Move ${section.title} down`} title="Move down">↓</button>
+        </>}</span>}
         <button type="button" className={section.complete ? 'form-section-edit' : 'form-section-open'} onClick={() => openSection(section.id)}
           aria-label={section.complete ? `Edit ${section.title}` : `Fill in ${section.title}`}>{section.complete ? 'Edit section' : '+'}</button>
       </div>

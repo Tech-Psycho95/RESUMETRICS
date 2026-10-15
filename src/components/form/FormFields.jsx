@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { formGroupLabel, isBuiltInSkillGroup, newGroupKey, renameSkillGroup } from '../../../shared/skillGroups.js'
 
 const fieldId = path => `form-${String(path).replace(/[^a-z0-9]+/gi, '-')}`
@@ -32,12 +32,29 @@ function ErrorText({ id, error }) {
   return error ? <small className="form-error" id={id}>{error}</small> : null
 }
 
+const AUTOSIZE_MAX = 360
+
+/** Grows a textarea to fit what is typed, up to a cap, so long text never hides behind a tiny scrolling box. */
+function useAutosize(ref, value, enabled) {
+  useLayoutEffect(() => {
+    const node = ref.current
+    if (!enabled || !node) return
+    node.style.height = 'auto'
+    const border = node.offsetHeight - node.clientHeight
+    const wanted = node.scrollHeight + border
+    node.style.height = `${Math.min(wanted, AUTOSIZE_MAX)}px`
+    node.classList.toggle('is-capped', wanted > AUTOSIZE_MAX)
+  }, [ref, value, enabled])
+}
+
 export function TextField({ label, path, value, onChange, required, optional, error, type = 'text', placeholder, multiline, hint, autoFocus }) {
   const id = fieldId(path)
   const Input = multiline ? 'textarea' : 'input'
+  const inputRef = useRef(null)
+  useAutosize(inputRef, value, Boolean(multiline))
   return <label className={`form-field${error ? ' is-missing' : ''}`} htmlFor={id} data-field-path={path}>
     <Label required={required} optional={optional}>{label}</Label>
-    <Input id={id} type={multiline ? undefined : type} value={value ?? ''} rows={multiline ? 4 : undefined} placeholder={placeholder} autoFocus={autoFocus}
+    <Input id={id} ref={inputRef} className={multiline ? 'form-autosize' : undefined} type={multiline ? undefined : type} value={value ?? ''} rows={multiline ? 4 : undefined} placeholder={placeholder} autoFocus={autoFocus}
       aria-required={required || undefined} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
       onChange={event => onChange(event.target.value)} />
     {hint && !error && <small className="form-hint" id={`${id}-hint`}>{hint}</small>}

@@ -1869,6 +1869,12 @@ function MainPage() {
     if (path === 'fullName') setResumeName(next.fullName || 'Untitled resume')
   }
 
+  // Hidden, renamed and reordered sections live in the saved presentation; the typed data is never touched.
+  const updateSectionSettings = next => setResumePresentation(current => {
+    const { sections: _previous, ...rest } = current
+    return Object.keys(next).length ? { ...rest, sections: next } : rest
+  })
+
   const handleBuilderResumeUpdate = next => {
     resumeDataRef.current = next
     setResumeData(next)
@@ -2018,7 +2024,7 @@ function MainPage() {
     <input ref={linkedinUploadInputRef} className="upload-input" type="file" accept=".pdf,application/pdf" aria-label="Choose LinkedIn profile PDF" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) { resetWorkspace(); readDocument(file, 'linkedin') } }} />
     {isStepPage && supportsPhoto && <input ref={profilePhotoInputRef} className="upload-input" type="file" accept="image/jpeg,.jpg,.jpeg" aria-label="Choose JPEG profile photo" onChange={handleProfilePhotoUpload} />}
   </>
-  const resumeCanvas = isStepPage && <div className="studio-canvas" style={{ '--canvas-zoom': isEditorPage || isTailorPage ? canvasZoom : 1 }}>
+  const resumeCanvas = isStepPage && <div className="studio-canvas" style={{ '--canvas-zoom': isEditorPage || isTailorPage || isBuilderPage ? canvasZoom : 1 }}>
     {isEditorPage && letterOnResume && <section className="letter-in-editor" aria-label="Cover letter, page 1 of your document">
       <div className="letter-bar">
         <b>Cover letter</b><span>The first page of your document</span>
@@ -2144,6 +2150,11 @@ function MainPage() {
         <span className="studio-subtitle">{selectedTemplate?.name}</span>
       </div>
     </div>
+    {isBuilderPage && <div className="studio-topbar-centre" role="toolbar" aria-label="Zoom">
+      <select className="studio-zoom" value={canvasZoom} onChange={event => setCanvasZoom(Number(event.target.value))} aria-label="Zoom">
+        {[.5, .75, 1, 1.25, 1.5].map(value => <option key={value} value={value}>{value === 1 ? 'Fit width' : `${Math.round(value * 100)}%`}</option>)}
+      </select>
+    </div>}
     {isEditorPage && <div className="studio-topbar-centre" role="toolbar" aria-label="History and zoom">
       <button className="btn btn-ghost btn-icon btn-sm" type="button" onClick={history.undo} disabled={!history.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 5 3.5 9l4 4M4 9h8a4.5 4.5 0 0 1 0 9h-2" /></svg></button>
       <button className="btn btn-ghost btn-icon btn-sm" type="button" onClick={history.redo} disabled={!history.canRedo} aria-label="Redo" title="Redo (Ctrl+Y)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.5 5 4 4-4 4M16 9H8a4.5 4.5 0 0 0 0 9h2" /></svg></button>
@@ -2190,6 +2201,8 @@ function MainPage() {
             activeSection={formActiveSection}
             onActiveSectionChange={setFormActiveSection}
             onContinue={continueToEditor}
+            sectionSettings={resumePresentation.sections}
+            onSectionSettingsChange={updateSectionSettings}
           />
         </section>
         <section className="editor-pane editor-pane-centre" aria-label="Live resume preview">{resumeCanvas}</section>
